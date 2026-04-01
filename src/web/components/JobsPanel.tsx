@@ -354,7 +354,7 @@ function ReplyInput({ onReply }: { onReply: (answer: string) => void }) {
   return (
     <div className={s.replyRow}>
       <input
-        className={s.input}
+        className={s.replyInput}
         value={val}
         onChange={e => setVal(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') handleReply(); }}

@@ -194,10 +194,10 @@
 }
 .commentField {
   flex: 1;
-  padding: 7px 12px;
+  padding: 5px 12px;
   background: var(--white);
   border: 1.5px solid var(--divider);
-  border-radius: 6px;
+  border-radius: 8px;
   font-family: var(--font);
   font-size: 13px;
   color: var(--text);
