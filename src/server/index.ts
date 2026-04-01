@@ -6,6 +6,7 @@ import { executionRouter } from './routes/execution.js';
 import { gitRouter } from './routes/git.js';
 import { authRouter } from './routes/auth.js';
 import { dataRouter } from './routes/data.js';
+import { cleanupOrphanedJobs, cancelJob } from './runner.js';
 
 const PORT = process.env.PORT || 3001;
 const app = express();
@@ -60,6 +61,16 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`CodeSync server running on port ${PORT}`);
+
+  // Clean up orphaned jobs from previous server run
+  try {
+    const cleaned = await cleanupOrphanedJobs();
+    if (cleaned > 0) {
+      console.log(`Cleaned ${cleaned} orphaned job(s) from previous run`);
+    }
+  } catch (err) {
+    console.error('Failed to clean orphaned jobs:', err);
+  }
 });

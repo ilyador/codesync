@@ -98,6 +98,19 @@ export function JobsPanel({ jobs, onReply, onApprove, onReject }: {
               <span className={`${s.badge} ${s[`b_${job.status}`]}`}>{labels[job.status] || job.status}</span>
             </div>
 
+            {isOpen && isFailed && (
+              <div className={s.detail} onClick={e => e.stopPropagation()}>
+                {job.question && <div className={s.question}>{job.question}</div>}
+                <button
+                  className={s.reject}
+                  onClick={() => onReject?.(job.id)}
+                  style={{ marginTop: 8 }}
+                >
+                  Return task to backlog
+                </button>
+              </div>
+            )}
+
             {isOpen && !isDone && !isFailed && (
               <div className={s.detail} onClick={e => e.stopPropagation()}>
                 {job.description && <p className={s.desc}>{job.description}</p>}

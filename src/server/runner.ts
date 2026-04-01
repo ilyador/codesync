@@ -237,6 +237,46 @@ export function cancelJob(jobId: string) {
   }
 }
 
+export function isJobActive(jobId: string): boolean {
+  return activeProcesses.has(jobId);
+}
+
+/**
+ * Clean up orphaned jobs on server startup.
+ * Any job with status 'running' that has no active process is orphaned
+ * (server was restarted while it was running).
+ */
+export async function cleanupOrphanedJobs(): Promise<number> {
+  const { data: runningJobs } = await supabase
+    .from('jobs')
+    .select('id, task_id, started_at')
+    .in('status', ['running']);
+
+  if (!runningJobs || runningJobs.length === 0) return 0;
+
+  let cleaned = 0;
+  for (const job of runningJobs) {
+    if (!activeProcesses.has(job.id)) {
+      const elapsed = Date.now() - new Date(job.started_at).getTime();
+      const elapsedMin = Math.round(elapsed / 60000);
+
+      await supabase.from('jobs').update({
+        status: 'failed',
+        completed_at: new Date().toISOString(),
+        question: `Job orphaned: server was restarted while this job was running (after ${elapsedMin}m). The claude process was lost. Click "Run" on the task to retry.`,
+      }).eq('id', job.id);
+
+      await supabase.from('tasks').update({
+        status: 'backlog',
+      }).eq('id', job.task_id);
+
+      cleaned++;
+      console.log(`Cleaned orphaned job ${job.id} (was running for ${elapsedMin}m)`);
+    }
+  }
+  return cleaned;
+}
+
 export async function runJob(ctx: JobContext): Promise<void> {
   const { jobId, task, taskType, localPath, onLog, onPhaseStart, onPhaseComplete, onPause, onReview, onDone, onFail, phasesAlreadyCompleted } = ctx;
 
