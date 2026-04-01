@@ -4,7 +4,7 @@ import type { SupabaseConfig } from '../lib/api';
 import s from './NewProject.module.css';
 
 interface Props {
-  onCreate: (name: string, supabaseConfig: SupabaseConfig) => Promise<void>;
+  onCreate: (name: string, supabaseConfig: SupabaseConfig, localPath: string) => Promise<void>;
 }
 
 type SetupMode = 'local' | 'cloud' | null;
@@ -14,6 +14,7 @@ export function NewProject({ onCreate }: Props) {
   const [step, setStep] = useState<'setup' | 'name'>('setup');
   const [mode, setMode] = useState<SetupMode>(null);
   const [name, setName] = useState('');
+  const [localPath, setLocalPath] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Local mode state
@@ -48,7 +49,7 @@ export function NewProject({ onCreate }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !mode) return;
+    if (!name.trim() || !mode || !localPath.trim()) return;
     setError('');
     setLoading(true);
     try {
@@ -57,7 +58,7 @@ export function NewProject({ onCreate }: Props) {
         ...(mode === 'cloud' ? { url: cloudUrl.trim(), serviceRoleKey: cloudKey.trim() } : {}),
         ...(mode === 'local' ? { url: 'http://127.0.0.1:54321' } : {}),
       };
-      await onCreate(name.trim(), config);
+      await onCreate(name.trim(), config, localPath.trim());
     } catch (err: any) {
       setError(err.message || 'Failed to create project');
     } finally {
@@ -157,22 +158,36 @@ export function NewProject({ onCreate }: Props) {
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         Back
       </button>
-      <h1 className={s.title}>Name your project</h1>
+      <h1 className={s.title}>Set up your project</h1>
       <p className={s.subtitle}>
         A project maps to a codebase on your machine.
         {mode === 'local' ? ' Using local Supabase.' : ` Using ${cloudUrl}.`}
       </p>
+      {error && <div style={{ color: 'var(--red)', background: 'var(--red-bg)', padding: '12px 16px', borderRadius: 8, fontSize: 14, marginBottom: 16, maxWidth: 360, width: '100%' }}>{error}</div>}
       <form className={s.form} onSubmit={handleSubmit}>
+        <label className={s.fieldLabel}>Project name</label>
         <input
           className={s.input}
           type="text"
-          placeholder="Project name (e.g., HOABot)"
+          placeholder="e.g., HOABot"
           value={name}
           onChange={e => setName(e.target.value)}
           required
           autoFocus
         />
-        <button className={s.submit} type="submit" disabled={loading || !name.trim()}>
+        <label className={s.fieldLabel}>Local folder path</label>
+        <input
+          className={s.input}
+          type="text"
+          placeholder="e.g., ~/Dev/hoabot or /home/user/projects/hoabot"
+          value={localPath}
+          onChange={e => setLocalPath(e.target.value)}
+          required
+        />
+        <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: -8 }}>
+          The absolute path to your project's root folder on this machine.
+        </p>
+        <button className={s.submit} type="submit" disabled={loading || !name.trim() || !localPath.trim()}>
           {loading ? 'Creating...' : 'Create Project'}
         </button>
       </form>

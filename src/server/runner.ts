@@ -111,10 +111,18 @@ function loadTaskTypeConfig(localPath: string, taskType: string): TaskTypeConfig
   return DEFAULT_TASK_TYPES[taskType] || DEFAULT_TASK_TYPES['feature'];
 }
 
-function buildPrompt(phase: string, task: any, previousOutputs: any[], answer?: string): string {
-  let prompt = `You are working on a task for the CodeSync project management system.
+function buildPrompt(phase: string, task: any, previousOutputs: any[], localPath: string, answer?: string): string {
+  // Inject project context from CLAUDE.md if it exists
+  let projectContext = '';
+  const claudeMdPath = join(localPath, 'CLAUDE.md');
+  if (existsSync(claudeMdPath)) {
+    const content = readFileSync(claudeMdPath, 'utf-8');
+    projectContext = `## Project Context (from CLAUDE.md)\n${content.substring(0, 8000)}\n\n`;
+  }
 
-## Task
+  let prompt = `You are working on a task in this project's codebase.
+
+${projectContext}## Task
 Title: ${task.title}
 Type: ${task.type}
 Description: ${task.description || 'No description provided.'}
@@ -205,7 +213,7 @@ export async function runJob(ctx: JobContext): Promise<void> {
         attempt,
       }).eq('id', jobId);
 
-      const prompt = buildPrompt(phase, task, phasesCompleted, ctx.task.answer);
+      const prompt = buildPrompt(phase, task, phasesCompleted, localPath, ctx.task.answer);
 
       // Spawn claude -p
       const args = ['-p', prompt, '--max-turns', '20'];

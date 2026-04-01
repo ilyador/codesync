@@ -41,13 +41,14 @@ dataRouter.get('/api/projects', requireAuth, async (req, res) => {
 
   const { data } = await supabase
     .from('project_members')
-    .select('project_id, role, projects(id, name, created_at)')
+    .select('project_id, role, local_path, projects(id, name, created_at)')
     .eq('user_id', userId);
 
   const projects = (data || []).map((d: any) => ({
     id: d.projects.id,
     name: d.projects.name,
     role: d.role,
+    local_path: d.local_path,
     created_at: d.projects.created_at,
   }));
   res.json(projects);
@@ -55,7 +56,7 @@ dataRouter.get('/api/projects', requireAuth, async (req, res) => {
 
 dataRouter.post('/api/projects', requireAuth, async (req, res) => {
   const userId = (req as any).userId;
-  const { name, supabase_config } = req.body;
+  const { name, supabase_config, local_path } = req.body;
 
   // Persist supabase connection config if provided
   if (supabase_config) {
@@ -77,9 +78,25 @@ dataRouter.post('/api/projects', requireAuth, async (req, res) => {
     project_id: project.id,
     user_id: userId,
     role: 'admin',
+    local_path: local_path || null,
   });
 
   res.json(project);
+});
+
+// Update project member's local_path
+dataRouter.patch('/api/projects/:id/local-path', requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
+  const { local_path } = req.body;
+
+  const { error } = await supabase
+    .from('project_members')
+    .update({ local_path })
+    .eq('project_id', req.params.id)
+    .eq('user_id', userId);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ ok: true });
 });
 
 // --- Milestones ---

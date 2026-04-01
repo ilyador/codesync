@@ -105,10 +105,17 @@ export type SupabaseConfig = {
   serviceRoleKey?: string;
 };
 
-export async function createProject(name: string, supabaseConfig?: SupabaseConfig) {
+export async function createProject(name: string, supabaseConfig?: SupabaseConfig, localPath?: string) {
   return apiFetch('/api/projects', {
     method: 'POST',
-    body: JSON.stringify({ name, supabase_config: supabaseConfig }),
+    body: JSON.stringify({ name, supabase_config: supabaseConfig, local_path: localPath }),
+  });
+}
+
+export async function updateProjectLocalPath(projectId: string, localPath: string) {
+  return apiFetch(`/api/projects/${projectId}/local-path`, {
+    method: 'PATCH',
+    body: JSON.stringify({ local_path: localPath }),
   });
 }
 

@@ -6,6 +6,7 @@ interface Project {
   id: string;
   name: string;
   role: string;
+  local_path: string | null;
 }
 
 const STORAGE_KEY = 'codesync-current-project';
@@ -36,8 +37,8 @@ export function useProjects(userId: string | undefined) {
     localStorage.setItem(STORAGE_KEY, id);
   }
 
-  async function createProject(name: string, supabaseConfig?: SupabaseConfig): Promise<string> {
-    const project = await apiCreateProject(name, supabaseConfig);
+  async function createProject(name: string, supabaseConfig?: SupabaseConfig, localPath?: string): Promise<string> {
+    const project = await apiCreateProject(name, supabaseConfig, localPath);
     await loadProjects();
     switchProject(project.id);
     return project.id;
