@@ -16,7 +16,7 @@ import { FocusView } from './components/FocusView';
 import { JobsPanel } from './components/JobsPanel';
 import type { JobView } from './components/JobsPanel';
 import { Backlog } from './components/Backlog';
-import { TaskForm } from './components/TaskForm';
+import { TaskForm, type EditTaskData } from './components/TaskForm';
 import { AddProjectModal } from './components/AddProjectModal';
 import { MembersModal } from './components/MembersModal';
 import './styles/global.css';
@@ -75,6 +75,7 @@ function buildPhases(phasesCompleted: any[], currentPhase: string | null, taskTy
 export default function App() {
   const [envReady, setEnvReady] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [editingTask, setEditingTask] = useState<EditTaskData | null>(null);
   const [showAddProject, setShowAddProject] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [milestoneFilter, setMilestoneFilter] = useState<string | null>(null);
@@ -301,15 +302,32 @@ export default function App() {
                     multiagent: t.multiagent,
                     blocked: blockedByTitles.length > 0,
                     blockedByTitles,
+                    blockedByIds: t.blocked_by || [],
                     assignee: member
                       ? { type: 'user', name: member.name, initials: member.initials }
                       : { type: 'ai' },
+                    assigneeId: t.assignee,
                     images: t.images || [],
                     status: t.status,
                     milestone_id: t.milestone_id,
                   };
                 })}
                 onAddTask={() => setShowTaskForm(true)}
+                onEditTask={(task) => {
+                  setEditingTask({
+                    id: task.id,
+                    title: task.title,
+                    description: task.description,
+                    type: task.type,
+                    mode: task.mode,
+                    effort: task.effort,
+                    multiagent: task.multiagent,
+                    assignee: task.assigneeId,
+                    blocked_by: task.blockedByIds,
+                    images: task.images,
+                    milestone_id: task.milestone_id,
+                  });
+                }}
                 onUpdateTask={async (taskId, data) => {
                   await tasks.updateTask(taskId, data);
                 }}
@@ -427,6 +445,34 @@ export default function App() {
             });
           }}
           onClose={() => setShowTaskForm(false)}
+        />
+      )}
+
+      {editingTask && projects.current && (
+        <TaskForm
+          localPath={projects.current?.local_path}
+          milestones={milestones.active.map(m => ({ id: m.id, name: m.name }))}
+          members={members.members.map(m => ({ id: m.id, name: m.name, initials: m.initials }))}
+          existingTasks={tasks.tasks
+            .filter(t => t.status !== 'done' && t.status !== 'canceled' && t.id !== editingTask.id)
+            .map(t => ({ id: t.id, title: t.title }))
+          }
+          editTask={editingTask}
+          onSubmit={async (data) => {
+            await tasks.updateTask(editingTask.id, {
+              title: data.title,
+              description: data.description,
+              type: data.type,
+              mode: data.mode,
+              effort: data.effort,
+              multiagent: data.multiagent,
+              assignee: data.assignee,
+              blocked_by: data.blocked_by,
+              images: data.images,
+              milestone_id: data.milestone_id,
+            });
+          }}
+          onClose={() => setEditingTask(null)}
         />
       )}
 

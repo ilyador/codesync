@@ -271,6 +271,31 @@ dataRouter.post('/api/comments', requireAuth, async (req, res) => {
     .select('*, profiles(name, initials)')
     .single();
   if (error) return res.status(400).json({ error: error.message });
+
+  // After the comment insert succeeds, parse @mentions
+  const mentions = (body as string).match(/@(\w+)/g);
+  if (mentions) {
+    // Look up profiles by name (case-insensitive)
+    for (const mention of mentions) {
+      const name = mention.slice(1); // remove @
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('name', `%${name}%`)
+        .limit(1)
+        .single();
+
+      if (profile && profile.id !== userId) {
+        await supabase.from('notifications').insert({
+          user_id: profile.id,
+          type: 'mention',
+          task_id,
+          message: `You were mentioned in a comment on a task`,
+        });
+      }
+    }
+  }
+
   res.json(data);
 });
 

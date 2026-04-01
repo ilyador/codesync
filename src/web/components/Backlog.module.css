@@ -88,6 +88,29 @@
 .detail {
   padding: 0 0 16px 26px;
 }
+.detailHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.detailHeader .desc {
+  flex: 1;
+  min-width: 0;
+}
+.editBtn {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-4);
+  padding: 2px 10px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.editBtn:hover {
+  color: var(--text);
+  background: var(--bg-active);
+}
 .desc {
   font-size: 14px;
   color: var(--text-2);

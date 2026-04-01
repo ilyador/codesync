@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execFileSync } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { supabase } from './supabase.js';
@@ -215,9 +215,26 @@ Description: ${task.description || 'No description provided.'}
 
   prompt += `\n## Current Phase: ${phase}\n${phaseText}\n`;
 
-  // Feature 4: Skill field injection
+  // Feature 4: Skill field injection — read actual skill file if available
   if (phaseConfig.skill) {
-    prompt += `\n## Skill: ${phaseConfig.skill}\nApply the ${phaseConfig.skill} methodology for this phase.\n`;
+    const skillPaths = [
+      join(localPath, '.claude', 'skills', phaseConfig.skill, 'SKILL.md'),
+      join(localPath, '.claude', 'commands', phaseConfig.skill + '.md'),
+    ];
+    let skillContent: string | null = null;
+    for (const sp of skillPaths) {
+      if (existsSync(sp)) {
+        try {
+          skillContent = readFileSync(sp, 'utf-8').substring(0, 4000);
+        } catch { /* ignore read failure */ }
+        break;
+      }
+    }
+    if (skillContent) {
+      prompt += `\n## Skill: ${phaseConfig.skill}\n${skillContent}\n`;
+    } else {
+      prompt += `\n## Skill: ${phaseConfig.skill}\nApply the ${phaseConfig.skill} methodology for this phase.\n`;
+    }
   }
 
   // Feature 6: Review criteria from ARCHITECTURE.md
@@ -494,11 +511,33 @@ export async function runJob(ctx: JobContext): Promise<void> {
 
   // All phases complete -- move to review
   const reviewOutput = phasesCompleted[phasesCompleted.length - 1];
+
+  let filesChanged = 0;
+  let linesAdded = 0;
+  let linesRemoved = 0;
+  try {
+    const diffStat = execFileSync('git', ['diff', '--stat', '--cached'], {
+      cwd: localPath, encoding: 'utf-8', timeout: 5000
+    }).trim();
+    // If no staged changes, try unstaged
+    const stat = diffStat || execFileSync('git', ['diff', '--stat'], {
+      cwd: localPath, encoding: 'utf-8', timeout: 5000
+    }).trim();
+
+    // Parse "3 files changed, 28 insertions(+), 12 deletions(-)"
+    const match = stat.match(/(\d+) files? changed(?:, (\d+) insertions?\(\+\))?(?:, (\d+) deletions?\(-\))?/);
+    if (match) {
+      filesChanged = parseInt(match[1]) || 0;
+      linesAdded = parseInt(match[2]) || 0;
+      linesRemoved = parseInt(match[3]) || 0;
+    }
+  } catch { /* ignore git errors */ }
+
   const reviewResult = {
-    filesChanged: 0, // TODO: parse from git diff
+    filesChanged,
     testsPassed: true,
-    linesAdded: 0,
-    linesRemoved: 0,
+    linesAdded,
+    linesRemoved,
     summary: reviewOutput?.output?.substring(0, 500) || 'Completed',
   };
 
