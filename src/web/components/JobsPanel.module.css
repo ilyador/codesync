@@ -136,6 +136,18 @@
   border-left: 3px solid var(--amber);
 }
 .replyRow { display: flex; gap: 10px; align-items: stretch; }
+.replyInput {
+  flex: 1;
+  padding: 8px 14px;
+  background: white;
+  border: 1.5px solid var(--divider);
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
 .input {
   flex: 1;
   padding: 8px 14px;
@@ -143,13 +155,27 @@
   border: 1.5px solid var(--divider);
   border-radius: 8px;
   font-family: var(--font);
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text);
   outline: none;
 }
 .input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-bg); }
 .input::placeholder { color: var(--text-4); }
-/* Send/Reply button now uses global .btn .btnPrimary — matched to input height */
+.replySend {
+  padding: 8px 18px;
+  background: var(--text);
+  color: var(--bg);
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.replySend:hover { opacity: 0.8; }
 
 /* Review */
 .checks {

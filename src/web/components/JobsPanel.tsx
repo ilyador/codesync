@@ -131,11 +131,6 @@ export function JobsPanel({ jobs, onReply, onApprove, onReject, onRevert, onTerm
                 >
                   Return task to backlog
                 </button>
-                {onRevert && (
-                  <button className="btn btnWarning btnSm" onClick={() => onRevert(job.id)} style={{ marginTop: 8, marginLeft: 10 }}>
-                    Revert Changes
-                  </button>
-                )}
                 {onDeleteJob && (
                   <button className={`btn btnGhost ${s.dismissWrap}`} onClick={() => onDeleteJob(job.id)}>
                     Dismiss
@@ -366,7 +361,7 @@ function ReplyInput({ onReply }: { onReply: (answer: string) => void }) {
         placeholder="Your answer..."
         disabled={sending}
       />
-      <button className="btn btnPrimary" onClick={handleReply} disabled={sending}>
+      <button className={s.replySend} onClick={handleReply} disabled={sending}>
         {sending ? 'Sending...' : 'Reply'}
       </button>
     </div>
