@@ -1,0 +1,31 @@
+import { useState, useEffect, useCallback } from 'react';
+import { getComments, addComment as apiAddComment } from '../lib/api';
+
+interface Comment {
+  id: string;
+  task_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  profiles?: { name: string; initials: string };
+}
+
+export function useComments(taskId: string | null) {
+  const [comments, setComments] = useState<Comment[]>([]);
+
+  const load = useCallback(async () => {
+    if (!taskId) return;
+    const data = await getComments(taskId);
+    setComments(data);
+  }, [taskId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function addComment(body: string) {
+    if (!taskId) return;
+    await apiAddComment(taskId, body);
+    await load();
+  }
+
+  return { comments, addComment };
+}

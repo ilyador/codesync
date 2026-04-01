@@ -1,0 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+
+:root {
+  --bg: #FBFBFA;
+  --bg-hover: #F4F4F2;
+  --bg-active: #EEEEE9;
+  --white: #FFFFFF;
+  --text: #1A1A1A;
+  --text-2: #555555;
+  --text-3: #888888;
+  --text-4: #BBBBBB;
+  --blue: #2563EB;
+  --blue-soft: #4A7FED;
+  --blue-bg: rgba(37,99,235,0.06);
+  --green: #16A34A;
+  --green-bg: rgba(22,163,74,0.06);
+  --amber: #B45309;
+  --amber-bg: rgba(180,83,9,0.06);
+  --red: #B91C1C;
+  --red-bg: rgba(185,28,28,0.05);
+  --divider: rgba(0,0,0,0.07);
+  --font: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+::selection { background: var(--blue-bg); }
+::-webkit-scrollbar { width: 0; }

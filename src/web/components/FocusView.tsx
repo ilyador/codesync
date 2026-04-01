@@ -1,0 +1,36 @@
+import s from './FocusView.module.css';
+
+interface Props {
+  task: { title: string; type: string; mode: string; effort: string; blocksCount: number };
+  reason: string;
+  next: string;
+  then: string;
+}
+
+export function FocusView({ task, reason, next, then }: Props) {
+  return (
+    <section className={s.section}>
+      <p className={s.overline}>Now</p>
+      <h1 className={s.title}>{task.title}</h1>
+      <p className={s.reason}>{reason}</p>
+
+      <div className={s.actions}>
+        {task.mode === 'ai' ? (
+          <button className={s.run}>Run</button>
+        ) : (
+          <button className={s.run}>Start</button>
+        )}
+        <button className={s.skip}>Skip</button>
+        <span className={s.meta}>
+          {task.type} &middot; {task.effort} &middot; {task.mode}
+        </span>
+      </div>
+
+      <div className={s.upcoming}>
+        <span className={s.upLabel}>up next</span>
+        <span className={s.upItem}>{next}</span>
+        <span className={s.upItem}>{then}</span>
+      </div>
+    </section>
+  );
+}

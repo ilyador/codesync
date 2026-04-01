@@ -1,0 +1,63 @@
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 48px;
+  height: 56px;
+  border-bottom: 1px solid var(--divider);
+  background: var(--bg);
+}
+.left, .right { display: flex; align-items: center; gap: 16px; }
+.logo {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.sep { color: var(--text-4); font-weight: 300; font-size: 18px; }
+.project {
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.project:hover { color: var(--text-2); }
+.caret { font-size: 9px; color: var(--text-3); }
+.milestone { font-size: 13px; color: var(--text-3); }
+.icon {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-3);
+  display: flex;
+  padding: 8px;
+  border-radius: 8px;
+}
+.icon:hover { background: var(--bg-hover); color: var(--text-2); }
+.dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  background: var(--red);
+  border-radius: 50%;
+}
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
