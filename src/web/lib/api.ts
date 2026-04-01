@@ -237,6 +237,31 @@ export async function markAllNotificationsRead() {
   return apiFetch('/api/notifications/read-all', { method: 'POST' });
 }
 
+// --- Custom Task Types ---
+export interface CustomTaskType {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string;
+  pipeline: string;
+  created_at: string;
+}
+
+export async function getCustomTypes(projectId: string): Promise<CustomTaskType[]> {
+  return apiFetch(`/api/custom-types?project_id=${projectId}`);
+}
+
+export async function createCustomType(projectId: string, name: string, pipeline?: string, description?: string): Promise<CustomTaskType> {
+  return apiFetch('/api/custom-types', {
+    method: 'POST',
+    body: JSON.stringify({ project_id: projectId, name, pipeline, description }),
+  });
+}
+
+export async function deleteCustomType(id: string) {
+  return apiFetch(`/api/custom-types/${id}`, { method: 'DELETE' });
+}
+
 // --- Skills ---
 export interface SkillInfo {
   name: string;

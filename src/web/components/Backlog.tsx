@@ -74,7 +74,7 @@ export function Backlog({ tasks, onAddTask, onUpdateTask, onSwapTasks, onDeleteT
                 <div className={s.detailMeta}>
                   <span>effort: {task.effort}</span>
                   <span>mode: {task.mode}</span>
-                  {task.multiagent && <span>multiagent: {task.multiagent}</span>}
+                  {task.multiagent === 'yes' && <span>subagents: on</span>}
                   <span>assignee: {task.assignee.type === 'ai' ? 'AI' : (task.assignee.name || task.assignee.initials)}</span>
                 </div>
                 {task.blockedByTitles && task.blockedByTitles.length > 0 && (

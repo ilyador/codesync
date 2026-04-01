@@ -53,6 +53,22 @@
 .actions { display: flex; gap: 10px; margin-top: 8px; }
 /* Submit, Cancel, More toggle now use global .btn variants */
 
+/* Checkbox row */
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+.checkboxRow input[type="checkbox"] {
+  accent-color: var(--blue);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
 /* More options section */
 .moreSection {
   display: flex;

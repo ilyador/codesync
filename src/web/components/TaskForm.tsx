@@ -18,10 +18,18 @@ interface TaskOption {
   title: string;
 }
 
+interface CustomType {
+  id: string;
+  name: string;
+  pipeline: string;
+}
+
 interface Props {
   milestones: Milestone[];
   members: Member[];
   existingTasks: TaskOption[];
+  customTypes?: CustomType[];
+  onSaveCustomType?: (name: string, pipeline: string) => Promise<void>;
   localPath?: string;
   onSubmit: (data: {
     title: string;
@@ -40,11 +48,19 @@ interface Props {
 
 const BUILT_IN_TYPES = ['feature', 'bug-fix', 'ui-fix', 'refactor', 'test', 'design', 'chore'];
 
-export function TaskForm({ milestones, members, existingTasks, localPath, onSubmit, onClose }: Props) {
+const PIPELINE_OPTIONS = [
+  { value: 'feature', label: 'feature (plan → implement → verify → review)' },
+  { value: 'bug-fix', label: 'bug-fix (plan → analyze → fix → verify → review)' },
+  { value: 'refactor', label: 'refactor (plan → analyze → refactor → verify → review)' },
+  { value: 'test', label: 'test (plan → write-tests → verify → review)' },
+];
+
+export function TaskForm({ milestones, members, existingTasks, customTypes = [], onSaveCustomType, localPath, onSubmit, onClose }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('feature');
   const [customType, setCustomType] = useState('');
+  const [customPipeline, setCustomPipeline] = useState('feature');
   const [isCustomType, setIsCustomType] = useState(false);
   const [mode, setMode] = useState('ai');
   const [effort, setEffort] = useState('high');
@@ -312,13 +328,14 @@ export function TaskForm({ milestones, members, existingTasks, localPath, onSubm
 
           {showMore && (
             <div className={s.moreSection}>
-              <div className={s.field}>
-                <label className={s.label}>Multi-agent</label>
-                <select className={s.select} value={multiagent} onChange={e => setMultiagent(e.target.value)}>
-                  <option value="auto">auto</option>
-                  <option value="yes">yes</option>
-                </select>
-              </div>
+              <label className={s.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={multiagent === 'yes'}
+                  onChange={e => setMultiagent(e.target.checked ? 'yes' : 'auto')}
+                />
+                <span>Use subagents</span>
+              </label>
 
               <div className={s.field}>
                 <label className={s.label}>Blocked by</label>

@@ -374,6 +374,45 @@ dataRouter.get('/api/skills', requireAuth, (req, res) => {
   res.json(skills.map(({ filePath, ...rest }) => rest));
 });
 
+// --- Custom Task Types ---
+
+dataRouter.get('/api/custom-types', requireAuth, async (req, res) => {
+  const projectId = req.query.project_id as string;
+  if (!projectId) return res.status(400).json({ error: 'project_id required' });
+
+  const { data } = await supabase
+    .from('custom_task_types')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('name');
+  res.json(data || []);
+});
+
+dataRouter.post('/api/custom-types', requireAuth, async (req, res) => {
+  const { project_id, name, description, pipeline } = req.body;
+  if (!project_id || !name?.trim()) return res.status(400).json({ error: 'project_id and name required' });
+
+  const slug = name.trim().toLowerCase().replace(/\s+/g, '-');
+  const { data, error } = await supabase
+    .from('custom_task_types')
+    .insert({
+      project_id,
+      name: slug,
+      description: description || '',
+      pipeline: pipeline || 'feature',
+    })
+    .select()
+    .single();
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+dataRouter.delete('/api/custom-types/:id', requireAuth, async (req, res) => {
+  const { error } = await supabase.from('custom_task_types').delete().eq('id', req.params.id);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ ok: true });
+});
+
 // --- SSE: Realtime changes ---
 
 const changeListeners = new Map<string, Set<(data: any) => void>>();
