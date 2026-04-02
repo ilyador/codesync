@@ -101,6 +101,11 @@ async function startJob(job: any): Promise<void> {
   const jobId: string = job.id;
   let localPath: string = job.local_path;
 
+  // Expand ~ to home directory (Node doesn't do this automatically)
+  if (localPath.startsWith('~/')) {
+    localPath = localPath.replace('~', process.env.HOME || '/home/sixbox');
+  }
+
   // Mark running
   await supabase.from('jobs').update({ status: 'running', started_at: new Date().toISOString() }).eq('id', jobId);
 

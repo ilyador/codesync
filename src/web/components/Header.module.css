@@ -11,6 +11,14 @@
   z-index: 50;
 }
 .left, .right { display: flex; align-items: center; gap: 16px; }
+
+@media (max-width: 768px) {
+  .bar { padding: 0 12px; height: 48px; }
+  .left, .right { gap: 8px; }
+  .logo { font-size: 14px; }
+  .sep { display: none; }
+  .localPath { display: none; }
+}
 .logo {
   font-size: 16px;
   font-weight: 700;

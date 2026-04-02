@@ -503,3 +503,12 @@
   font-size: 14px;
   font-weight: 600;
 }
+
+@media (max-width: 768px) {
+  .compact { padding: 8px 10px; }
+  .preview { padding: 0 10px 8px 24px; }
+  .detail { padding: 0 10px 12px; }
+  .tags { flex-wrap: wrap; }
+  .title { font-size: 13px; }
+  .tag { font-size: 10px; padding: 1px 6px; }
+}

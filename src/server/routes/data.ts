@@ -324,8 +324,17 @@ dataRouter.get('/api/jobs', requireAuth, async (req, res) => {
 });
 
 dataRouter.delete('/api/jobs/:id', requireAuth, async (req, res) => {
+  // Fetch the job first to get task_id and status
+  const { data: job } = await supabase.from('jobs').select('task_id, status').eq('id', req.params.id).single();
+
   const { error } = await supabase.from('jobs').delete().eq('id', req.params.id);
   if (error) return res.status(400).json({ error: error.message });
+
+  // If the dismissed job was failed, reset the task to backlog
+  if (job && job.status === 'failed') {
+    await supabase.from('tasks').update({ status: 'backlog' }).eq('id', job.task_id);
+  }
+
   res.json({ ok: true });
 });
 

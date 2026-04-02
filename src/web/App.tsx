@@ -123,11 +123,11 @@ export default function App() {
   }, [tasks.tasks, webNotifs.notify]);
 
   // Tick counter for elapsed time updates on running jobs
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     const hasRunning = jobs.jobs.some(j => j.status === 'running');
     if (!hasRunning) return;
-    const interval = setInterval(() => setTick(t => t + 1), 10000);
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, [jobs.jobs]);
 
@@ -171,7 +171,8 @@ export default function App() {
       } : undefined,
       completedAgo: j.completed_at ? timeAgo(j.completed_at) : undefined,
     }));
-  }, [jobs.jobs, taskTitleMap, taskTypeMap]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs.jobs, taskTitleMap, taskTypeMap, tick]);
 
   // Step 1: Environment check
   if (!envReady) {

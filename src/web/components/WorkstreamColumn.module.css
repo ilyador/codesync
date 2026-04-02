@@ -6,11 +6,23 @@
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 120px);
+  max-height: calc(100dvh - 120px);
   background: var(--white);
   border: 1px solid var(--divider);
   border-radius: 14px;
   overflow: hidden;
   transition: box-shadow 0.2s, background 0.2s, border-color 0.2s;
+}
+
+@media (max-width: 768px) {
+  .column {
+    flex: 0 0 calc(100vw - 24px);
+    min-width: calc(100vw - 24px);
+    max-width: none;
+    max-height: calc(100dvh - 80px);
+    border-radius: 10px;
+    scroll-snap-align: start;
+  }
 }
 .column:hover {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
@@ -376,4 +388,13 @@
 }
 .prLink:hover {
   text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .header { padding: 10px 12px; }
+  .name { font-size: 13px; }
+  .tasks { padding: 6px 6px; gap: 4px; }
+  .completeBanner { padding: 8px; font-size: 12px; }
+  .statusStripLabel { font-size: 10px; }
+  .statusStripCount { font-size: 10px; }
 }
