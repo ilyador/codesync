@@ -4,6 +4,7 @@ import { resolve, join, basename } from 'path';
 import { homedir } from 'os';
 import { supabase } from '../supabase.js';
 import { requireAuth } from '../auth-middleware.js';
+import { maybeAutoContinue } from './execution.js';
 
 export const dataRouter = Router();
 
@@ -120,45 +121,62 @@ dataRouter.get('/api/members', requireAuth, async (req, res) => {
   res.json(members);
 });
 
-// --- Milestones ---
+// --- Workstreams ---
 
-dataRouter.get('/api/milestones', requireAuth, async (req, res) => {
+dataRouter.get('/api/workstreams', requireAuth, async (req, res) => {
   const projectId = req.query.project_id as string;
   if (!projectId) return res.status(400).json({ error: 'project_id required' });
 
   const { data } = await supabase
-    .from('milestones')
+    .from('workstreams')
     .select('*')
     .eq('project_id', projectId)
-    .order('created_at', { ascending: false });
+    .order('position', { ascending: true });
   res.json(data || []);
 });
 
-dataRouter.post('/api/milestones', requireAuth, async (req, res) => {
-  const { project_id, name, deadline } = req.body;
+dataRouter.post('/api/workstreams', requireAuth, async (req, res) => {
+  const { project_id, name } = req.body;
+
+  // Auto-assign position: max position + 1 for this project
+  const { data: maxWs } = await supabase
+    .from('workstreams')
+    .select('position')
+    .eq('project_id', project_id)
+    .order('position', { ascending: false })
+    .limit(1)
+    .single();
+
   const { data, error } = await supabase
-    .from('milestones')
-    .insert({ project_id, name, deadline: deadline || null })
+    .from('workstreams')
+    .insert({ project_id, name, position: (maxWs?.position || 0) + 1 })
     .select()
     .single();
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
 
-dataRouter.patch('/api/milestones/:id', requireAuth, async (req, res) => {
-  const allowed = ['name', 'deadline', 'status'];
+dataRouter.patch('/api/workstreams/:id', requireAuth, async (req, res) => {
+  const allowed = ['name', 'position', 'status'];
   const updates: Record<string, any> = {};
   for (const key of allowed) {
     if (key in req.body) updates[key] = req.body[key];
   }
   const { data, error } = await supabase
-    .from('milestones')
+    .from('workstreams')
     .update(updates)
     .eq('id', req.params.id)
     .select()
     .single();
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
+});
+
+dataRouter.delete('/api/workstreams/:id', requireAuth, async (req, res) => {
+  // Tasks revert to backlog via ON DELETE SET NULL in DB
+  const { error } = await supabase.from('workstreams').delete().eq('id', req.params.id);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ ok: true });
 });
 
 // --- Tasks ---
@@ -177,13 +195,19 @@ dataRouter.get('/api/tasks', requireAuth, async (req, res) => {
 
 dataRouter.post('/api/tasks', requireAuth, async (req, res) => {
   const userId = (req as any).userId;
-  const { project_id, title, description, type, mode, effort, milestone_id, multiagent, assignee, blocked_by, images } = req.body;
+  const { project_id, title, description, type, mode, effort, workstream_id, multiagent, assignee, auto_continue, images } = req.body;
 
-  // Get max position
-  const { data: maxTask } = await supabase
+  // Get max position, scoped to workstream
+  let posQuery = supabase
     .from('tasks')
     .select('position')
-    .eq('project_id', project_id)
+    .eq('project_id', project_id);
+  if (workstream_id) {
+    posQuery = posQuery.eq('workstream_id', workstream_id);
+  } else {
+    posQuery = posQuery.is('workstream_id', null);
+  }
+  const { data: maxTask } = await posQuery
     .order('position', { ascending: false })
     .limit(1)
     .single();
@@ -199,9 +223,9 @@ dataRouter.post('/api/tasks', requireAuth, async (req, res) => {
       effort: effort || 'high',
       multiagent: multiagent || 'auto',
       assignee: assignee || null,
-      blocked_by: blocked_by || [],
+      auto_continue: auto_continue !== undefined ? auto_continue : true,
       images: images || [],
-      milestone_id: milestone_id || null,
+      workstream_id: workstream_id || null,
       position: (maxTask?.position || 0) + 1,
       created_by: userId,
     })
@@ -212,7 +236,7 @@ dataRouter.post('/api/tasks', requireAuth, async (req, res) => {
 });
 
 dataRouter.patch('/api/tasks/:id', requireAuth, async (req, res) => {
-  const allowed = ['title', 'description', 'type', 'mode', 'effort', 'multiagent', 'status', 'assignee', 'milestone_id', 'position', 'images', 'followup_notes', 'blocked_by'];
+  const allowed = ['title', 'description', 'type', 'mode', 'effort', 'multiagent', 'status', 'assignee', 'workstream_id', 'position', 'images', 'followup_notes', 'auto_continue'];
   const updates: Record<string, any> = {};
   for (const key of allowed) {
     if (key in req.body) updates[key] = req.body[key];
@@ -227,6 +251,29 @@ dataRouter.patch('/api/tasks/:id', requireAuth, async (req, res) => {
     .select()
     .single();
   if (error) return res.status(400).json({ error: error.message });
+
+  // Auto-continue: when task is marked done, trigger next task in workstream
+  if (updates.status === 'done' && data.auto_continue === true && data.workstream_id != null) {
+    try {
+      const userId = (req as any).userId;
+      const { data: member } = await supabase
+        .from('project_members')
+        .select('local_path')
+        .eq('project_id', data.project_id)
+        .eq('user_id', userId)
+        .single();
+      if (member?.local_path) {
+        maybeAutoContinue({
+          completedTaskId: data.id,
+          projectId: data.project_id,
+          localPath: member.local_path,
+        }).catch((err: any) => console.error('[auto-continue] Error:', err.message));
+      }
+    } catch (err: any) {
+      console.error('[auto-continue] Error:', err.message);
+    }
+  }
+
   res.json(data);
 });
 
@@ -464,20 +511,14 @@ dataRouter.get('/api/focus', requireAuth, async (req, res) => {
     return res.json({ task: null });
   }
 
-  // First non-blocked task
-  const focus = tasks.find(t => !t.blocked_by || t.blocked_by.length === 0) || tasks[0];
-  const focusIndex = tasks.indexOf(focus);
-  const next = tasks[focusIndex + 1] || null;
-  const then = tasks[focusIndex + 2] || null;
-
-  const isBlocked = focus.blocked_by && focus.blocked_by.length > 0;
-  const reason = isBlocked
-    ? `Top task by position (note: blocked by ${focus.blocked_by.length} task(s))`
-    : 'First non-blocked task by position';
+  // Focus = first task ordered by position
+  const focus = tasks[0];
+  const next = tasks[1] || null;
+  const then = tasks[2] || null;
 
   res.json({
     task: focus,
-    reason,
+    reason: 'First task by position',
     next: next ? { id: next.id, title: next.title } : null,
     then: then ? { id: then.id, title: then.title } : null,
   });
@@ -489,11 +530,11 @@ dataRouter.get('/api/summary', requireAuth, async (req, res) => {
   const projectId = req.query.project_id as string;
   if (!projectId) return res.status(400).json({ error: 'project_id required' });
 
-  const [{ data: project }, { data: tasks }, { data: jobs }, { data: milestones }] = await Promise.all([
+  const [{ data: project }, { data: tasks }, { data: jobs }, { data: workstreams }] = await Promise.all([
     supabase.from('projects').select('*').eq('id', projectId).single(),
     supabase.from('tasks').select('*').eq('project_id', projectId).order('position'),
     supabase.from('jobs').select('*').eq('project_id', projectId).order('started_at', { ascending: false }).limit(10),
-    supabase.from('milestones').select('*').eq('project_id', projectId),
+    supabase.from('workstreams').select('*').eq('project_id', projectId).order('position'),
   ]);
 
   const backlog = tasks?.filter(t => ['backlog', 'todo'].includes(t.status)) || [];
@@ -502,11 +543,14 @@ dataRouter.get('/api/summary', requireAuth, async (req, res) => {
 
   let md = `# Project: ${project?.name || 'Unknown'}\n\n`;
 
-  if (milestones && milestones.length > 0) {
-    const ms = milestones[0];
-    const msTasks = tasks?.filter(t => t.milestone_id === ms.id) || [];
-    const msDone = msTasks.filter(t => t.status === 'done').length;
-    md += `## Milestone: ${ms.name}\n${msDone}/${msTasks.length} done${ms.deadline ? ` | Deadline: ${ms.deadline}` : ''}\n\n`;
+  if (workstreams && workstreams.length > 0) {
+    md += `## Workstreams\n`;
+    for (const ws of workstreams) {
+      const wsTasks = tasks?.filter(t => t.workstream_id === ws.id) || [];
+      const wsDone = wsTasks.filter(t => t.status === 'done').length;
+      md += `- ${ws.name} [${ws.status || 'active'}]: ${wsDone}/${wsTasks.length} done\n`;
+    }
+    md += '\n';
   }
 
   if (active.length > 0) {

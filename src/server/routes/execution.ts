@@ -5,7 +5,7 @@ import { requireAuth } from '../auth-middleware.js';
 import { createCheckpoint, revertToCheckpoint, deleteCheckpoint } from '../checkpoint.js';
 
 // SSE connections per job
-const sseClients = new Map<string, Set<(event: string, data: any) => void>>();
+const sseClients = new Map<string, Set<(id: number, event: string, data: any) => void>>();
 
 // SSE event buffer with incrementing IDs for Last-Event-ID deduplication
 const MAX_BUFFER_SIZE = 100;
@@ -43,9 +43,195 @@ function broadcast(jobId: string, event: string, data: any) {
 
 export const executionRouter = Router();
 
+function makeBroadcastCallbacks(jobId: string) {
+  return {
+    onLog: (text: string) => broadcast(jobId, 'log', { text }),
+    onPhaseStart: (phase: string, attempt: number) => broadcast(jobId, 'phase_start', { phase, attempt }),
+    onPhaseComplete: (phase: string, output: string) => broadcast(jobId, 'phase_complete', { phase, output }),
+    onPause: (question: string) => broadcast(jobId, 'paused', { question }),
+    onDone: () => broadcast(jobId, 'done', {}),
+    onFail: (error: string) => broadcast(jobId, 'failed', { error }),
+  };
+}
+
+async function getMemberLocalPath(projectId: string, userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('project_members')
+    .select('local_path')
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+    .single();
+  return data?.local_path || null;
+}
+
+// Reusable internal function to start a job
+export async function startJobInternal(params: {
+  taskId: string;
+  projectId: string;
+  localPath: string;
+  task: any;
+  taskType: any;
+  autoApprove?: boolean;
+}): Promise<string> {
+  const { taskId, projectId, localPath, task, taskType, autoApprove } = params;
+
+  // Create job
+  const { data: job, error: jobErr } = await supabase
+    .from('jobs')
+    .insert({
+      task_id: taskId,
+      project_id: projectId,
+      status: 'running',
+      current_phase: taskType.phases[0],
+      max_attempts: taskType.verify_retries + 1,
+    })
+    .select()
+    .single();
+
+  if (jobErr || !job) {
+    throw new Error('Failed to create job');
+  }
+
+  // Update task status
+  await supabase.from('tasks').update({ status: 'in_progress' }).eq('id', taskId);
+
+  // Create checkpoint before running
+  try {
+    const checkpoint = createCheckpoint(localPath, job.id);
+    await supabase.from('jobs').update({
+      checkpoint_ref: checkpoint.commitSha,
+      checkpoint_status: 'active'
+    }).eq('id', job.id);
+    broadcast(job.id, 'log', { text: '[checkpoint] Saved working directory state\n' });
+  } catch (err: any) {
+    broadcast(job.id, 'log', { text: `[checkpoint] Warning: ${err.message}\n` });
+  }
+
+  // Build onReview callback based on autoApprove
+  const onReview = autoApprove
+    ? async (result: any) => {
+        broadcast(job.id, 'review', result);
+        // Auto-approve: mark job done, task done, clean checkpoint
+        await supabase.from('jobs').update({
+          status: 'done',
+          completed_at: new Date().toISOString(),
+        }).eq('id', job.id);
+        await supabase.from('tasks').update({
+          status: 'done',
+          completed_at: new Date().toISOString(),
+        }).eq('id', taskId);
+        try { deleteCheckpoint(localPath, job.id); } catch {}
+        await supabase.from('jobs').update({ checkpoint_status: 'cleaned' }).eq('id', job.id);
+        broadcast(job.id, 'done', {});
+        // Trigger next task in workstream
+        maybeAutoContinue({
+          completedTaskId: taskId,
+          projectId,
+          localPath,
+        }).catch((err: any) => console.error('[auto-continue] Error:', err.message));
+      }
+    : (result: any) => broadcast(job.id, 'review', result);
+
+  // Delay 500ms to give the browser time to connect SSE before events fire
+  const callbacks = makeBroadcastCallbacks(job.id);
+  setTimeout(() => {
+    runJob({
+      jobId: job.id,
+      taskId,
+      projectId,
+      localPath,
+      task,
+      taskType,
+      phasesAlreadyCompleted: [],
+      ...callbacks,
+      onReview,
+    }).catch(err => {
+      broadcast(job.id, 'failed', { error: err.message });
+    });
+  }, 500);
+
+  return job.id;
+}
+
+// Auto-continue: start next task in workstream after completion
+export async function maybeAutoContinue(params: {
+  completedTaskId: string;
+  projectId: string;
+  localPath: string;
+}): Promise<void> {
+  const { completedTaskId, projectId, localPath } = params;
+
+  const { data: task } = await supabase
+    .from('tasks')
+    .select('id, auto_continue, workstream_id, position, mode')
+    .eq('id', completedTaskId)
+    .single();
+
+  if (!task) return;
+  if (task.auto_continue !== true) return;
+  if (task.workstream_id == null) return;
+
+  const { data: nextTask } = await supabase
+    .from('tasks')
+    .select('id, type, mode, auto_continue')
+    .eq('workstream_id', task.workstream_id)
+    .in('status', ['backlog', 'todo'])
+    .gt('position', task.position)
+    .order('position', { ascending: true })
+    .limit(1)
+    .single();
+
+  if (!nextTask) {
+    // No next task — check if workstream is complete (all tasks done)
+    const { data: remainingTasks } = await supabase
+      .from('tasks')
+      .select('id')
+      .eq('workstream_id', task.workstream_id)
+      .not('status', 'eq', 'done')
+      .limit(1);
+
+    if (!remainingTasks || remainingTasks.length === 0) {
+      // All tasks done — mark workstream complete
+      await supabase
+        .from('workstreams')
+        .update({ status: 'complete' })
+        .eq('id', task.workstream_id);
+      broadcast(task.workstream_id, 'workstream_complete', {
+        workstreamId: task.workstream_id,
+        projectId,
+      });
+    }
+    return;
+  }
+
+  // If next task is human mode, pause the chain
+  if (nextTask.mode === 'human') {
+    broadcast(task.workstream_id, 'workstream_paused', {
+      workstreamId: task.workstream_id,
+      taskId: nextTask.id,
+      reason: 'Next task requires human action',
+    });
+    return;
+  }
+
+  // Fetch full task for the runner
+  const { data: fullNextTask } = await supabase.from('tasks').select('*').eq('id', nextTask.id).single();
+  if (!fullNextTask) return;
+
+  const taskType = loadTaskTypeConfig(localPath, fullNextTask.type);
+  await startJobInternal({
+    taskId: fullNextTask.id,
+    projectId,
+    localPath,
+    task: fullNextTask,
+    taskType,
+    autoApprove: fullNextTask.auto_continue,
+  });
+}
+
 // Start a job
 executionRouter.post('/api/run', requireAuth, async (req, res) => {
-  const { taskId, projectId, localPath } = req.body;
+  const { taskId, projectId, localPath, autoContinue } = req.body;
 
   if (!taskId || !projectId || !localPath) {
     return res.status(400).json({ error: 'taskId, projectId, and localPath are required' });
@@ -93,62 +279,12 @@ executionRouter.post('/api/run', requireAuth, async (req, res) => {
   // Load task type config
   const taskType = loadTaskTypeConfig(localPath, task.type);
 
-  // Create job
-  const { data: job, error: jobErr } = await supabase
-    .from('jobs')
-    .insert({
-      task_id: taskId,
-      project_id: projectId,
-      status: 'running',
-      current_phase: taskType.phases[0],
-      max_attempts: taskType.verify_retries + 1,
-    })
-    .select()
-    .single();
-
-  if (jobErr || !job) {
-    return res.status(500).json({ error: 'Failed to create job' });
-  }
-
-  // Update task status
-  await supabase.from('tasks').update({ status: 'in_progress' }).eq('id', taskId);
-
-  // Create checkpoint before running
   try {
-    const checkpoint = createCheckpoint(localPath, job.id);
-    await supabase.from('jobs').update({
-      checkpoint_ref: checkpoint.commitSha,
-      checkpoint_status: 'active'
-    }).eq('id', job.id);
-    broadcast(job.id, 'log', { text: '[checkpoint] Saved working directory state\n' });
+    const jobId = await startJobInternal({ taskId, projectId, localPath, task, taskType, autoApprove: autoContinue === true ? task.auto_continue : false });
+    res.json({ jobId });
   } catch (err: any) {
-    broadcast(job.id, 'log', { text: `[checkpoint] Warning: ${err.message}\n` });
+    res.status(500).json({ error: err.message || 'Failed to create job' });
   }
-
-  // Return job ID immediately -- execution happens async
-  res.json({ jobId: job.id });
-
-  // Feature 8: Delay 500ms to give the browser time to connect SSE before events fire
-  setTimeout(() => {
-  runJob({
-    jobId: job.id,
-    taskId,
-    projectId,
-    localPath,
-    task,
-    taskType,
-    phasesAlreadyCompleted: [],
-    onLog: (text) => broadcast(job.id, 'log', { text }),
-    onPhaseStart: (phase, attempt) => broadcast(job.id, 'phase_start', { phase, attempt }),
-    onPhaseComplete: (phase, output) => broadcast(job.id, 'phase_complete', { phase, output }),
-    onPause: (question) => broadcast(job.id, 'paused', { question }),
-    onReview: (result) => broadcast(job.id, 'review', result),
-    onDone: () => broadcast(job.id, 'done', {}),
-    onFail: (error) => broadcast(job.id, 'failed', { error }),
-  }).catch(err => {
-    broadcast(job.id, 'failed', { error: err.message });
-  });
-  }, 500);
 });
 
 // SSE stream for job logs
@@ -237,13 +373,8 @@ executionRouter.post('/api/jobs/:id/reply', requireAuth, async (req, res) => {
     task: { ...task, answer },
     taskType,
     phasesAlreadyCompleted,
-    onLog: (text) => broadcast(jobId, 'log', { text }),
-    onPhaseStart: (phase, attempt) => broadcast(jobId, 'phase_start', { phase, attempt }),
-    onPhaseComplete: (phase, output) => broadcast(jobId, 'phase_complete', { phase, output }),
-    onPause: (question) => broadcast(jobId, 'paused', { question }),
+    ...makeBroadcastCallbacks(jobId),
     onReview: (result) => broadcast(jobId, 'review', result),
-    onDone: () => broadcast(jobId, 'done', {}),
-    onFail: (error) => broadcast(jobId, 'failed', { error }),
   }).catch(err => {
     broadcast(jobId, 'failed', { error: err.message });
   });
@@ -259,16 +390,8 @@ executionRouter.post('/api/jobs/:id/terminate', requireAuth, async (req, res) =>
   // Kill the child process
   cancelJob(jobId);
 
-  // Look up localPath for auto-revert
   let failMessage = 'Job failed: terminated by user.';
-  const userId = (req as any).userId;
-  const { data: member } = await supabase
-    .from('project_members')
-    .select('local_path')
-    .eq('project_id', job.project_id)
-    .eq('user_id', userId)
-    .single();
-  const localPath = member?.local_path;
+  const localPath = await getMemberLocalPath(job.project_id, (req as any).userId);
 
   if (localPath) {
     try {
@@ -303,20 +426,25 @@ executionRouter.post('/api/jobs/:id/approve', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Job is not in review' });
   }
 
-  await supabase.from('jobs').update({
-    status: 'done',
-    completed_at: new Date().toISOString(),
-  }).eq('id', jobId);
+  const now = new Date().toISOString();
+  const localPath = req.body.localPath || '';
 
-  await supabase.from('tasks').update({
-    status: 'done',
-    completed_at: new Date().toISOString(),
-  }).eq('id', job.task_id);
+  await Promise.all([
+    supabase.from('jobs').update({ status: 'done', completed_at: now }).eq('id', jobId),
+    supabase.from('tasks').update({ status: 'done', completed_at: now }).eq('id', job.task_id),
+  ]);
 
-  try { deleteCheckpoint(req.body.localPath || '', jobId); } catch {}
+  try { deleteCheckpoint(localPath, jobId); } catch {}
   await supabase.from('jobs').update({ checkpoint_status: 'cleaned' }).eq('id', jobId);
 
   res.json({ ok: true });
+
+  // Fire-and-forget auto-continue
+  maybeAutoContinue({
+    completedTaskId: job.task_id,
+    projectId: job.project_id,
+    localPath,
+  }).catch(console.error);
 });
 
 // Reject job -> back to backlog
