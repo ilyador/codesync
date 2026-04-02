@@ -131,12 +131,6 @@ export function Header({
       </div>
       <div className={s.right}>
         {localPath && <span className={s.localPath} title={localPath}>{localPath}</span>}
-        <span className={s.milestone}>
-          {milestone.tasksTotal === 0 && milestone.name === 'All'
-            ? 'No milestone'
-            : <>{milestone.name} &middot; {milestone.tasksDone}/{milestone.tasksTotal}</>
-          }
-        </span>
         <div className={s.notifWrap} ref={notifRef}>
           <button className={s.icon} onClick={() => setNotifOpen(prev => !prev)}>
             {notifications > 0 && <span className={s.dot} />}

@@ -29,13 +29,17 @@
 }
 
 /* ─── Column header ─── */
+.headerWrap {
+  border-bottom: 1px solid var(--divider);
+  padding: 0;
+}
+
 .header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 16px 18px 12px;
-  border-bottom: 1px solid var(--divider);
-  min-height: 52px;
+  gap: 8px;
+  padding: 12px 14px;
+  min-height: 44px;
 }
 .name {
   font-size: 14px;
@@ -62,8 +66,8 @@
   outline: none;
 }
 
-/* Progress badge */
-.progress {
+/* Backlog count badge (shown in header row for backlog columns) */
+.backlogCount {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-4);
@@ -72,9 +76,105 @@
   background: var(--bg-hover);
   border-radius: 10px;
 }
-.progressComplete {
+
+/* ─── Status strip: inline after name, fills remaining width ─── */
+.statusStrip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 0;
+  padding: 3px 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-hover);
+}
+
+.statusStripLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  color: var(--text-3);
+  position: relative;
+  z-index: 1;
+}
+
+.statusStripCount {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-4);
+  position: relative;
+  z-index: 1;
+}
+
+/* Progress fill behind the strip text */
+.statusStripFill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.3s ease;
+}
+
+/* Status strip color variants */
+.statusStrip--open {
+  background: var(--bg-hover);
+}
+.statusStrip--open .statusStripFill {
+  background: var(--bg-hover);
+}
+.statusStrip--open .statusStripLabel {
+  color: var(--text-4);
+}
+
+.statusStrip--in-progress {
+  background: rgba(37, 99, 235, 0.03);
+}
+.statusStrip--in-progress .statusStripFill {
+  background: rgba(37, 99, 235, 0.06);
+}
+.statusStrip--in-progress .statusStripLabel {
+  color: var(--blue);
+}
+
+.statusStrip--pending-review {
+  background: rgba(180, 83, 9, 0.03);
+}
+.statusStrip--pending-review .statusStripFill {
+  background: rgba(180, 83, 9, 0.06);
+}
+.statusStrip--pending-review .statusStripLabel {
+  color: var(--amber);
+}
+
+.statusStrip--done,
+.statusStrip--merged {
+  background: rgba(22, 163, 74, 0.03);
+}
+.statusStrip--done .statusStripFill,
+.statusStrip--merged .statusStripFill {
+  background: rgba(22, 163, 74, 0.06);
+}
+.statusStrip--done .statusStripLabel,
+.statusStrip--merged .statusStripLabel {
   color: var(--green);
-  background: var(--green-bg);
+}
+.statusStrip--done .statusStripCount,
+.statusStrip--merged .statusStripCount {
+  color: var(--green);
+}
+
+.statusStrip--failed {
+  background: rgba(185, 28, 28, 0.03);
+}
+.statusStrip--failed .statusStripFill {
+  background: rgba(185, 28, 28, 0.06);
+}
+.statusStrip--failed .statusStripLabel {
+  color: var(--red);
 }
 
 /* Column actions */
@@ -178,20 +278,28 @@
   font-style: italic;
 }
 
-/* Placeholder gap where card will land */
-.placeholder {
-  height: 44px;
-  border: 2px dashed var(--blue-soft);
-  border-radius: 10px;
-  background: var(--blue-bg);
-  transition: height 0.2s cubic-bezier(0.2, 0, 0, 1), opacity 0.15s;
-  opacity: 1;
-  flex-shrink: 0;
+/* Card wrapper */
+.cardWrap {
+  position: relative;
 }
 
-/* Card wrapper — animate position shifts */
-.cardWrap {
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+/* Drop indicator — CSS-only line, no DOM insertion, no layout shift */
+.dropBefore::before {
+  content: '';
+  display: block;
+  height: 2px;
+  background: var(--blue);
+  border-radius: 1px;
+  margin-bottom: 4px;
+}
+
+.dropAfter::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: var(--blue);
+  border-radius: 1px;
+  margin-top: 4px;
 }
 
 /* Completion banner */

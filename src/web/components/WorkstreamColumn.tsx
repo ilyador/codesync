@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { TaskCard } from './TaskCard';
 import type { JobView } from './job-types';
 import s from './WorkstreamColumn.module.css';
@@ -15,6 +15,7 @@ interface Task {
   assignee?: { type: string; name?: string; initials?: string } | null;
   images?: string[];
   status?: string;
+  priority?: string;
 }
 
 interface Workstream {
@@ -82,23 +83,66 @@ export function WorkstreamColumn({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(workstream?.name || '');
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
-  const [isDropOver, setIsDropOver] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const tasksRef = useRef<HTMLDivElement>(null);
+  const dropIndexRef = useRef<number | null>(null);
+  const dragCountRef = useRef(0); // track enter/leave balance to handle child elements
 
   const wsId = workstream?.id || null;
   const doneTasks = tasks.filter(t => t.status === 'done').length;
   const totalTasks = tasks.length;
   const allDone = totalTasks > 0 && doneTasks === totalTasks;
+  const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
-  useEffect(() => {
-    const activeTask = tasks.find(t => {
+  // Derive workstream status for display
+  const wsStatus = useMemo(() => {
+    if (isBacklog) return null;
+    const dbStatus = workstream?.status;
+    if (dbStatus === 'complete') return 'done' as const;
+    if (dbStatus === 'archived') return 'merged' as const;
+    if (totalTasks === 0) return 'open' as const;
+    const hasActiveTask = tasks.some(t => {
+      const job = taskJobMap[t.id];
+      if (job && ['queued', 'running', 'paused', 'review'].includes(job.status)) return true;
+      if (t.mode === 'human' && t.status === 'in_progress') return true;
+      return false;
+    });
+    if (hasActiveTask) return 'in progress' as const;
+    const hasFailedTask = tasks.some(t => {
+      const job = taskJobMap[t.id];
+      return job && job.status === 'failed';
+    });
+    if (hasFailedTask) return 'failed' as const;
+    if (allDone) return 'pending review' as const;
+    if (doneTasks > 0) return 'in progress' as const;
+    return 'open' as const;
+  }, [isBacklog, workstream?.status, totalTasks, doneTasks, allDone, tasks, taskJobMap]);
+
+  // Track active AI job (for drag locking) and active task including human (for auto-expand)
+  const activeAiJobId = useMemo(() => {
+    const t = tasks.find(t => {
       const job = taskJobMap[t.id];
       return job && ['queued', 'running', 'paused', 'review'].includes(job.status);
     });
-    if (activeTask && activeTask.id !== expandedId) setExpandedId(activeTask.id);
-  }, [tasks, taskJobMap, expandedId]);
+    return t?.id ?? null;
+  }, [tasks, taskJobMap]);
+
+  const activeTaskId = useMemo(() => {
+    if (activeAiJobId) return activeAiJobId;
+    const human = tasks.find(t => t.mode === 'human' && t.status === 'in_progress' && !taskJobMap[t.id]);
+    return human?.id ?? null;
+  }, [tasks, taskJobMap, activeAiJobId]);
+
+  // Disable drag only when an AI job is actively running (not for human waiting)
+  const dragDisabled = !isBacklog && activeAiJobId !== null;
+
+  const prevActiveRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (activeTaskId && activeTaskId !== prevActiveRef.current) {
+      setExpandedId(activeTaskId);
+    }
+    prevActiveRef.current = activeTaskId;
+  }, [activeTaskId]);
 
   // Focus name input when editing
   useEffect(() => {
@@ -116,98 +160,159 @@ export function WorkstreamColumn({
     setEditing(false);
   };
 
+  // --- Drag indicator via DOM classes (no React state, no re-renders) ---
+
+  const clearDropIndicator = useCallback(() => {
+    const container = tasksRef.current;
+    if (!container) return;
+    container.querySelectorAll(`.${s.dropBefore}, .${s.dropAfter}`).forEach(el => {
+      el.classList.remove(s.dropBefore, s.dropAfter);
+    });
+  }, []);
+
+  const updateDropIndicator = useCallback((clientY: number) => {
+    const container = tasksRef.current;
+    if (!container || !draggedTaskId) return;
+    const wraps = Array.from(container.querySelectorAll<HTMLElement>(`.${s.cardWrap}`));
+    clearDropIndicator();
+
+    let idx = wraps.length;
+    for (let i = 0; i < wraps.length; i++) {
+      const rect = wraps[i].getBoundingClientRect();
+      if (clientY < rect.top + rect.height / 2) {
+        idx = i;
+        break;
+      }
+    }
+    dropIndexRef.current = idx;
+
+    // Apply CSS class to show a drop indicator line
+    if (idx < wraps.length) {
+      wraps[idx].classList.add(s.dropBefore);
+    } else if (wraps.length > 0) {
+      wraps[wraps.length - 1].classList.add(s.dropAfter);
+    }
+  }, [draggedTaskId, clearDropIndicator]);
+
   return (
     <div
-      className={`${s.column} ${isBacklog ? s.backlog : ''} ${isDropOver && draggedTaskId ? s.dropOver : ''}`}
+      className={`${s.column} ${isBacklog ? s.backlog : ''}`}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        dragCountRef.current++;
+      }}
       onDragOver={(e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        if (!isDropOver) setIsDropOver(true);
       }}
       onDragLeave={() => {
-        setIsDropOver(false);
-        setDropIndex(null);
+        dragCountRef.current--;
+        if (dragCountRef.current <= 0) {
+          dragCountRef.current = 0;
+          clearDropIndicator();
+          dropIndexRef.current = null;
+        }
       }}
       onDrop={(e) => {
         e.preventDefault();
-        setIsDropOver(false);
-        setDropIndex(null);
-        if (draggedTaskId) {
-          onDropTask(wsId, dropIndex ?? tasks.length);
+        clearDropIndicator();
+        dragCountRef.current = 0;
+        if (draggedTaskId && dropIndexRef.current !== null) {
+          onDropTask(wsId, dropIndexRef.current);
         }
+        dropIndexRef.current = null;
       }}
     >
       {/* Header */}
-      <div className={s.header}>
-        {editing && !isBacklog ? (
-          <input
-            ref={nameInputRef}
-            className={s.nameInput}
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            onBlur={handleRename}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleRename();
-              if (e.key === 'Escape') setEditing(false);
-            }}
-          />
-        ) : (
-          <span
-            className={s.name}
-            onDoubleClick={() => {
-              if (!isBacklog && workstream) {
-                setEditName(workstream.name);
-                setEditing(true);
-              }
-            }}
-            title={isBacklog ? undefined : 'Double-click to rename'}
-          >
-            {isBacklog ? 'Backlog' : workstream?.name}
-          </span>
-        )}
+      <div className={s.headerWrap}>
+        <div className={s.header}>
+          {editing && !isBacklog ? (
+            <input
+              ref={nameInputRef}
+              className={s.nameInput}
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onBlur={handleRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRename();
+                if (e.key === 'Escape') setEditing(false);
+              }}
+            />
+          ) : (
+            <span
+              className={s.name}
+              onDoubleClick={() => {
+                if (!isBacklog && workstream) {
+                  setEditName(workstream.name);
+                  setEditing(true);
+                }
+              }}
+              title={isBacklog ? undefined : 'Double-click to rename'}
+            >
+              {isBacklog ? 'Backlog' : workstream?.name}
+            </span>
+          )}
 
-        {!isBacklog && onRunWorkstream && !allDone && totalTasks > 0 && (
-          <button
-            className={s.runBtn}
-            onClick={onRunWorkstream}
-            title="Run workstream"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            Run
-          </button>
-        )}
+          {/* Run button: only when idle (open status) with tasks */}
+          {!isBacklog && onRunWorkstream && wsStatus === 'open' && totalTasks > 0 && (
+            <button
+              className={s.runBtn}
+              onClick={onRunWorkstream}
+              title="Run workstream"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              Run
+            </button>
+          )}
 
-        <span className={`${s.progress} ${allDone ? s.progressComplete : ''}`}>
-          {doneTasks}/{totalTasks}
-        </span>
+          {/* Status strip inline after name (non-backlog with tasks) */}
+          {wsStatus && totalTasks > 0 && (
+            <div className={`${s.statusStrip} ${s[`statusStrip--${wsStatus.replace(' ', '-')}`]}`}>
+              <div
+                className={s.statusStripFill}
+                style={{ width: `${progressPct}%` }}
+              />
+              <span className={s.statusStripLabel}>{wsStatus}</span>
+              <span className={s.statusStripCount}>{doneTasks}/{totalTasks}</span>
+            </div>
+          )}
 
-        <button
-          className={s.addBtn}
-          onClick={onAddTask}
-          title="Add task"
-        >
-          +
-        </button>
+          {/* Backlog shows count inline */}
+          {isBacklog && (
+            <span className={s.backlogCount}>
+              {doneTasks}/{totalTasks}
+            </span>
+          )}
 
-        {!isBacklog && workstream && (
-          <div className={s.actions}>
-            {onDeleteWorkstream && (
+          {/* Add/delete buttons: only before work starts */}
+          {(isBacklog || wsStatus === 'open' || !wsStatus) && (
+            <>
               <button
-                className={`${s.actionBtn} ${s.actionBtnDanger}`}
-                onClick={() => {
-                  if (confirm(`Delete workstream "${workstream.name}"? Tasks will move to backlog.`)) {
-                    onDeleteWorkstream(workstream.id);
-                  }
-                }}
-                title="Delete workstream"
+                className={s.addBtn}
+                onClick={onAddTask}
+                title="Add task"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
+                +
               </button>
-            )}
-          </div>
-        )}
+
+              {!isBacklog && workstream && onDeleteWorkstream && (
+                <button
+                  className={`${s.actionBtn} ${s.actionBtnDanger}`}
+                  onClick={() => {
+                    if (confirm(`Delete workstream "${workstream.name}"? Tasks will move to backlog.`)) {
+                      onDeleteWorkstream(workstream.id);
+                    }
+                  }}
+                  title="Delete workstream"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Task list */}
@@ -216,20 +321,7 @@ export function WorkstreamColumn({
         ref={tasksRef}
         onDragOver={(e) => {
           e.preventDefault();
-          if (!draggedTaskId) return;
-          // Calculate drop index from cursor Y vs card midpoints
-          const container = tasksRef.current;
-          if (!container) return;
-          const cards = Array.from(container.querySelectorAll(`:scope > .${s.cardWrap}`));
-          let idx = cards.length;
-          for (let i = 0; i < cards.length; i++) {
-            const rect = cards[i].getBoundingClientRect();
-            if (e.clientY < rect.top + rect.height / 2) {
-              idx = i;
-              break;
-            }
-          }
-          if (dropIndex !== idx) setDropIndex(idx);
+          if (draggedTaskId) updateDropIndicator(e.clientY);
         }}
       >
         {tasks.length === 0 && !draggedTaskId && (
@@ -237,16 +329,10 @@ export function WorkstreamColumn({
             {isBacklog ? 'No tasks in backlog' : 'Drop tasks here'}
           </div>
         )}
-        {tasks.length === 0 && draggedTaskId && (
-          <div className={s.placeholder} />
-        )}
-        {tasks.map((task, index) => {
+        {tasks.map((task) => {
           const job = taskJobMap[task.id] || null;
           return (
             <div key={task.id} className={s.cardWrap}>
-              {dropIndex === index && draggedTaskId && draggedTaskId !== task.id && (
-                <div className={s.placeholder} />
-              )}
               <TaskCard
                 task={task}
                 job={job}
@@ -265,14 +351,11 @@ export function WorkstreamColumn({
                 onDragStart={() => onDragTaskStart(task.id)}
                 onDragEnd={onDragTaskEnd}
                 isDragging={draggedTaskId === task.id}
+                dragDisabled={dragDisabled}
               />
             </div>
           );
         })}
-        {/* Placeholder at end */}
-        {dropIndex === tasks.length && draggedTaskId && tasks.length > 0 && (
-          <div className={s.placeholder} />
-        )}
       </div>
 
       {allDone && !isBacklog && (
