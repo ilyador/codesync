@@ -504,6 +504,26 @@
   font-weight: 600;
 }
 
+/* Dark mode: bump phase pill opacities for readability */
+:global([data-theme="dark"]) .pnPlan {
+  background: rgba(120, 113, 148, 0.18);
+}
+:global([data-theme="dark"]) .pnAnalyze {
+  background: rgba(100, 130, 160, 0.18);
+}
+:global([data-theme="dark"]) .pnFix,
+:global([data-theme="dark"]) .pnImplement,
+:global([data-theme="dark"]) .pnRefactor,
+:global([data-theme="dark"]) .pnWrite-tests {
+  background: rgba(140, 120, 90, 0.18);
+}
+:global([data-theme="dark"]) .pnVerify {
+  background: rgba(90, 135, 120, 0.18);
+}
+:global([data-theme="dark"]) .pnReview {
+  background: rgba(130, 110, 130, 0.18);
+}
+
 @media (max-width: 768px) {
   .compact { padding: 8px 10px; }
   .preview { padding: 0 10px 8px 24px; }

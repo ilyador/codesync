@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useModal } from '../hooks/useModal';
 import { TaskCard } from './TaskCard';
 import type { JobView } from './job-types';
 import s from './WorkstreamColumn.module.css';
@@ -83,6 +84,7 @@ export function WorkstreamColumn({
   onDeleteJob,
   onCreatePr,
 }: WorkstreamColumnProps) {
+  const modal = useModal();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(workstream?.name || '');
@@ -303,8 +305,8 @@ export function WorkstreamColumn({
               {!isBacklog && workstream && onDeleteWorkstream && (
                 <button
                   className={`${s.actionBtn} ${s.actionBtnDanger}`}
-                  onClick={() => {
-                    if (confirm(`Delete workstream "${workstream.name}"? Tasks will move to backlog.`)) {
+                  onClick={async () => {
+                    if (await modal.confirm('Delete workstream', `Delete workstream "${workstream.name}"? Tasks will move to backlog.`, { label: 'Delete', danger: true })) {
                       onDeleteWorkstream(workstream.id);
                     }
                   }}

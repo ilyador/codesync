@@ -32,7 +32,7 @@
 .form { display: flex; flex-direction: column; gap: 16px; }
 .input, .textarea, .select {
   padding: 10px 14px;
-  background: white;
+  background: var(--white);
   border: 1.5px solid var(--divider);
   border-radius: 8px;
   font-family: var(--font);
@@ -100,7 +100,7 @@
 .blockerBox {
   border: 1.5px solid var(--divider);
   border-radius: 8px;
-  background: white;
+  background: var(--white);
   overflow: hidden;
 }
 .blockerSearch {
@@ -197,7 +197,7 @@
   left: 0;
   right: 0;
   z-index: 300;
-  background: white;
+  background: var(--white);
   border: 1.5px solid var(--divider);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.12);
@@ -271,7 +271,7 @@
   text-align: center;
   cursor: pointer;
   transition: all 0.15s;
-  background: white;
+  background: var(--white);
 }
 .dropZone:hover { border-color: var(--text-4); }
 .dropZoneActive { border-color: var(--blue); background: var(--blue-bg); }
@@ -322,7 +322,7 @@
   border: 1.5px solid var(--divider);
   border-radius: 8px;
   overflow: hidden;
-  background: white;
+  background: var(--white);
 }
 .segmentedBtn {
   flex: 1;

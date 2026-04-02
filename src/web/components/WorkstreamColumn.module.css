@@ -390,6 +390,46 @@
   text-decoration: underline;
 }
 
+/* Dark mode: bump status strip opacities so they read on dark surfaces */
+:global([data-theme="dark"]) .statusStrip--in-progress {
+  background: rgba(37, 99, 235, 0.08);
+}
+:global([data-theme="dark"]) .statusStrip--in-progress .statusStripFill {
+  background: rgba(37, 99, 235, 0.14);
+}
+:global([data-theme="dark"]) .statusStrip--pending-review {
+  background: rgba(180, 83, 9, 0.08);
+}
+:global([data-theme="dark"]) .statusStrip--pending-review .statusStripFill {
+  background: rgba(180, 83, 9, 0.14);
+}
+:global([data-theme="dark"]) .statusStrip--done,
+:global([data-theme="dark"]) .statusStrip--merged {
+  background: rgba(22, 163, 74, 0.08);
+}
+:global([data-theme="dark"]) .statusStrip--done .statusStripFill,
+:global([data-theme="dark"]) .statusStrip--merged .statusStripFill {
+  background: rgba(22, 163, 74, 0.14);
+}
+:global([data-theme="dark"]) .statusStrip--reviewing {
+  background: rgba(120, 80, 160, 0.1);
+}
+:global([data-theme="dark"]) .statusStrip--reviewing .statusStripFill {
+  background: rgba(120, 80, 160, 0.18);
+}
+:global([data-theme="dark"]) .statusStrip--review-failed {
+  background: rgba(185, 28, 28, 0.08);
+}
+:global([data-theme="dark"]) .statusStrip--review-failed .statusStripFill {
+  background: rgba(185, 28, 28, 0.14);
+}
+:global([data-theme="dark"]) .statusStrip--failed {
+  background: rgba(185, 28, 28, 0.08);
+}
+:global([data-theme="dark"]) .statusStrip--failed .statusStripFill {
+  background: rgba(185, 28, 28, 0.14);
+}
+
 @media (max-width: 768px) {
   .header { padding: 10px 12px; }
   .name { font-size: 13px; }

@@ -26,6 +26,24 @@
   --font: 'Instrument Sans', system-ui, -apple-system, sans-serif;
 }
 
+[data-theme="dark"] {
+  --bg: #141413;
+  --bg-hover: #1E1E1C;
+  --bg-active: #282825;
+  --white: #1A1A18;
+  --text: #E8E8E4;
+  --text-2: #A8A8A0;
+  --text-3: #737370;
+  --text-4: #4A4A47;
+  --blue-bg: rgba(37,99,235,0.12);
+  --green-bg: rgba(22,163,74,0.12);
+  --amber-bg: rgba(180,83,9,0.12);
+  --red-bg: rgba(185,28,28,0.1);
+  --divider: rgba(255,255,255,0.07);
+  --priority-critical-bg: rgba(192,112,48,0.08);
+  --priority-upcoming-bg: rgba(200,180,20,0.08);
+}
+
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -101,7 +119,7 @@ body {
   border-color: rgba(22,163,74,0.2);
 }
 .btnSuccess:hover:not(:disabled) {
-  background: rgba(22,163,74,0.12);
+  background: rgba(22,163,74,0.18);
 }
 .btnWarning {
   background: none;

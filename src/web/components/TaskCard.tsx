@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import { useComments } from '../hooks/useComments';
+import { useModal } from '../hooks/useModal';
 import { timeAgo, elapsed } from '../lib/time';
 import { LiveLogs } from './LiveLogs';
 import { ReplyInput } from './ReplyInput';
@@ -382,6 +383,8 @@ function IdleDetail({
   onDelete?: () => void;
   onUpdateTask?: (taskId: string, data: Record<string, unknown>) => void;
 }) {
+  const modal = useModal();
+
   return (
     <>
       {task.description && <div className={s.desc}><Markdown>{task.description}</Markdown></div>}
@@ -432,7 +435,7 @@ function IdleDetail({
           <button
             className="btn btnGhost btnSm"
             style={{ color: 'var(--red)' }}
-            onClick={() => { if (confirm('Delete this task?')) onDelete(); }}
+            onClick={async () => { if (await modal.confirm('Delete task', 'Delete this task?', { label: 'Delete', danger: true })) onDelete(); }}
           >Delete</button>
         )}
       </div>
