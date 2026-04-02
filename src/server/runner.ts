@@ -534,6 +534,7 @@ export async function runJob(ctx: JobContext): Promise<void> {
   let filesChanged = 0;
   let linesAdded = 0;
   let linesRemoved = 0;
+  const changedFiles: string[] = [];
   try {
     const diffStat = execFileSync('git', ['diff', '--stat', '--cached'], {
       cwd: localPath, encoding: 'utf-8', timeout: 5000
@@ -550,14 +551,52 @@ export async function runJob(ctx: JobContext): Promise<void> {
       linesAdded = parseInt(match[2]) || 0;
       linesRemoved = parseInt(match[3]) || 0;
     }
+
+    // Extract list of changed file paths
+    const lines = stat.split('\n').slice(0, -1); // drop summary line
+    for (const line of lines) {
+      const fileMatch = line.match(/^\s*(.+?)\s+\|/);
+      if (fileMatch) changedFiles.push(fileMatch[1].trim());
+    }
   } catch { /* ignore git errors */ }
+
+  // Generate a clean summary by asking Claude to summarize the phase outputs
+  let finalSummary = 'Completed';
+  try {
+    const phaseLog = phasesCompleted.map((p: any) => {
+      const raw = (p.output || '').split('\n').filter((l: string) => {
+        const t = l.trim();
+        return t && !/^\[/.test(t);
+      }).join('\n').trim();
+      return `## ${p.phase} (attempt ${p.attempt || 1})\n${raw}`;
+    }).join('\n\n');
+
+    const diffInfo = changedFiles.length > 0
+      ? `Files changed: ${changedFiles.join(', ')} (+${linesAdded} -${linesRemoved})`
+      : `${filesChanged} files changed (+${linesAdded} -${linesRemoved})`;
+
+    const summaryPrompt = `You are summarizing a completed code task for a project dashboard.
+
+Task: ${ctx.task.title}
+${diffInfo}
+
+Phase outputs:
+${phaseLog.substring(0, 3000)}
+
+Write a concise summary (2-4 sentences) of what was done and why. Focus on the actual change, not the process. No markdown formatting, no bullet points. Plain text only.`;
+
+    finalSummary = await generateSummary(summaryPrompt);
+  } catch (err: any) {
+    console.error('[runner] Summary generation failed, using fallback:', err.message);
+  }
 
   const reviewResult = {
     filesChanged,
     testsPassed: true,
     linesAdded,
     linesRemoved,
-    summary: reviewOutput?.output?.substring(0, 500) || 'Completed',
+    changedFiles: changedFiles.length > 0 ? changedFiles : undefined,
+    summary: finalSummary,
   };
 
   await supabase.from('jobs').update({
@@ -608,6 +647,27 @@ function formatStreamEvent(event: any): string | null {
   }
 
   return null;
+}
+
+/** Quick claude call for generating summaries. No tools, no streaming, just text in/out. */
+function generateSummary(prompt: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('claude', ['-p', '--output-format', 'text', '--max-turns', '1', '--model', 'sonnet'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, TERM: 'dumb', PATH: `${process.env.HOME}/.local/bin:${process.env.PATH}` },
+      timeout: 30000,
+    });
+
+    let stdout = '';
+    proc.stdin.write(prompt);
+    proc.stdin.end();
+    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+    proc.on('close', (code) => {
+      if (code === 0 || code === null) resolve(stdout.trim() || 'Completed');
+      else reject(new Error(`summary claude exited with code ${code}`));
+    });
+    proc.on('error', reject);
+  });
 }
 
 function spawnClaude(jobId: string, args: string[], cwd: string, onLog: (text: string) => void, prompt?: string): Promise<string> {

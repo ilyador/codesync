@@ -31,6 +31,20 @@ const TASK_TYPE_PHASES: Record<string, string[]> = {
   'chore': ['plan', 'implement', 'verify', 'review'],
 };
 
+/** Strip tool-call log lines from review summary for display. */
+function cleanSummary(raw: string): string {
+  return raw
+    .split('\n')
+    .filter(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      if (/^\[/.test(trimmed)) return false;
+      return true;
+    })
+    .join('\n')
+    .trim();
+}
+
 function buildPhases(phasesCompleted: any[], currentPhase: string | null, taskType: string): { name: string; status: string }[] {
   const completed = new Set(
     (phasesCompleted || []).map((p: any) => typeof p === 'string' ? p : p.name || p.phase)
@@ -117,7 +131,7 @@ export default function App() {
         testsPassed: j.review_result.tests_passed ?? j.review_result.testsPassed ?? true,
         linesAdded: j.review_result.lines_added ?? j.review_result.linesAdded ?? 0,
         linesRemoved: j.review_result.lines_removed ?? j.review_result.linesRemoved ?? 0,
-        summary: j.review_result.summary ?? '',
+        summary: cleanSummary(j.review_result.summary ?? ''),
         changedFiles: j.review_result.changed_files ?? j.review_result.changedFiles ?? undefined,
       } : undefined,
       completedAgo: j.completed_at ? timeAgo(j.completed_at) : undefined,
@@ -238,6 +252,7 @@ export default function App() {
           }
         }}
         onEditTask={(task) => {
+          const rawTask = tasks.tasks.find(t => t.id === task.id);
           setEditingTask({
             id: task.id,
             title: task.title,
@@ -246,10 +261,11 @@ export default function App() {
             mode: task.mode,
             effort: task.effort,
             multiagent: task.multiagent,
-            assignee: task.assignee,
+            assignee: rawTask?.assignee ?? null,
             images: task.images,
             workstream_id: task.workstream_id,
             auto_continue: task.auto_continue,
+            priority: (task as any).priority,
           });
         }}
         onDeleteTask={async (taskId) => {
@@ -350,6 +366,7 @@ export default function App() {
               auto_continue: data.auto_continue,
               images: data.images,
               workstream_id: data.workstream_id,
+              priority: data.priority,
             });
           }}
           onClose={() => { setShowTaskForm(false); setTaskFormWorkstream(null); }}
@@ -378,6 +395,7 @@ export default function App() {
               auto_continue: data.auto_continue,
               images: data.images,
               workstream_id: data.workstream_id,
+              priority: data.priority,
             });
           }}
           onClose={() => setEditingTask(null)}
