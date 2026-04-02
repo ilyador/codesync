@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useProjects } from './hooks/useProjects';
 import { useTasks } from './hooks/useTasks';
@@ -6,6 +6,7 @@ import { useJobs } from './hooks/useJobs';
 import { useWorkstreams } from './hooks/useWorkstreams';
 import { useMembers } from './hooks/useMembers';
 import { useNotifications } from './hooks/useNotifications';
+import { useWebNotifications } from './hooks/useWebNotifications';
 import { signUp, signIn, signOut, runTaskApi, replyToJob, approveJob, rejectJob, revertJob, terminateJob, deleteJob, updateTask, createWorkstreamPr } from './lib/api';
 import { OnboardingCheck } from './components/OnboardingCheck';
 import { AuthGate } from './components/AuthGate';
@@ -72,6 +73,7 @@ export default function App() {
   const workstreams = useWorkstreams(projects.current?.id || null);
   const members = useMembers(projects.current?.id || null);
   const notifs = useNotifications(auth.profile?.id);
+  const webNotifs = useWebNotifications();
 
   // Build a task-title lookup from all tasks
   const taskTitleMap = useMemo(() => {
@@ -86,6 +88,39 @@ export default function App() {
     for (const t of tasks.tasks) map[t.id] = t.type;
     return map;
   }, [tasks.tasks]);
+
+  // Track previous job/task statuses for web push notifications
+  const prevJobStatuses = useRef<Record<string, string>>({});
+  const prevTaskStatuses = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    const prev = prevJobStatuses.current;
+    for (const job of jobs.jobs) {
+      const oldStatus = prev[job.id];
+      if (oldStatus && oldStatus !== job.status) {
+        const title = taskTitleMap[job.task_id] || 'Task';
+        if (job.status === 'paused') {
+          webNotifs.notify('Question asked', `${title} needs your input`);
+        } else if (job.status === 'done') {
+          webNotifs.notify('Task completed', `${title} finished successfully`);
+        } else if (job.status === 'failed') {
+          webNotifs.notify('Task failed', `${title} failed`);
+        }
+      }
+      prev[job.id] = job.status;
+    }
+  }, [jobs.jobs, taskTitleMap, webNotifs.notify]);
+
+  useEffect(() => {
+    const prev = prevTaskStatuses.current;
+    for (const task of tasks.tasks) {
+      const oldStatus = prev[task.id];
+      if (oldStatus && oldStatus !== task.status && task.status === 'review') {
+        webNotifs.notify('Ready for review', `${task.title} is ready for review`);
+      }
+      prev[task.id] = task.status;
+    }
+  }, [tasks.tasks, webNotifs.notify]);
 
   // Tick counter for elapsed time updates on running jobs
   const [, setTick] = useState(0);
@@ -182,6 +217,30 @@ export default function App() {
 
   return (
     <>
+      {webNotifs.showPrompt && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+          padding: '8px 20px', background: 'var(--blue-bg)', borderBottom: '1px solid var(--divider)',
+          fontSize: 13, color: 'var(--text-2)',
+        }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+            <path d="M8 1.5C5.5 1.5 4 3.5 4 5.5V8L2.5 10.5V11.5H13.5V10.5L12 8V5.5C12 3.5 10.5 1.5 8 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+            <path d="M6.5 12.5C6.5 13.3 7.2 14 8 14C8.8 14 9.5 13.3 9.5 12.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+          </svg>
+          <span>Enable notifications to stay updated on task progress</span>
+          <button
+            className="btn btnPrimary btnSm"
+            style={{ padding: '3px 12px', fontSize: 12 }}
+            onClick={webNotifs.requestPermission}
+          >Enable</button>
+          <button
+            className="btn btnGhost btnSm"
+            style={{ padding: '3px 8px', fontSize: 12 }}
+            onClick={webNotifs.dismiss}
+          >Dismiss</button>
+        </div>
+      )}
+
       <Header
         projectName={projects.current?.name || ''}
         localPath={projects.current?.local_path}
