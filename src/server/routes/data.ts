@@ -195,7 +195,7 @@ dataRouter.get('/api/tasks', requireAuth, async (req, res) => {
 
 dataRouter.post('/api/tasks', requireAuth, async (req, res) => {
   const userId = (req as any).userId;
-  const { project_id, title, description, type, mode, effort, workstream_id, multiagent, assignee, auto_continue, images } = req.body;
+  const { project_id, title, description, type, mode, effort, workstream_id, multiagent, assignee, auto_continue, images, priority } = req.body;
 
   // Get max position, scoped to workstream
   let posQuery = supabase
@@ -226,6 +226,7 @@ dataRouter.post('/api/tasks', requireAuth, async (req, res) => {
       auto_continue: auto_continue !== undefined ? auto_continue : true,
       images: images || [],
       workstream_id: workstream_id || null,
+      priority: priority || 'backlog',
       position: (maxTask?.position || 0) + 1,
       created_by: userId,
     })
@@ -236,7 +237,7 @@ dataRouter.post('/api/tasks', requireAuth, async (req, res) => {
 });
 
 dataRouter.patch('/api/tasks/:id', requireAuth, async (req, res) => {
-  const allowed = ['title', 'description', 'type', 'mode', 'effort', 'multiagent', 'status', 'assignee', 'workstream_id', 'position', 'images', 'followup_notes', 'auto_continue'];
+  const allowed = ['title', 'description', 'type', 'mode', 'effort', 'multiagent', 'status', 'assignee', 'workstream_id', 'position', 'images', 'followup_notes', 'auto_continue', 'priority'];
   const updates: Record<string, any> = {};
   for (const key of allowed) {
     if (key in req.body) updates[key] = req.body[key];
@@ -688,36 +689,77 @@ dataRouter.get('/api/projects/:id/members', requireAuth, async (req, res) => {
   res.json(members);
 });
 
-// --- SSE: Realtime changes ---
+// --- SSE: Event-driven realtime changes ---
 
 const changeListeners = new Map<string, Set<(data: any) => void>>();
 
-// Poll Supabase for changes every 2 seconds (simpler than WebSocket proxy)
-setInterval(async () => {
-  for (const [projectId, clients] of changeListeners) {
-    if (clients.size === 0) { changeListeners.delete(projectId); continue; }
-    // Fetch latest task and job updates
-    const { data: tasks } = await supabase
-      .from('tasks')
-      .select('id, status, position, updated_at')
-      .eq('project_id', projectId)
-      .order('position');
-    const { data: jobs } = await supabase
-      .from('jobs')
-      .select('id, status, current_phase, attempt')
-      .eq('project_id', projectId)
-      .order('started_at', { ascending: false })
-      .limit(10);
-    for (const send of clients) {
-      send({ tasks: tasks || [], jobs: jobs || [] });
-    }
+/** Broadcast an event to all SSE clients for a project. */
+export function broadcast(projectId: string, event: { type: string; [key: string]: any }) {
+  const clients = changeListeners.get(projectId);
+  if (!clients || clients.size === 0) return;
+  for (const send of clients) {
+    send(event);
   }
-}, 2000);
+}
+
+// Subscribe to Supabase realtime for tasks and jobs changes.
+// Any mutation from any file (routes, worker, runner, MCP, bot) triggers this.
+supabase.channel('db-changes')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+    const record = (payload.new as any) || (payload.old as any);
+    if (!record?.project_id) return;
+    broadcast(record.project_id, {
+      type: payload.eventType === 'DELETE' ? 'task_deleted' : 'task_changed',
+      task: record,
+    });
+  })
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, (payload) => {
+    const record = (payload.new as any) || (payload.old as any);
+    if (!record?.project_id) return;
+    broadcast(record.project_id, {
+      type: payload.eventType === 'DELETE' ? 'job_deleted' : 'job_changed',
+      job: record,
+    });
+  })
+  .subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      console.log('[realtime] Subscribed to tasks + jobs changes');
+    } else if (status === 'CHANNEL_ERROR') {
+      console.error('[realtime] Channel error — falling back to polling');
+      startPollingFallback();
+    }
+  });
+
+// Fallback polling in case Supabase realtime isn't available (e.g. local without realtime)
+let pollingActive = false;
+function startPollingFallback() {
+  if (pollingActive) return;
+  pollingActive = true;
+  console.log('[realtime] Polling fallback active (every 3s)');
+  setInterval(async () => {
+    for (const [projectId, clients] of changeListeners) {
+      if (clients.size === 0) { changeListeners.delete(projectId); continue; }
+      const { data: tasks } = await supabase
+        .from('tasks')
+        .select('id, status, position, workstream_id')
+        .eq('project_id', projectId)
+        .order('position');
+      const { data: jobs } = await supabase
+        .from('jobs')
+        .select('id, status, current_phase, attempt')
+        .eq('project_id', projectId)
+        .order('started_at', { ascending: false })
+        .limit(10);
+      for (const send of clients) {
+        send({ type: 'full_sync', tasks: tasks || [], jobs: jobs || [] });
+      }
+    }
+  }, 3000);
+}
 
 dataRouter.get('/api/changes', async (req, res) => {
   const projectId = req.query.project_id as string;
   if (!projectId) return res.status(400).end();
-  // Validate token from query param (EventSource can't set headers)
   const token = req.query.token as string;
   if (token) {
     const { error } = await supabase.auth.getUser(token);
