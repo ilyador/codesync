@@ -128,7 +128,7 @@ dataRouter.get('/api/members', requireAuth, async (req, res) => {
   }));
 
   // Include pending invites
-  const { data: invites } = await supabase
+  const { data: invites, error: invErr } = await supabase
     .from('project_invites')
     .select('id, email, role')
     .eq('project_id', projectId);

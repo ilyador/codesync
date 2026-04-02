@@ -280,67 +280,67 @@ footer a:hover { color: var(--text-2); }
     <div class="feat">
       <span class="feat-n">01</span>
       <div class="feat-t">AI writes your code</div>
-      <div class="feat-d">Click Run. Claude reads your codebase, plans the approach, implements it, runs tests, and asks you to review. You approve or reject. No standups required.<br><span class="feat-tag">plan &rarr; implement &rarr; verify &rarr; review</span></div>
+      <div class="feat-d">Click Run. Go make coffee. Come back to a PR. No daily standup to explain why you're "still working on it."<br><span class="feat-tag">plan &rarr; implement &rarr; verify &rarr; review</span></div>
     </div>
     <div class="feat">
       <span class="feat-n">02</span>
       <div class="feat-t">Workstreams, not boards</div>
-      <div class="feat-d">Sequential columns of tasks that execute top-to-bottom. When one finishes, the next starts automatically. Like a CI pipeline, but for your entire backlog.</div>
+      <div class="feat-d">Tasks run top-to-bottom. One finishes, next starts. No dragging cards across five columns so a PM can feel informed.</div>
     </div>
     <div class="feat">
       <span class="feat-n">03</span>
       <div class="feat-t">It asks when it's stuck</div>
-      <div class="feat-d">Claude doesn't know your AWS credentials? Job pauses. You answer inline. It picks up where it left off. No babysitting, no crashed builds.</div>
+      <div class="feat-d">Job pauses. You answer inline. It continues. Unlike your last team lead, it doesn't pretend to understand and break everything.</div>
     </div>
     <div class="feat">
       <span class="feat-n">04</span>
       <div class="feat-t">Git without the footgun</div>
-      <div class="feat-d">Each workstream gets its own git worktree &mdash; isolated from main, isolated from each other. Each task auto-commits on completion. When the workstream is done, click "Create PR." No git choices to make. It's all automatic. AI never improvises with your repo.</div>
+      <div class="feat-d">Each workstream gets a worktree. Each task auto-commits. Done? Click "Create PR." Zero git decisions. AI doesn't get creative with your repo.</div>
     </div>
     <div class="feat">
       <span class="feat-n">05</span>
       <div class="feat-t">Auto-revert on failure</div>
-      <div class="feat-d">Every task gets a git checkpoint inside its worktree before execution. If something breaks, the worktree reverts to exactly where it was. Your main checkout is never touched. Failed tasks clean up after themselves.</div>
+      <div class="feat-d">Checkpoint before every task. If it breaks, it rolls back. Unlike that intern's force-push, this one cleans up after itself.</div>
     </div>
     <div class="feat">
       <span class="feat-n">06</span>
-      <div class="feat-t">Skills &amp; image context</div>
-      <div class="feat-d">Type <code>/skillname</code> in a task description to inject Claude Code skills into the AI prompt, with autocomplete. Drag-drop screenshots, designs, or error captures &mdash; they're passed directly to Claude as visual context.</div>
+      <div class="feat-t">Skills &amp; screenshots</div>
+      <div class="feat-d">Type <code>/skill</code> to inject methodologies. Paste screenshots. Claude sees what you see. No more "can you describe the bug in words."</div>
     </div>
     <div class="feat">
       <span class="feat-n">07</span>
-      <div class="feat-t">Team roles that make sense</div>
-      <div class="feat-d">Three roles: admin, dev, manager. Managers can create tasks and review work but can't trigger AI execution. Invite people by email &mdash; accounts are created automatically if they don't have one yet.</div>
+      <div class="feat-t">Three roles, zero meetings</div>
+      <div class="feat-d">Admin, dev, manager. Managers can't press the Run button. Finally, a permission system that prevents damage instead of causing it.</div>
     </div>
     <div class="feat">
       <span class="feat-n">08</span>
       <div class="feat-t">Realtime everything</div>
-      <div class="feat-d">Live job logs stream to your browser as Claude works. Task and job status sync instantly across team members via SSE and Supabase Realtime. Web push notifications when tasks complete, fail, or need input.</div>
+      <div class="feat-d">Watch Claude work live. Push notifications when it finishes. No refreshing a dashboard every 30 seconds like it's 2004.</div>
     </div>
     <div class="feat">
       <span class="feat-n">09</span>
       <div class="feat-t">Comments &amp; @mentions</div>
-      <div class="feat-d">Per-task comment threads with @mention notifications. Discuss work inline without leaving the board. Comments are for humans &mdash; AI reads the task description, not the thread.</div>
+      <div class="feat-d">Talk about tasks on the task. Not in Slack, not in email, not in a Google Doc that links to a Notion page that links to Jira.</div>
     </div>
     <div class="feat">
       <span class="feat-n">10</span>
-      <div class="feat-t">Human tasks exist too</div>
-      <div class="feat-d">Not everything needs AI. Design reviews, meetings, manual QA &mdash; assign to a team member. It's a toggle, not a separate product.</div>
+      <div class="feat-t">Human tasks</div>
+      <div class="feat-d">Design reviews, QA, meetings. Assign to a person. It's a toggle. Not a $49/seat add-on.</div>
     </div>
     <div class="feat">
       <span class="feat-n">11</span>
       <div class="feat-t">Telegram bot</div>
-      <div class="feat-d">Create tasks, check project status, and get summaries from Telegram. Link a chat to a project and talk to it in plain English. Claude interprets and acts.</div>
+      <div class="feat-d">Create tasks from your phone. Check status from bed. The project manager lifestyle, minus the project manager.</div>
     </div>
     <div class="feat">
       <span class="feat-n">12</span>
-      <div class="feat-t">MCP server &amp; CLI</div>
-      <div class="feat-d">Ask Claude Code "what should I work on?" from your terminal. Create tasks, reply to paused jobs, approve reviews &mdash; without opening a browser.<br><span class="feat-tag">9 MCP tools</span></div>
+      <div class="feat-t">MCP server</div>
+      <div class="feat-d">"What should I work on?" from your terminal. No browser tab required. Nine tools for people who hate context-switching.<br><span class="feat-tag">9 MCP tools</span></div>
     </div>
     <div class="feat">
       <span class="feat-n">13</span>
-      <div class="feat-t">Runs anywhere you want</div>
-      <div class="feat-d">Run it locally and sync to a cloud database. Or throw it on a VPS with local Supabase and let AI grind tasks in isolated worktrees while you sleep. Daily DB backups with a single script.</div>
+      <div class="feat-t">Local or VPS</div>
+      <div class="feat-d">Run on your laptop or a server. AI grinds while you sleep. Daily backups so nobody accidentally nukes the database.</div>
     </div>
   </div>
 </section>

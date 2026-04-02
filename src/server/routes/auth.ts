@@ -44,7 +44,7 @@ authRouter.post('/api/auth/signup', async (req, res) => {
     const ghost = users?.find((u: any) => u.email === email && !u.last_sign_in_at);
     if (ghost) {
       // Claim the ghost account: set password + name, then sign in
-      await admin.auth.admin.updateUser(ghost.id, {
+      await admin.auth.admin.updateUserById(ghost.id, {
         password,
         user_metadata: { name: name.trim() },
       });
