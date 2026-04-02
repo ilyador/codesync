@@ -17,6 +17,7 @@ import type { JobView } from './components/job-types';
 import { TaskForm, type EditTaskData } from './components/TaskForm';
 import { AddProjectModal } from './components/AddProjectModal';
 import { MembersModal } from './components/MembersModal';
+import { useModal } from './hooks/useModal';
 import './styles/global.css';
 
 import { timeAgo } from './lib/time';
@@ -74,6 +75,7 @@ export default function App() {
   const members = useMembers(projects.current?.id || null);
   const notifs = useNotifications(auth.profile?.id);
   const webNotifs = useWebNotifications();
+  const modal = useModal();
 
   // Build a task-title lookup from all tasks
   const taskTitleMap = useMemo(() => {
@@ -273,14 +275,14 @@ export default function App() {
         }}
         onRunWorkstream={async (workstreamId) => {
           if (!projects.current?.id || !projects.current?.local_path) {
-            alert('Set a local folder path for this project first.');
+            await modal.alert('Missing path', 'Set a local folder path for this project first.');
             return;
           }
           const wsTasks = tasks.tasks
             .filter(t => t.workstream_id === workstreamId && ['backlog', 'todo'].includes(t.status) && t.mode === 'ai')
             .sort((a, b) => a.position - b.position);
           if (wsTasks.length === 0) {
-            alert('No runnable AI tasks in this workstream.');
+            await modal.alert('No tasks', 'No runnable AI tasks in this workstream.');
             return;
           }
           try {
@@ -288,12 +290,12 @@ export default function App() {
             jobs.reload();
             tasks.reload();
           } catch (err: any) {
-            alert(err.message || 'Failed to start workstream');
+            await modal.alert('Error', err.message || 'Failed to start workstream');
           }
         }}
         onRunTask={async (taskId) => {
           if (!projects.current?.id || !projects.current?.local_path) {
-            alert('Set a local folder path for this project first.');
+            await modal.alert('Missing path', 'Set a local folder path for this project first.');
             return;
           }
           try {
@@ -301,7 +303,7 @@ export default function App() {
             jobs.reload();
             tasks.reload();
           } catch (err: any) {
-            alert(err.message || 'Failed to start task');
+            await modal.alert('Error', err.message || 'Failed to start task');
           }
         }}
         onEditTask={(task) => {
@@ -332,7 +334,7 @@ export default function App() {
           tasks.reload();
         }}
         onTerminate={async (jobId) => {
-          if (confirm('Terminate this running job?')) {
+          if (await modal.confirm('Terminate job', 'Terminate this running job?', { label: 'Terminate', danger: true })) {
             await terminateJob(jobId);
             jobs.reload();
             tasks.reload();
@@ -344,7 +346,7 @@ export default function App() {
             jobs.reload();
             tasks.reload();
           } catch (err: any) {
-            alert(err.message || 'Failed to send reply');
+            await modal.alert('Error', err.message || 'Failed to send reply');
           }
         }}
         onApprove={async (jobId) => {
@@ -353,7 +355,7 @@ export default function App() {
             jobs.reload();
             tasks.reload();
           } catch (err: any) {
-            alert(err.message || 'Failed to approve');
+            await modal.alert('Error', err.message || 'Failed to approve');
           }
         }}
         onReject={async (jobId) => {
@@ -362,17 +364,17 @@ export default function App() {
             jobs.reload();
             tasks.reload();
           } catch (err: any) {
-            alert(err.message || 'Failed to reject');
+            await modal.alert('Error', err.message || 'Failed to reject');
           }
         }}
         onRevert={async (jobId) => {
-          if (confirm('Revert all file changes? This restores files to their state before the task ran.')) {
+          if (await modal.confirm('Revert changes', 'Revert all file changes? This restores files to their state before the task ran.', { label: 'Revert', danger: true })) {
             try {
               await revertJob(jobId, projects.current?.local_path || '');
               jobs.reload();
               tasks.reload();
             } catch (err: any) {
-              alert(err.message || 'Failed to revert');
+              await modal.alert('Error', err.message || 'Failed to revert');
             }
           }
         }}
@@ -381,15 +383,15 @@ export default function App() {
             await deleteJob(jobId);
             jobs.reload();
           } catch (err: any) {
-            alert(err.message || 'Failed to dismiss job');
+            await modal.alert('Error', err.message || 'Failed to dismiss job');
           }
         }}
         onCreatePr={async (workstreamId) => {
           try {
             await reviewAndCreatePr(workstreamId, projects.current?.local_path || '');
-            // Review runs in background — status updates via SSE
+            // Review runs in background -- status updates via SSE
           } catch (err: any) {
-            alert(err.message || 'Failed to start review');
+            await modal.alert('Error', err.message || 'Failed to start review');
           }
         }}
       />

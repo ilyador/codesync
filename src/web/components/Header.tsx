@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { timeAgo } from '../lib/time';
+import { useTheme } from '../hooks/useTheme';
 import s from './Header.module.css';
 
 interface Project {
@@ -49,6 +50,7 @@ export function Header({
   onSignOut,
   onManageMembers,
 }: Props) {
+  const { theme, toggle: toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [avatarOpen, setAvatarOpen] = useState(false);
@@ -131,6 +133,13 @@ export function Header({
       </div>
       <div className={s.right}>
         {localPath && <span className={s.localPath} title={localPath}>{localPath}</span>}
+        <button className={s.themeToggle} onClick={toggleTheme} title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
+          {theme === 'light' ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.6-6.4l-.7.7m-9.4 9.4l-.7.7m0-12.8l.7.7m9.4 9.4l.7.7M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          )}
+        </button>
         <div className={s.notifWrap} ref={notifRef}>
           <button className={s.icon} onClick={() => setNotifOpen(prev => !prev)}>
             {notifications > 0 && <span className={s.dot} />}

@@ -157,6 +157,17 @@
   border-radius: 8px;
 }
 .icon:hover { background: var(--bg-hover); color: var(--text-2); }
+.themeToggle {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-3);
+  display: flex;
+  padding: 8px;
+  border-radius: 8px;
+}
+.themeToggle:hover { background: var(--bg-hover); color: var(--text-2); }
 .dot {
   position: absolute;
   top: 5px;
@@ -228,6 +239,7 @@
 .notifItem:hover { background: var(--bg-hover); }
 .notifUnread { background: var(--blue-bg); }
 .notifUnread:hover { background: rgba(37,99,235,0.1); }
+:global([data-theme="dark"]) .notifUnread:hover { background: rgba(37,99,235,0.18); }
 .notifMsg {
   font-size: 13px;
   color: var(--text);

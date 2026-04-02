@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useMembers } from '../hooks/useMembers';
+import { useModal } from '../hooks/useModal';
 import { inviteMember, removeMember } from '../lib/api';
 import s from './MembersModal.module.css';
 
@@ -11,6 +12,7 @@ interface Props {
 
 export function MembersModal({ projectId, currentUserId, onClose }: Props) {
   const { members, reload } = useMembers(projectId);
+  const modal = useModal();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('dev');
   const [loading, setLoading] = useState(false);
@@ -47,7 +49,7 @@ export function MembersModal({ projectId, currentUserId, onClose }: Props) {
   }
 
   async function handleRemove(userId: string) {
-    if (!confirm('Remove this member from the project?')) return;
+    if (!await modal.confirm('Remove member', 'Remove this member from the project?', { label: 'Remove', danger: true })) return;
     try {
       await removeMember(projectId, userId);
       await reload();

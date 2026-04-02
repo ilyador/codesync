@@ -3,7 +3,7 @@
 .replyInput {
   flex: 1;
   padding: 8px 14px;
-  background: white;
+  background: var(--white);
   border: 1.5px solid var(--divider);
   border-radius: 8px;
   font-family: var(--font);
