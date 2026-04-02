@@ -95,7 +95,7 @@ export function WorkstreamColumn({
   useEffect(() => {
     const activeTask = tasks.find(t => {
       const job = taskJobMap[t.id];
-      return job && ['running', 'paused', 'review'].includes(job.status);
+      return job && ['queued', 'running', 'paused', 'review'].includes(job.status);
     });
     if (activeTask && activeTask.id !== expandedId) setExpandedId(activeTask.id);
   }, [tasks, taskJobMap, expandedId]);

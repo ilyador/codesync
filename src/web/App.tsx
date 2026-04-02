@@ -97,7 +97,7 @@ export default function App() {
 
   // Map API jobs to JobView shape
   const jobViews: JobView[] = useMemo(() => {
-    const order: Record<string, number> = { running: 0, paused: 1, review: 2, done: 3, failed: 4 };
+    const order: Record<string, number> = { running: 0, queued: 1, paused: 2, review: 3, done: 4, failed: 5 };
     const sorted = [...jobs.jobs].sort((a, b) => (order[a.status] ?? 5) - (order[b.status] ?? 5));
 
     return sorted.map(j => ({
@@ -170,6 +170,7 @@ export default function App() {
     <>
       <Header
         projectName={projects.current?.name || ''}
+        localPath={projects.current?.local_path}
         milestone={wsProgress}
         notifications={notifs.unreadCount}
         notificationList={notifs.notifications}

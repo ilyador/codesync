@@ -20,6 +20,42 @@ export function clearSession() {
 
 export function getToken() { return accessToken; }
 
+// Serialize token refresh to prevent parallel requests from racing
+let refreshPromise: Promise<boolean> | null = null;
+
+async function refreshSession(): Promise<boolean> {
+  if (!refreshToken) return false;
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${BASE}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSession(data.session.access_token, data.session.refresh_token);
+        return true;
+      }
+      clearSession();
+      return false;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
+}
+
+async function parseResponse(res: Response): Promise<any> {
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Request failed');
+  }
+  if (res.status === 204) return { ok: true };
+  return res.json();
+}
+
 async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -30,34 +66,16 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
 
   if (res.status === 401 && refreshToken) {
-    const refreshRes = await fetch(`${BASE}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
-    if (refreshRes.ok) {
-      const data = await refreshRes.json();
-      setSession(data.session.access_token, data.session.refresh_token);
-      headers['Authorization'] = `Bearer ${data.session.access_token}`;
-      const retry = await fetch(`${BASE}${path}`, { ...options, headers });
-      if (!retry.ok) {
-        const err = await retry.json().catch(() => ({ error: retry.statusText }));
-        throw new Error(err.error || 'Request failed after token refresh');
-      }
-      if (retry.status === 204) return { ok: true };
-      return retry.json();
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+      return parseResponse(await fetch(`${BASE}${path}`, { ...options, headers }));
     }
-    clearSession();
     window.location.reload();
     throw new Error('Session expired');
   }
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || 'Request failed');
-  }
-  if (res.status === 204) return { ok: true };
-  return res.json();
+  return parseResponse(res);
 }
 
 // --- Auth ---
@@ -326,13 +344,14 @@ export function subscribeToJob(jobId: string, handlers: {
     }
   };
 
-  source.addEventListener('log', (e) => handlers.onLog?.(JSON.parse(e.data).text));
-  source.addEventListener('phase_start', (e) => { const d = JSON.parse(e.data); handlers.onPhaseStart?.(d.phase, d.attempt); });
-  source.addEventListener('phase_complete', (e) => { const d = JSON.parse(e.data); handlers.onPhaseComplete?.(d.phase, d.output); });
-  source.addEventListener('paused', (e) => handlers.onPause?.(JSON.parse(e.data).question));
-  source.addEventListener('review', (e) => handlers.onReview?.(JSON.parse(e.data)));
+  const parse = (e: MessageEvent) => { try { return JSON.parse(e.data); } catch { return null; } };
+  source.addEventListener('log', (e) => { const d = parse(e); if (d) handlers.onLog?.(d.text); });
+  source.addEventListener('phase_start', (e) => { const d = parse(e); if (d) handlers.onPhaseStart?.(d.phase, d.attempt); });
+  source.addEventListener('phase_complete', (e) => { const d = parse(e); if (d) handlers.onPhaseComplete?.(d.phase, d.output); });
+  source.addEventListener('paused', (e) => { const d = parse(e); if (d) handlers.onPause?.(d.question); });
+  source.addEventListener('review', (e) => { const d = parse(e); if (d) handlers.onReview?.(d); });
   source.addEventListener('done', () => { handlers.onDone?.(); source.close(); });
-  source.addEventListener('failed', (e) => { handlers.onFail?.(JSON.parse(e.data).error); source.close(); });
+  source.addEventListener('failed', (e) => { const d = parse(e); handlers.onFail?.(d?.error || 'Unknown error'); source.close(); });
   return () => source.close();
 }
 
@@ -342,24 +361,18 @@ export function subscribeToChanges(projectId: string, onUpdate: (data: any) => v
   const source = new EventSource(url);
   let consecutiveErrors = 0;
   const MAX_CONSECUTIVE_ERRORS = 5;
-  let resetTimer: ReturnType<typeof setTimeout> | null = null;
 
   source.addEventListener('message', (e) => {
     consecutiveErrors = 0;
-    if (resetTimer) clearTimeout(resetTimer);
-    onUpdate(JSON.parse(e.data));
+    try { onUpdate(JSON.parse(e.data)); } catch { /* malformed event */ }
   });
 
   source.onerror = () => {
     consecutiveErrors++;
     if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
       source.close();
-      return;
     }
   };
 
-  return () => {
-    if (resetTimer) clearTimeout(resetTimer);
-    source.close();
-  };
+  return () => source.close();
 }

@@ -4,7 +4,7 @@ export type JobView = {
   title: string;
   type: string;
   description?: string;
-  status: 'running' | 'paused' | 'review' | 'done' | 'failed';
+  status: 'queued' | 'running' | 'paused' | 'review' | 'done' | 'failed';
   phases?: { name: string; status: string }[];
   currentPhase?: string;
   attempt?: number;

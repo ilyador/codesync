@@ -44,6 +44,7 @@ interface TaskCardProps {
 }
 
 const STATUS_LABELS: Record<string, string> = {
+  queued: 'Queued',
   running: 'Running',
   paused: 'Waiting',
   review: 'Review',
@@ -71,7 +72,7 @@ export function TaskCard({
   isDragging,
 }: TaskCardProps) {
   const jobStatus = job?.status;
-  const isActive = jobStatus === 'running' || jobStatus === 'paused' || jobStatus === 'review';
+  const isActive = jobStatus === 'queued' || jobStatus === 'running' || jobStatus === 'paused' || jobStatus === 'review';
   const taskDone = task.status === 'done' || jobStatus === 'done';
 
   const statusClass = jobStatus
@@ -143,29 +144,23 @@ export function TaskCard({
         </div>
       </div>
 
-      {/* Preview: description + image thumbnails (visible when collapsed) */}
-      {!isExpanded && (task.description || (task.images && task.images.length > 0)) && (
-        <div className={s.preview}>
-          {task.description && (
-            <div className={s.previewDesc}>
-              <Markdown>{task.description}</Markdown>
-            </div>
-          )}
-          {task.images && task.images.length > 0 && (
-            <div className={s.previewImages}>
-              {task.images.slice(0, 5).map((url, i) => (
-                <img key={i} src={url} alt="" className={s.previewThumb} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Expanded detail — varies by state */}
-      {isExpanded && (
+      {/* Active job detail — ALWAYS visible for running/paused/review */}
+      {isActive && job && (
         <div className={s.detail} onClick={(e) => e.stopPropagation()}>
+          {/* Description (read-only) */}
+          {task.description && (
+            <div className={s.desc}><Markdown>{task.description}</Markdown></div>
+          )}
+
+          {/* QUEUED */}
+          {jobStatus === 'queued' && (
+            <div className={s.runMeta}>
+              <span>Queued — waiting for worker to pick up...</span>
+            </div>
+          )}
+
           {/* RUNNING */}
-          {jobStatus === 'running' && job && (
+          {jobStatus === 'running' && (
             <>
               {job.phases && job.phases.length > 0 && (
                 <div className={s.phases}>
@@ -197,7 +192,7 @@ export function TaskCard({
           )}
 
           {/* PAUSED */}
-          {jobStatus === 'paused' && job && (
+          {jobStatus === 'paused' && (
             <>
               {job.question && <div className={s.question}>{job.question}</div>}
               {onReply && (
@@ -207,7 +202,7 @@ export function TaskCard({
           )}
 
           {/* REVIEW */}
-          {jobStatus === 'review' && job && (
+          {jobStatus === 'review' && (
             <div className={s.reviewSection}>
               {job.review?.changedFiles && (
                 <div className={s.files}>
@@ -240,15 +235,38 @@ export function TaskCard({
               </div>
             </div>
           )}
+        </div>
+      )}
 
+      {/* Preview: description + image thumbnails (visible when collapsed and NOT active) */}
+      {!isActive && !isExpanded && (task.description || (task.images && task.images.length > 0)) && (
+        <div className={s.preview}>
+          {task.description && (
+            <div className={s.previewDesc}>
+              <Markdown>{task.description}</Markdown>
+            </div>
+          )}
+          {task.images && task.images.length > 0 && (
+            <div className={s.previewImages}>
+              {task.images.slice(0, 5).map((url) => (
+                <img key={url} src={url} alt="" className={s.previewThumb} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Expanded detail for non-active states (click to toggle) */}
+      {!isActive && isExpanded && (
+        <div className={s.detail} onClick={(e) => e.stopPropagation()}>
           {/* FAILED */}
           {jobStatus === 'failed' && job && (
             <div className={s.failedSection}>
               {job.question && <div className={s.errorMsg}>{job.question}</div>}
               <div className={s.failActions}>
-                {onReject && (
-                  <button className="btn btnDanger btnSm" onClick={() => onReject(job.id)}>
-                    Return to backlog
+                {onRun && task.mode === 'ai' && (
+                  <button className="btn btnDanger btnSm" onClick={() => onRun(task.id)}>
+                    Restart
                   </button>
                 )}
                 {onDeleteJob && (

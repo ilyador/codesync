@@ -81,7 +81,7 @@ export function Board({
   const [newWsName, setNewWsName] = useState('');
 
   const taskJobMap = useMemo(() => {
-    const priority: Record<string, number> = { running: 0, paused: 1, review: 2, done: 3, failed: 4 };
+    const priority: Record<string, number> = { running: 0, queued: 1, paused: 2, review: 3, done: 4, failed: 5 };
     const map: Record<string, JobView> = {};
     for (const job of jobs) {
       const existing = map[job.taskId];

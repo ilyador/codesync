@@ -6,6 +6,9 @@
   height: 56px;
   border-bottom: 1px solid var(--divider);
   background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 .left, .right { display: flex; align-items: center; gap: 16px; }
 .logo {
@@ -126,6 +129,17 @@
 }
 
 .milestone { font-size: 13px; color: var(--text-3); }
+.localPath {
+  font-size: 12px;
+  color: var(--text-4);
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', monospace;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
 .icon {
   position: relative;
   background: none;

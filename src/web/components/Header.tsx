@@ -18,6 +18,7 @@ interface Notification {
 
 interface Props {
   projectName: string;
+  localPath?: string;
   milestone: { name: string; tasksDone: number; tasksTotal: number };
   notifications: number;
   notificationList?: Notification[];
@@ -34,6 +35,7 @@ interface Props {
 
 export function Header({
   projectName,
+  localPath,
   milestone,
   notifications,
   notificationList = [],
@@ -128,6 +130,7 @@ export function Header({
         </div>
       </div>
       <div className={s.right}>
+        {localPath && <span className={s.localPath} title={localPath}>{localPath}</span>}
         <span className={s.milestone}>
           {milestone.tasksTotal === 0 && milestone.name === 'All'
             ? 'No milestone'

@@ -2,8 +2,8 @@
 .board {
   display: flex;
   gap: 20px;
-  padding: 28px 32px 100px;
-  min-height: calc(100vh - 57px);
+  padding: 20px 32px 20px;
+  height: calc(100vh - 56px);
   overflow-x: auto;
   overflow-y: hidden;
   align-items: flex-start;
