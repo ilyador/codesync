@@ -118,6 +118,7 @@
   height: 100%;
   transition: width 0.3s ease;
   min-width: 0;
+  background: var(--text-4);
 }
 .progressLine--in-progress { background: var(--blue); }
 .progressLine--pending-review { background: var(--amber); }

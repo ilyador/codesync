@@ -334,10 +334,10 @@ export function WorkstreamColumn({
         </div>
 
         {/* Progress line on the separator — full width, colored by state */}
-        {!isBacklog && totalTasks > 0 && wsStatus && wsStatus !== 'open' && (
+        {!isBacklog && totalTasks > 0 && (
           <div className={s.progressLine}>
             <div
-              className={`${s.progressLineFill} ${s[`progressLine--${wsStatus.replace(' ', '-')}`]}`}
+              className={`${s.progressLineFill} ${wsStatus ? s[`progressLine--${wsStatus.replace(' ', '-')}`] : ''}`}
               style={{ width: `${progressPct}%` }}
             />
           </div>
