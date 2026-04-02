@@ -358,6 +358,7 @@ export function TaskCard({
             <IdleDetail
               task={task}
               canRunAi={canRunAi}
+              projectId={projectId}
               onRun={onRun}
               onEdit={onEdit}
               onDelete={onDelete}
@@ -374,6 +375,7 @@ export function TaskCard({
 function IdleDetail({
   task,
   canRunAi,
+  projectId,
   onRun,
   onEdit,
   onDelete,
@@ -381,6 +383,7 @@ function IdleDetail({
 }: {
   task: TaskCardProps['task'];
   canRunAi: boolean;
+  projectId?: string;
   onRun?: (taskId: string) => void;
   onEdit?: () => void;
   onDelete?: () => void;
