@@ -7,7 +7,7 @@
     "dev": "concurrently \"pnpm dev:web\" \"pnpm dev:server\" \"pnpm dev:worker\"",
     "dev:web": "vite",
     "dev:server": "tsx watch src/server/index.ts",
-    "dev:worker": "tsx watch src/server/worker.ts",
+    "dev:worker": "tsx src/server/worker.ts",
     "build": "vite build",
     "dev:bot": "tsx src/server/bot.ts",
     "mcp": "tsx src/server/mcp.ts",
