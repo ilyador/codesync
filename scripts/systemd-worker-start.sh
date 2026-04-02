@@ -13,8 +13,4 @@ if [[ -s "$NVM_DIR/nvm.sh" ]]; then
   source "$NVM_DIR/nvm.sh"
 fi
 
-# Install deps if needed (e.g. after git sync pulled new packages)
-pnpm install --frozen-lockfile 2>/dev/null || true
-
-# Start Express API server only (worker is a separate systemd service)
-exec pnpm dev:server
+exec pnpm dev:worker
