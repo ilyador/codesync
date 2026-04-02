@@ -15,6 +15,7 @@ interface Task {
   assignee: string | null;
   workstream_id: string | null;
   position: number;
+  priority: string;
   images: string[];
   followup_notes: string | null;
   created_at: string;
@@ -43,7 +44,24 @@ export function useTasks(projectId: string | null) {
   useEffect(() => {
     load();
     if (!projectId) return;
-    const unsub = subscribeToChanges(projectId, () => { load(); });
+    const unsub = subscribeToChanges(projectId, (event) => {
+      if (event.type === 'task_changed' && event.task) {
+        setTasks(prev => {
+          const idx = prev.findIndex(t => t.id === event.task.id);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = { ...prev[idx], ...event.task };
+            return next;
+          }
+          return [...prev, event.task].sort((a, b) => a.position - b.position);
+        });
+      } else if (event.type === 'task_deleted' && event.task) {
+        setTasks(prev => prev.filter(t => t.id !== event.task.id));
+      } else {
+        // full_sync fallback or unknown event — reload
+        load();
+      }
+    });
     return unsub;
   }, [projectId, load]);
 

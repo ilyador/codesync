@@ -33,7 +33,24 @@ export function useJobs(projectId: string | null) {
   useEffect(() => {
     load();
     if (!projectId) return;
-    const unsub = subscribeToChanges(projectId, () => { load(); });
+    const unsub = subscribeToChanges(projectId, (event) => {
+      if (event.type === 'job_changed' && event.job) {
+        setJobs(prev => {
+          const idx = prev.findIndex(j => j.id === event.job.id);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = { ...prev[idx], ...event.job };
+            return next;
+          }
+          return [event.job, ...prev];
+        });
+      } else if (event.type === 'job_deleted' && event.job) {
+        setJobs(prev => prev.filter(j => j.id !== event.job.id));
+      } else {
+        // full_sync fallback or unknown event — reload
+        load();
+      }
+    });
     return unsub;
   }, [projectId, load]);
 
