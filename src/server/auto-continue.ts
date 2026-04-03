@@ -18,7 +18,7 @@ export async function queueNextWorkstreamTask(params: {
   // Find next incomplete task in workstream by position
   const { data: nextTask } = await supabase
     .from('tasks')
-    .select('id, type, mode, title, assignee')
+    .select('id, type, mode, title, assignee, created_by')
     .eq('workstream_id', workstreamId)
     .in('status', ['backlog', 'todo'])
     .gt('position', completedPosition)
@@ -46,7 +46,7 @@ export async function queueNextWorkstreamTask(params: {
   if (nextTask.mode === 'human') {
     await supabase.from('tasks').update({ status: 'in_progress' }).eq('id', nextTask.id);
 
-    if (nextTask.assignee) {
+    if (nextTask.assignee && nextTask.assignee !== nextTask.created_by) {
       await supabase.from('notifications').insert({
         user_id: nextTask.assignee,
         type: 'human_task',

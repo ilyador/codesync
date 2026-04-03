@@ -115,6 +115,7 @@ export function WorkstreamColumn({
   const dropIndexRef = useRef<number | null>(null);
   const dragCountRef = useRef(0); // track enter/leave balance to handle child elements
   const colDragCountRef = useRef(0);
+  const columnScrollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const wsId = workstream?.id || null;
   const doneTasks = tasks.filter(t => t.status === 'done').length;
@@ -209,6 +210,11 @@ export function WorkstreamColumn({
     return () => cancelAnimationFrame(rafId);
   }, [focusTaskId, tasks]);
 
+  // Clean up column scroll interval on unmount
+  useEffect(() => () => {
+    if (columnScrollInterval.current) clearInterval(columnScrollInterval.current);
+  }, []);
+
   // Focus name input when editing
   useEffect(() => {
     if (editing && nameInputRef.current) {
@@ -238,7 +244,8 @@ export function WorkstreamColumn({
   const updateDropIndicator = useCallback((clientY: number) => {
     const container = tasksRef.current;
     if (!container || !draggedTaskId) return;
-    const wraps = Array.from(container.querySelectorAll<HTMLElement>(`.${s.cardWrap}`));
+    const allWraps = Array.from(container.querySelectorAll<HTMLElement>(`.${s.cardWrap}`));
+    const wraps = allWraps.filter(el => el.dataset.taskId !== draggedTaskId);
     clearDropIndicator();
 
     let idx = wraps.length;
@@ -249,7 +256,17 @@ export function WorkstreamColumn({
         break;
       }
     }
-    dropIndexRef.current = idx;
+
+    // Map the index among non-dragged cards back to the actual task index
+    // idx among filtered wraps = insert before the idx-th non-dragged card
+    // Find the corresponding index in allWraps
+    let actualIdx: number;
+    if (idx < wraps.length) {
+      actualIdx = allWraps.indexOf(wraps[idx]);
+    } else {
+      actualIdx = allWraps.length;
+    }
+    dropIndexRef.current = actualIdx;
 
     // Apply CSS class to show a drop indicator line
     if (idx < wraps.length) {
@@ -258,6 +275,13 @@ export function WorkstreamColumn({
       wraps[wraps.length - 1].classList.add(s.dropAfter);
     }
   }, [draggedTaskId, clearDropIndicator]);
+
+  const clearColumnScroll = useCallback(() => {
+    if (columnScrollInterval.current) {
+      clearInterval(columnScrollInterval.current);
+      columnScrollInterval.current = null;
+    }
+  }, []);
 
   // Column drag-over: detect which side the cursor is on for the drop indicator
   const handleColumnDragOver = useCallback((e: React.DragEvent) => {
@@ -293,6 +317,7 @@ export function WorkstreamColumn({
           if (dragCountRef.current <= 0) {
             dragCountRef.current = 0;
             clearDropIndicator();
+            clearColumnScroll();
             dropIndexRef.current = null;
           }
         }
@@ -306,6 +331,7 @@ export function WorkstreamColumn({
       }}
       onDrop={(e) => {
         e.preventDefault();
+        clearColumnScroll();
         // Handle task drop
         if (draggedTaskId && dropIndexRef.current !== null) {
           clearDropIndicator();
@@ -456,7 +482,35 @@ export function WorkstreamColumn({
         ref={tasksRef}
         onDragOver={(e) => {
           e.preventDefault();
-          if (draggedTaskId) updateDropIndicator(e.clientY);
+          if (draggedTaskId) {
+            updateDropIndicator(e.clientY);
+
+            // Vertical auto-scroll when dragging near top/bottom edges
+            const container = tasksRef.current;
+            if (container) {
+              const rect = container.getBoundingClientRect();
+              const edgeZone = 50;
+              const scrollSpeed = 8;
+              if (e.clientY < rect.top + edgeZone) {
+                if (!columnScrollInterval.current) {
+                  columnScrollInterval.current = setInterval(() => {
+                    container.scrollTop -= scrollSpeed;
+                  }, 16);
+                }
+              } else if (e.clientY > rect.bottom - edgeZone) {
+                if (!columnScrollInterval.current) {
+                  columnScrollInterval.current = setInterval(() => {
+                    container.scrollTop += scrollSpeed;
+                  }, 16);
+                }
+              } else {
+                clearColumnScroll();
+              }
+            }
+          }
+        }}
+        onDragLeave={() => {
+          clearColumnScroll();
         }}
       >
         {tasks.length === 0 && draggedTaskId && (
@@ -470,7 +524,7 @@ export function WorkstreamColumn({
         {tasks.map((task) => {
           const job = taskJobMap[task.id] || null;
           return (
-            <div key={task.id} className={s.cardWrap}>
+            <div key={task.id} className={s.cardWrap} data-task-id={task.id}>
               <TaskCard
                 task={task}
                 job={job}

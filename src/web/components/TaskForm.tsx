@@ -106,6 +106,7 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
 
   // Skill autocomplete state
   const [skills, setSkills] = useState<SkillInfo[]>([]);
+  const [skillsLoaded, setSkillsLoaded] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
   const [skillFilter, setSkillFilter] = useState('');
   const [selectedSkillIdx, setSelectedSkillIdx] = useState(0);
@@ -129,7 +130,12 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
 
   // Fetch skills on mount
   useEffect(() => {
-    getSkills(localPath).then(setSkills).catch(() => {});
+    getSkills(localPath).then(data => {
+      setSkills(data);
+      setSkillsLoaded(true);
+    }).catch(() => {
+      setSkillsLoaded(true);
+    });
   }, [localPath]);
 
   const filteredSkills = skills.filter(sk =>
@@ -261,6 +267,9 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
     setLoading(true);
     try {
       const resolvedType = isCustomType ? customType.trim().toLowerCase().replace(/\s+/g, '-') : type;
+      if (isCustomType && customType.trim() && onSaveCustomType) {
+        await onSaveCustomType(resolvedType, customPipeline);
+      }
       await onSubmit({
         title: title.trim(),
         description: description.trim(),
@@ -335,7 +344,7 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
                 ))}
               </div>
             )}
-            {referencedSkills.length > 0 && !showSkills && (
+            {referencedSkills.length > 0 && !showSkills && skillsLoaded && (
               <div className={s.skillBadges}>
                 {validSkills.map(name => (
                   <span key={name} className={s.skillBadgeValid}>/{name}</span>

@@ -129,11 +129,11 @@ export function TaskCard({
 
   return (
     <div
-      className={`${s.card} ${priorityBgClass} ${priorityBorderClass} ${statusClass} ${isDragging ? s.dragging : ''}`}
+      className={`${s.card} ${priorityBorderClass} ${statusClass} ${isDragging ? s.dragging : ''}`}
       onClick={onToggleExpand}
     >
       {/* Compact view — always visible */}
-      <div className={s.compact}>
+      <div className={`${s.compact} ${priorityBgClass}`}>
         {!dragDisabled && (
           <span
             className={s.handle}
@@ -402,7 +402,7 @@ function IdleDetail({
 
       <div className={s.actions}>
         <div className={s.actionsLeft}>
-          {task.assignee && task.assignee.type !== 'ai' && onUpdateTask && (
+          {task.assignee && task.assignee.type !== 'ai' && task.status === 'in_progress' && onUpdateTask && (
             <>
               <button className="btn btnSuccess btnSm" onClick={() => onUpdateTask(task.id, { status: 'done' })}>
                 Done
@@ -515,14 +515,12 @@ function CardComments({ taskId, projectId }: { taskId: string; projectId?: strin
 
   return (
     <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--divider)' }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)', display: 'block', marginBottom: 6 }}>
-        Comments
-      </span>
-      {comments.length === 0 && (
-        <span style={{ fontSize: 12, color: 'var(--text-4)', display: 'block', marginBottom: 6 }}>
-          No comments yet
-        </span>
-      )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)' }}>Comments</span>
+        {comments.length === 0 && (
+          <span style={{ fontSize: 12, color: 'var(--text-4)' }}>No comments yet</span>
+        )}
+      </div>
       {comments.map(c => (
         <div key={c.id} className={s.comment}>
           <span style={{

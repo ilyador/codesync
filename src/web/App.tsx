@@ -9,6 +9,7 @@ import { useNotifications } from './hooks/useNotifications';
 import { useCommentCounts } from './hooks/useCommentCounts';
 import { useWebNotifications } from './hooks/useWebNotifications';
 import { useFlows } from './hooks/useFlows';
+import { useCustomTypes } from './hooks/useCustomTypes';
 import { signUp, signIn, signOut, runTaskApi, replyToJob, approveJob, rejectJob, revertJob, terminateJob, deleteJob, updateTask, reviewAndCreatePr } from './lib/api';
 import { Routes, Route, useSearchParams } from 'react-router-dom';
 import { OnboardingCheck } from './components/OnboardingCheck';
@@ -81,6 +82,7 @@ export default function App() {
   const workstreams = useWorkstreams(projects.current?.id || null);
   const members = useMembers(projects.current?.id || null);
   const aiFlows = useFlows(projects.current?.id || null);
+  const customTypes = useCustomTypes(projects.current?.id || null);
   const notifs = useNotifications(auth.profile?.id);
   const commentCounts = useCommentCounts(projects.current?.id || null);
   const webNotifs = useWebNotifications();
@@ -454,6 +456,10 @@ export default function App() {
           defaultWorkstreamId={taskFormWorkstream}
           members={members.members.map(m => ({ id: m.id, name: m.name, initials: m.initials }))}
           flows={aiFlows.flows}
+          customTypes={customTypes.types.map(t => ({ id: t.id, name: t.name, pipeline: t.pipeline }))}
+          onSaveCustomType={async (name, pipeline) => {
+            await customTypes.addType(name, pipeline);
+          }}
           existingTasks={tasks.tasks
             .filter(t => t.status !== 'done' && t.status !== 'canceled')
             .map(t => ({ id: t.id, title: t.title }))
@@ -485,6 +491,10 @@ export default function App() {
           workstreams={workstreams.active.map(w => ({ id: w.id, name: w.name }))}
           members={members.members.map(m => ({ id: m.id, name: m.name, initials: m.initials }))}
           flows={aiFlows.flows}
+          customTypes={customTypes.types.map(t => ({ id: t.id, name: t.name, pipeline: t.pipeline }))}
+          onSaveCustomType={async (name, pipeline) => {
+            await customTypes.addType(name, pipeline);
+          }}
           existingTasks={tasks.tasks
             .filter(t => t.status !== 'done' && t.status !== 'canceled' && t.id !== editingTask.id)
             .map(t => ({ id: t.id, title: t.title }))

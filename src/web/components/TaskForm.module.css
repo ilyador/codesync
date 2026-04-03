@@ -326,12 +326,12 @@
 }
 .segmentedBtn {
   flex: 1;
-  padding: 8px 6px;
+  padding: 10px 8px;
   background: none;
   border: none;
   border-right: 1px solid var(--divider);
   font-family: var(--font);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-3);
   cursor: pointer;
