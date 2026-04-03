@@ -365,11 +365,11 @@ function FlowColumn({
         </button>
         {state.agentsMdOpen && (
           <div className={s.agentsMdBody}>
-            <textarea
-              className={s.agentsMdTextarea}
+            <MdField
               value={state.editAgentsMd}
-              onChange={e => state.setEditAgentsMd(e.target.value)}
-              placeholder="Shared instructions passed to agents running this flow (markdown)..."
+              onChange={val => state.setEditAgentsMd(val)}
+              placeholder="Shared instructions for all steps in this flow (markdown)..."
+              autoResizeFn={autoResize}
             />
           </div>
         )}
@@ -386,8 +386,6 @@ function FlowColumn({
             <div
               key={step.id}
               className={`${s.stepCard} ${state.dragIdx === idx ? s.stepCardDragging : ''} ${state.dragOverIdx === idx && state.dragIdx !== idx ? s.stepCardDragOver : ''}`}
-              draggable
-              onDragStart={() => handleDragStart(idx)}
               onDragOver={e => handleDragOver(e, idx)}
               onDragEnd={handleDragEnd}
             >
@@ -398,6 +396,8 @@ function FlowColumn({
               >
                 <span
                   className={s.dragHandle}
+                  draggable
+                  onDragStart={e => { e.stopPropagation(); handleDragStart(idx); }}
                   onClick={e => e.stopPropagation()}
                   title="Drag to reorder"
                 >&#8942;&#8942;</span>
