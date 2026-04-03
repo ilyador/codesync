@@ -462,7 +462,7 @@ export default function App() {
               flows={aiFlows.flows}
               projectId={projects.current.id}
               onSave={async (flowId, updates) => { await aiFlows.updateFlow(flowId, updates); }}
-              onSaveSteps={async (flowId, steps) => { await aiFlows.updateFlowSteps(flowId, steps); }}
+              onSaveSteps={async (flowId, steps) => { await aiFlows.updateFlowSteps(flowId, steps); await aiFlows.reload(); }}
               onCreateFlow={async (data) => { return await aiFlows.createFlow(data); }}
               onDeleteFlow={async (flowId) => { await aiFlows.deleteFlow(flowId); }}
             />

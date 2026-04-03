@@ -113,6 +113,7 @@ function useFlowColumnState(flow: Flow) {
     setEditName(flow.name);
     setEditAgentsMd(flow.agents_md ?? '');
     setEditSteps(cloneSteps(flow.flow_steps.sort((a, b) => a.position - b.position)));
+    setAgentsMdOpen(!!flow.agents_md);
     setError('');
   }, [flow.id, flow.name, flow.agents_md, flow.flow_steps]);
 
@@ -144,7 +145,6 @@ function FlowColumn({
 }) {
   const state = useFlowColumnState(flow);
   const nameInputRef = useRef<HTMLInputElement>(null);
-  const instructionsRefs = useRef<Map<number, HTMLTextAreaElement>>(new Map());
 
   // Focus name input when editing
   useEffect(() => {

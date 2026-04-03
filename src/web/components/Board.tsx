@@ -36,7 +36,7 @@ interface BoardProps {
   tasks: Task[];
   jobs: JobView[];
   memberMap: Record<string, { name: string; initials: string }>;
-  flowMap?: Record<string, string>;
+  flowMap: Record<string, string>;
   userRole: string;
   projectId: string | null;
   mentionedTaskIds: Set<string>;
@@ -128,7 +128,7 @@ export function Board({
       const key = task.workstream_id || '__backlog__';
       if (!groups[key]) groups[key] = [];
       const member = task.assignee ? memberMap[task.assignee] : null;
-      const flowName = task.flow_id && flowMap ? flowMap[task.flow_id] : null;
+      const flowName = task.flow_id ? flowMap[task.flow_id] : null;
       groups[key].push({
         ...task,
         assignee: member

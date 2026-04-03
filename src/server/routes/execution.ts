@@ -5,6 +5,17 @@ import { requireAuth } from '../auth-middleware.js';
 import { revertToCheckpoint, deleteCheckpoint } from '../checkpoint.js';
 import { queueNextWorkstreamTask } from '../auto-continue.js';
 import { autoCommit } from '../git-utils.js';
+import { TYPE_TO_FLOW_NAME } from '../routes/data.js';
+
+/** Resolve a flow's snapshot, first phase, and maxAttempts from a loaded flow row. */
+function resolveFlow(flow: any): { flowSnapshot: any; firstPhase: string; maxAttempts: number } {
+  const flowSnapshot = buildFlowSnapshot(flow);
+  const firstPhase = flowSnapshot.steps[0]?.name || 'plan';
+  const maxAttempts = flowSnapshot.steps.length > 0
+    ? Math.max(...flowSnapshot.steps.map((s: any) => s.max_retries + 1))
+    : 1;
+  return { flowSnapshot, firstPhase, maxAttempts };
+}
 
 export const executionRouter = Router();
 
@@ -70,9 +81,7 @@ executionRouter.post('/api/run', requireAuth, async (req, res) => {
       .eq('id', task.flow_id)
       .single();
     if (flow) {
-      flowSnapshot = buildFlowSnapshot(flow);
-      firstPhase = flowSnapshot.steps[0]?.name || 'plan';
-      maxAttempts = flowSnapshot.steps.length > 0 ? Math.max(...flowSnapshot.steps.map((s: any) => s.max_retries + 1)) : 1;
+      ({ flowSnapshot, firstPhase, maxAttempts } = resolveFlow(flow));
     } else {
       console.warn(`[execution] Flow ${task.flow_id} not found for task ${taskId}, falling back to legacy type`);
       const taskType = loadTaskTypeConfig(localPath, task.type);
@@ -81,18 +90,12 @@ executionRouter.post('/api/run', requireAuth, async (req, res) => {
     }
   } else {
     // No flow_id on task -- try to find a matching default flow by task type
-    const typeToFlow: Record<string, string> = {
-      'bug-fix': 'AI Bug Hunter', 'feature': 'AI Developer', 'ui-fix': 'AI Developer',
-      'design': 'AI Developer', 'chore': 'AI Developer', 'refactor': 'AI Refactorer', 'test': 'AI Tester',
-    };
-    const flowName = typeToFlow[task.type];
+    const flowName = TYPE_TO_FLOW_NAME[task.type];
     const { data: flow } = flowName
       ? await supabase.from('flows').select('*, flow_steps(*)').eq('project_id', projectId).eq('name', flowName).single()
       : { data: null };
     if (flow) {
-      flowSnapshot = buildFlowSnapshot(flow);
-      firstPhase = flowSnapshot.steps[0]?.name || 'plan';
-      maxAttempts = flowSnapshot.steps.length > 0 ? Math.max(...flowSnapshot.steps.map((s: any) => s.max_retries + 1)) : 1;
+      ({ flowSnapshot, firstPhase, maxAttempts } = resolveFlow(flow));
     } else {
       const taskType = loadTaskTypeConfig(localPath, task.type);
       firstPhase = taskType.phases[0];
