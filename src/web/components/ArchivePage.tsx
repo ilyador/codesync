@@ -79,6 +79,9 @@ export function ArchivePage({ workstreams, tasks, jobs, memberMap, projectId, on
 
         return (
           <div key={ws.id} className={s.columnWrap}>
+            <div className={s.restoreBar}>
+              <button className={s.restoreBtn} onClick={() => onRestore(ws.id)}>Restore to board</button>
+            </div>
             <WorkstreamColumn
               workstream={ws}
               tasks={wsTasks}
@@ -93,7 +96,6 @@ export function ArchivePage({ workstreams, tasks, jobs, memberMap, projectId, on
               onDragTaskEnd={noop}
               onDropTask={noop}
               onAddTask={noop}
-              onArchive={() => onRestore(ws.id)}
             />
           </div>
         );
