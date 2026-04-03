@@ -129,11 +129,11 @@ export function TaskCard({
 
   return (
     <div
-      className={`${s.card} ${priorityBorderClass} ${statusClass} ${isDragging ? s.dragging : ''}`}
+      className={`${s.card} ${priorityBgClass} ${priorityBorderClass} ${statusClass} ${isDragging ? s.dragging : ''}`}
       onClick={onToggleExpand}
     >
       {/* Compact view — always visible */}
-      <div className={`${s.compact} ${priorityBgClass}`}>
+      <div className={s.compact}>
         {!dragDisabled && (
           <span
             className={s.handle}
