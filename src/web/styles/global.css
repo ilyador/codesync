@@ -35,7 +35,9 @@
   --text-2: #A8A8A0;
   --text-3: #737370;
   --text-4: #4A4A47;
-  --blue-bg: rgba(37,99,235,0.12);
+  --blue: #6EA8E6;
+  --blue-soft: #88BBF0;
+  --blue-bg: rgba(110,168,230,0.12);
   --green-bg: rgba(22,163,74,0.12);
   --amber-bg: rgba(180,83,9,0.12);
   --red-bg: rgba(185,28,28,0.1);
