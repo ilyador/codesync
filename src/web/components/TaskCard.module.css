@@ -539,6 +539,7 @@
   margin-bottom: 6px;
   align-items: flex-start;
   position: relative;
+  padding-right: 20px;
 }
 .commentDelete {
   position: absolute;

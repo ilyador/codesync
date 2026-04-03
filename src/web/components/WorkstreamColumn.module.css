@@ -12,6 +12,7 @@
   border-radius: 14px;
   overflow: hidden;
   transition: box-shadow 0.2s, background 0.2s, border-color 0.2s;
+  position: relative;
 }
 
 @media (max-width: 768px) {
@@ -40,12 +41,12 @@
   border-color: var(--blue-soft);
 }
 
-/* Column reorder drop indicators */
+/* Column reorder drop indicator — inset line on the drop side */
 .columnDropLeft {
-  box-shadow: -3px 0 0 0 var(--blue);
+  border-left: 2px solid var(--blue);
 }
 .columnDropRight {
-  box-shadow: 3px 0 0 0 var(--blue);
+  border-right: 2px solid var(--blue);
 }
 
 /* ─── Column header ─── */
