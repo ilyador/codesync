@@ -127,4 +127,5 @@ from flows f
 where f.project_id = t.project_id
   and f.name = 'AI Bug Fixer'
   and t.mode = 'ai'
+  and t.type = 'bug-fix'
   and t.flow_id is null;

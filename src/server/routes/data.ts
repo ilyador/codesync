@@ -707,6 +707,13 @@ dataRouter.post('/api/flows', requireAuth, async (req, res) => {
 });
 
 dataRouter.patch('/api/flows/:id', requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
+  // Verify user is a member of the flow's project
+  const { data: flow } = await supabase.from('flows').select('project_id').eq('id', req.params.id).single();
+  if (!flow) return res.status(404).json({ error: 'Flow not found' });
+  const { data: member } = await supabase.from('project_members').select('role').eq('project_id', flow.project_id).eq('user_id', userId).single();
+  if (!member) return res.status(403).json({ error: 'Not a member of this project' });
+
   const allowed = ['name', 'description', 'icon', 'agents_md'];
   const updates: Record<string, any> = {};
   for (const key of allowed) {
@@ -724,6 +731,13 @@ dataRouter.patch('/api/flows/:id', requireAuth, async (req, res) => {
 });
 
 dataRouter.delete('/api/flows/:id', requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
+  // Verify user is an admin of the flow's project
+  const { data: flow } = await supabase.from('flows').select('project_id').eq('id', req.params.id).single();
+  if (!flow) return res.status(404).json({ error: 'Flow not found' });
+  const { data: member } = await supabase.from('project_members').select('role').eq('project_id', flow.project_id).eq('user_id', userId).single();
+  if (!member || member.role !== 'admin') return res.status(403).json({ error: 'Only project admins can delete flows' });
+
   const { error } = await supabase.from('flows').delete().eq('id', req.params.id);
   if (error) return res.status(400).json({ error: error.message });
   res.json({ ok: true });

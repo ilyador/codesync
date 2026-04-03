@@ -352,7 +352,15 @@ export async function runFlowJob(ctx: FlowJobContext): Promise<void> {
               return;
             }
             if (step.on_max_retries === 'fail') {
-              onFail(`${step.name} failed after ${maxAttempts} attempts: ${reason}`);
+              const failMsg = `${step.name} failed after ${maxAttempts} attempts: ${reason}`;
+              await supabase.from('jobs').update({
+                status: 'failed',
+                phases_completed: phasesCompleted,
+                completed_at: new Date().toISOString(),
+                question: failMsg,
+              }).eq('id', jobId);
+              await supabase.from('tasks').update({ status: 'backlog' }).eq('id', task.id);
+              onFail(failMsg);
               return;
             }
             // 'skip' -- fall through to next step
