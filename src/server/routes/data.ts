@@ -683,6 +683,17 @@ or if issues found:
 
 const EXECUTE_CONTEXT = ['claude_md', 'agents_md', 'task_description', 'skills', 'task_images', 'followup_notes'];
 
+/** Maps task types to the default flow name that should handle them. */
+export const TYPE_TO_FLOW_NAME: Record<string, string> = {
+  'bug-fix': 'AI Bug Hunter',
+  'feature': 'AI Developer',
+  'ui-fix': 'AI Developer',
+  'design': 'AI Developer',
+  'chore': 'AI Developer',
+  'refactor': 'AI Refactorer',
+  'test': 'AI Tester',
+};
+
 const DEFAULT_FLOWS: Array<{ name: string; description: string; steps: any[] }> = [
   {
     name: 'AI Developer',

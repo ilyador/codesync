@@ -27,8 +27,7 @@ export function useFlows(projectId: string | null) {
 
   const updateFlow = useCallback(async (id: string, data: Record<string, unknown>) => {
     await apiUpdate(id, data);
-    await load();
-  }, [load]);
+  }, []);
 
   const deleteFlow = useCallback(async (id: string) => {
     await apiDelete(id);
@@ -37,8 +36,14 @@ export function useFlows(projectId: string | null) {
 
   const updateFlowSteps = useCallback(async (flowId: string, steps: any[]) => {
     await apiUpdateSteps(flowId, steps);
+  }, []);
+
+  /** Save flow metadata + steps in one go, then reload once. */
+  const saveFlow = useCallback(async (id: string, data: Record<string, unknown>, steps: any[]) => {
+    await apiUpdate(id, data);
+    await apiUpdateSteps(id, steps);
     await load();
   }, [load]);
 
-  return { flows, loading, reload: load, createFlow, updateFlow, deleteFlow, updateFlowSteps };
+  return { flows, loading, reload: load, createFlow, updateFlow, deleteFlow, updateFlowSteps, saveFlow };
 }
