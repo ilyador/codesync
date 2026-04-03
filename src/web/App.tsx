@@ -174,6 +174,13 @@ export default function App() {
     return map;
   }, [members.members]);
 
+  // Build flow name lookup (id -> name)
+  const flowMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const f of aiFlows.flows) map[f.id] = f.name;
+    return map;
+  }, [aiFlows.flows]);
+
   // Map API jobs to JobView shape
   const jobViews: JobView[] = useMemo(() => {
     const order: Record<string, number> = { running: 0, queued: 1, paused: 2, review: 3, done: 4, failed: 5 };
@@ -295,6 +302,7 @@ export default function App() {
             tasks={tasks.tasks}
             jobs={jobViews}
             memberMap={memberMap}
+            flowMap={flowMap}
             userRole={projects.current?.role || 'dev'}
             projectId={projects.current?.id || null}
             mentionedTaskIds={mentionedTaskIds}
