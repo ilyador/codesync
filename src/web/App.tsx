@@ -76,7 +76,6 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<EditTaskData | null>(null);
   const [showAddProject, setShowAddProject] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
-  const [showFlowEditor, setShowFlowEditor] = useState(false);
   const auth = useAuth();
   const projects = useProjects(auth.profile?.id);
   const tasks = useTasks(projects.current?.id || null);
@@ -174,6 +173,13 @@ export default function App() {
     for (const m of members.members) map[m.id] = { name: m.name, initials: m.initials };
     return map;
   }, [members.members]);
+
+  // Build flow name lookup (id -> name)
+  const flowMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const f of aiFlows.flows) map[f.id] = f.name;
+    return map;
+  }, [aiFlows.flows]);
 
   // Map API jobs to JobView shape
   const jobViews: JobView[] = useMemo(() => {
@@ -287,7 +293,6 @@ export default function App() {
         onNewProject={() => setShowAddProject(true)}
         onSignOut={async () => { await signOut(); window.location.reload(); }}
         onManageMembers={() => setShowMembersModal(true)}
-        onManageFlows={() => setShowFlowEditor(true)}
       />
 
       <Routes>
@@ -297,6 +302,7 @@ export default function App() {
             tasks={tasks.tasks}
             jobs={jobViews}
             memberMap={memberMap}
+            flowMap={flowMap}
             userRole={projects.current?.role || 'dev'}
             projectId={projects.current?.id || null}
             mentionedTaskIds={mentionedTaskIds}
@@ -360,11 +366,11 @@ export default function App() {
                 effort: task.effort,
                 multiagent: task.multiagent,
                 assignee: rawTask?.assignee ?? null,
-                flow_id: (rawTask as any)?.flow_id ?? null,
+                flow_id: rawTask?.flow_id ?? null,
                 images: task.images,
                 workstream_id: task.workstream_id,
                 auto_continue: task.auto_continue,
-                priority: (task as any).priority,
+                priority: task.priority,
               });
             }}
             onDeleteTask={async (taskId) => {
@@ -449,6 +455,18 @@ export default function App() {
             projectId={projects.current?.id || null}
             onRestore={async (wsId) => { await workstreams.updateWorkstream(wsId, { status: 'active' }); }}
           />
+        } />
+        <Route path="/flows" element={
+          projects.current ? (
+            <FlowEditor
+              flows={aiFlows.flows}
+              projectId={projects.current.id}
+              onSave={async (flowId, updates) => { await aiFlows.updateFlow(flowId, updates); }}
+              onSaveSteps={async (flowId, steps) => { await aiFlows.updateFlowSteps(flowId, steps); }}
+              onCreateFlow={async (data) => { return await aiFlows.createFlow(data); }}
+              onDeleteFlow={async (flowId) => { await aiFlows.deleteFlow(flowId); }}
+            />
+          ) : <div />
         } />
       </Routes>
 
@@ -540,25 +558,6 @@ export default function App() {
         />
       )}
 
-      {showFlowEditor && projects.current && (
-        <FlowEditor
-          flows={aiFlows.flows}
-          projectId={projects.current.id}
-          onSave={async (flowId, updates) => {
-            await aiFlows.updateFlow(flowId, updates);
-          }}
-          onSaveSteps={async (flowId, steps) => {
-            await aiFlows.updateFlowSteps(flowId, steps);
-          }}
-          onCreateFlow={async (data) => {
-            await aiFlows.createFlow(data);
-          }}
-          onDeleteFlow={async (flowId) => {
-            await aiFlows.deleteFlow(flowId);
-          }}
-          onClose={() => setShowFlowEditor(false)}
-        />
-      )}
     </>
   );
 }

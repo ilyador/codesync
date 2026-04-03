@@ -18,6 +18,7 @@ interface Task {
   images?: string[];
   status?: string;
   priority?: string;
+  flow_id?: string | null;
 }
 
 interface Workstream {
@@ -35,6 +36,7 @@ interface BoardProps {
   tasks: Task[];
   jobs: JobView[];
   memberMap: Record<string, { name: string; initials: string }>;
+  flowMap: Record<string, string>;
   userRole: string;
   projectId: string | null;
   mentionedTaskIds: Set<string>;
@@ -67,6 +69,7 @@ export function Board({
   tasks,
   jobs,
   memberMap,
+  flowMap,
   userRole,
   projectId,
   mentionedTaskIds,
@@ -125,13 +128,16 @@ export function Board({
       const key = task.workstream_id || '__backlog__';
       if (!groups[key]) groups[key] = [];
       const member = task.assignee ? memberMap[task.assignee] : null;
+      const flowName = task.flow_id ? flowMap[task.flow_id] : null;
       groups[key].push({
         ...task,
         assignee: member
           ? { type: 'user', name: member.name, initials: member.initials }
-          : task.assignee
-            ? { type: 'ai' }
-            : null,
+          : flowName
+            ? { type: 'ai', name: flowName }
+            : task.assignee
+              ? { type: 'ai' }
+              : null,
       });
     }
 
@@ -139,7 +145,7 @@ export function Board({
       groups[key].sort((a: any, b: any) => a.position - b.position);
     }
     return groups;
-  }, [tasks, workstreams, memberMap]);
+  }, [tasks, workstreams, memberMap, flowMap]);
 
   const sortedWs = useMemo(
     () => [...workstreams].sort((a, b) => a.position - b.position),
