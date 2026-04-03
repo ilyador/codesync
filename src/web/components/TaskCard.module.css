@@ -82,6 +82,8 @@
   overflow: hidden;
 }
 .previewDesc p { margin: 0; }
+.previewDesc a { color: var(--blue); text-decoration: none; }
+.previewDesc a:hover { text-decoration: underline; }
 .previewDesc img { display: none; }
 .previewDesc code {
   font-size: 12px;
