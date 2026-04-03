@@ -386,7 +386,7 @@ function IdleDetail({
         <span>
           assignee: {task.assignee && task.assignee.type !== 'ai'
             ? (task.assignee.name || task.assignee.initials)
-            : 'AI'}
+            : task.assignee?.name || 'AI'}
         </span>
       </div>
 
