@@ -347,6 +347,26 @@ dataRouter.delete('/api/jobs/:id', requireAuth, async (req, res) => {
 
 // --- Comments ---
 
+dataRouter.get('/api/comment-counts', requireAuth, async (req, res) => {
+  const projectId = req.query.project_id as string;
+  if (!projectId) return res.status(400).json({ error: 'project_id required' });
+  const { data } = await supabase.rpc('get_comment_counts', { p_project_id: projectId });
+  // Fallback: if RPC doesn't exist, return empty
+  if (!data) {
+    // Manual query fallback
+    const { data: tasks } = await supabase.from('tasks').select('id').eq('project_id', projectId);
+    if (!tasks || tasks.length === 0) return res.json({});
+    const ids = tasks.map(t => t.id);
+    const { data: comments } = await supabase.from('comments').select('task_id').in('task_id', ids);
+    const counts: Record<string, number> = {};
+    for (const c of comments || []) {
+      counts[c.task_id] = (counts[c.task_id] || 0) + 1;
+    }
+    return res.json(counts);
+  }
+  res.json(data);
+});
+
 dataRouter.get('/api/comments', requireAuth, async (req, res) => {
   const taskId = req.query.task_id as string;
   if (!taskId) return res.status(400).json({ error: 'task_id required' });

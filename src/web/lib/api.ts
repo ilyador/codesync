@@ -264,6 +264,10 @@ export async function removeMember(projectId: string, userId: string) {
 }
 
 // --- Comments ---
+export async function getCommentCounts(projectId: string): Promise<Record<string, number>> {
+  return apiFetch(`/api/comment-counts?project_id=${projectId}`);
+}
+
 export async function getComments(taskId: string) {
   return apiFetch(`/api/comments?task_id=${taskId}`);
 }

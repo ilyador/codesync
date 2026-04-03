@@ -38,6 +38,7 @@ interface BoardProps {
   userRole: string;
   projectId: string | null;
   mentionedTaskIds: Set<string>;
+  commentCounts: Record<string, number>;
   focusTaskId: string | null;
   // Workstream actions
   onCreateWorkstream: (name: string, description?: string, has_code?: boolean) => Promise<void>;
@@ -69,6 +70,7 @@ export function Board({
   userRole,
   projectId,
   mentionedTaskIds,
+  commentCounts,
   focusTaskId,
   onCreateWorkstream,
   onUpdateWorkstream,
@@ -246,6 +248,7 @@ export function Board({
         canRunAi={userRole !== 'manager'}
         projectId={projectId}
         mentionedTaskIds={mentionedTaskIds}
+        commentCounts={commentCounts}
         focusTaskId={focusTaskId}
         draggedTaskId={draggedTaskId}
         onDragTaskStart={setDraggedTaskId}
@@ -275,6 +278,7 @@ export function Board({
           canRunAi={userRole !== 'manager'}
           projectId={projectId}
           mentionedTaskIds={mentionedTaskIds}
+        commentCounts={commentCounts}
           focusTaskId={focusTaskId}
           draggedTaskId={draggedTaskId}
           draggedWsId={draggedWsId}

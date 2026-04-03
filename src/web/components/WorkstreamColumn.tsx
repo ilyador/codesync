@@ -38,6 +38,7 @@ interface WorkstreamColumnProps {
   canRunAi: boolean;
   projectId: string | null;
   mentionedTaskIds: Set<string>;
+  commentCounts?: Record<string, number>;
   focusTaskId: string | null;
   // Task drag
   draggedTaskId: string | null;
@@ -77,6 +78,7 @@ export function WorkstreamColumn({
   canRunAi,
   projectId,
   mentionedTaskIds,
+  commentCounts,
   focusTaskId,
   draggedTaskId,
   onDragTaskStart,
@@ -476,6 +478,7 @@ export function WorkstreamColumn({
                 showPriority={isBacklog}
                 projectId={projectId || undefined}
                 hasUnreadMention={mentionedTaskIds.has(task.id)}
+                commentCount={commentCounts?.[task.id] || 0}
                 isExpanded={expandedIds.has(task.id)}
                 onToggleExpand={() => setExpandedIds(prev => {
                   const next = new Set(prev);

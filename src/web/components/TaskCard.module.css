@@ -514,24 +514,6 @@
   justify-content: flex-end;
 }
 
-/* Human task waiting state */
-.humanWaiting {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0 4px;
-}
-.humanWaitingLabel {
-  font-size: 13px;
-  color: var(--text-3);
-}
-.humanCompleteBtn {
-  padding: 6px 20px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
 /* Comment row with hover-reveal delete */
 .comment {
   display: flex;

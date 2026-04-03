@@ -6,6 +6,7 @@ import { useJobs } from './hooks/useJobs';
 import { useWorkstreams } from './hooks/useWorkstreams';
 import { useMembers } from './hooks/useMembers';
 import { useNotifications } from './hooks/useNotifications';
+import { useCommentCounts } from './hooks/useCommentCounts';
 import { useWebNotifications } from './hooks/useWebNotifications';
 import { signUp, signIn, signOut, runTaskApi, replyToJob, approveJob, rejectJob, revertJob, terminateJob, deleteJob, updateTask, reviewAndCreatePr } from './lib/api';
 import { Routes, Route, useSearchParams } from 'react-router-dom';
@@ -76,6 +77,7 @@ export default function App() {
   const workstreams = useWorkstreams(projects.current?.id || null);
   const members = useMembers(projects.current?.id || null);
   const notifs = useNotifications(auth.profile?.id);
+  const commentCounts = useCommentCounts(projects.current?.id || null);
   const webNotifs = useWebNotifications();
   const modal = useModal();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -288,6 +290,7 @@ export default function App() {
             userRole={projects.current?.role || 'dev'}
             projectId={projects.current?.id || null}
             mentionedTaskIds={mentionedTaskIds}
+            commentCounts={commentCounts.counts}
             focusTaskId={focusTaskId}
             onCreateWorkstream={async (name, description, has_code) => {
               await workstreams.createWorkstream(name, description, has_code);

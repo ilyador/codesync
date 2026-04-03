@@ -49,6 +49,7 @@ interface TaskCardProps {
   showPriority?: boolean;
   projectId?: string;
   hasUnreadMention?: boolean;
+  commentCount?: number;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -83,9 +84,8 @@ export function TaskCard({
   showPriority,
   projectId,
   hasUnreadMention,
+  commentCount = 0,
 }: TaskCardProps) {
-  const { comments: taskComments } = useComments(task.id);
-  const commentCount = taskComments.length;
   const jobStatus = job?.status;
   const isActive = jobStatus === 'queued' || jobStatus === 'running' || jobStatus === 'paused' || jobStatus === 'review';
   const taskDone = task.status === 'done' || jobStatus === 'done';
