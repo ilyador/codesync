@@ -9,7 +9,7 @@
 
 ## How It Works
 
-1. Create a **workstream** -- a sequence of tasks that lead to a feature
+1. Create a **stream** -- a sequence of tasks that lead to a feature
 2. Click **Run** -- Claude Code reads your codebase, implements each task, runs tests
 3. Each completed task is auto-committed to the workstream's branch
 4. When the workstream is done, click **Create PR**
