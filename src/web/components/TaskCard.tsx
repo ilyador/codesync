@@ -93,7 +93,6 @@ export function TaskCard({
 
   const statusClass = jobStatus
     ? s[`status${cap(jobStatus)}`]
-    : isHumanWaiting ? s.statusPaused
     : taskDone ? s.statusDone : '';
 
   // Priority visuals controlled by parent (backlog shows priority, workstreams don't)
@@ -108,7 +107,6 @@ export function TaskCard({
 
   const dotClass = jobStatus
     ? s[`dot${cap(jobStatus)}`]
-    : isHumanWaiting ? s.dotPaused
     : taskDone ? s.dotDone : s.dotIdle;
 
   const tagStatusClass = jobStatus
@@ -170,18 +168,13 @@ export function TaskCard({
           >&#8942;&#8942;</span>
         )}
 
-        {(jobStatus || taskDone || isHumanWaiting) && <span className={`${s.statusDot} ${dotClass}`} />}
+        {(jobStatus || taskDone) && <span className={`${s.statusDot} ${dotClass}`} />}
 
         <span className={s.title}>{task.title}</span>
 
         <div className={s.tags}>
           {!task.auto_continue && (
             <span className={s.chain} title="Manual review required">&#9646;&#9646;</span>
-          )}
-          {isHumanWaiting && (
-            <span className={`${s.tag} ${s.tagStatus} ${s.tagPaused}`}>
-              Waiting for human
-            </span>
           )}
           {jobStatus && jobStatus !== 'done' && (
             <span className={`${s.tag} ${s.tagStatus} ${tagStatusClass}`}>
@@ -196,7 +189,7 @@ export function TaskCard({
               {commentCount}
             </span>
           )}
-          {task.assignee && task.assignee.type !== 'ai' && !isHumanWaiting && (
+          {task.assignee && task.assignee.type !== 'ai' && (
             <span className={`${s.tag} ${s.tagHuman}`}>{task.assignee.initials || task.assignee.name || 'human'}</span>
           )}
           <span className={`${s.tag} ${s.tagType}`}>{task.type}</span>
@@ -432,9 +425,6 @@ function IdleDetail({
             <>
               <button className="btn btnSuccess btnSm" onClick={() => onUpdateTask(task.id, { status: 'done' })}>
                 Done
-              </button>
-              <button className="btn btnSecondary btnSm" onClick={() => onUpdateTask(task.id, { status: 'canceled' })}>
-                Cancel
               </button>
             </>
           )}
