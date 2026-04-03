@@ -26,7 +26,7 @@
   --font: 'Instrument Sans', system-ui, -apple-system, sans-serif;
 }
 
-[data-theme="dark"] {
+:root[data-theme="dark"] {
   --bg: #141413;
   --bg-hover: #1E1E1C;
   --bg-active: #282825;

@@ -291,7 +291,7 @@ export function WorkstreamColumn({
   return (
     <div
       ref={columnRef}
-      className={`${s.column} ${isBacklog ? s.backlog : ''} ${draggedWsId && workstream && draggedWsId !== workstream.id ? (columnDropSide === 'left' ? s.columnDropLeft : columnDropSide === 'right' ? s.columnDropRight : '') : ''}`}
+      className={`${s.column} ${isBacklog ? s.backlog : ''}`}
       onDragEnter={(e) => {
         e.preventDefault();
         if (draggedTaskId) {
