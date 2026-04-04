@@ -64,6 +64,8 @@ interface BoardProps {
   onRework: (jobId: string, note: string) => void;
   onDeleteJob: (jobId: string) => void;
   onCreatePr: (workstreamId: string) => void;
+  onContinue: (jobId: string) => void;
+  currentUserId?: string;
 }
 
 export function Board({
@@ -95,6 +97,8 @@ export function Board({
   onRework,
   onDeleteJob,
   onCreatePr,
+  onContinue,
+  currentUserId,
 }: BoardProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [draggedGroupIds, setDraggedGroupIds] = useState<string[]>([]);
@@ -302,6 +306,7 @@ export function Board({
         onReject={onReject}
         onRework={onRework}
         onDeleteJob={onDeleteJob}
+        onContinue={onContinue}
       />
 
       {/* Workstream columns */}
@@ -343,7 +348,9 @@ export function Board({
           onReject={onReject}
           onRework={onRework}
           onDeleteJob={onDeleteJob}
+        onContinue={onContinue}
           onCreatePr={() => onCreatePr(ws.id)}
+          currentUserId={currentUserId}
           onArchive={async () => {
             try {
               await onUpdateWorkstream(ws.id, { status: 'archived' });

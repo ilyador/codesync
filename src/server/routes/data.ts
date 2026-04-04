@@ -198,7 +198,6 @@ dataRouter.patch('/api/workstreams/:id', requireAuth, async (req, res) => {
   for (const key of allowed) {
     if (key in req.body) updates[key] = req.body[key];
   }
-  console.log('[workstream PATCH]', req.params.id, JSON.stringify(updates));
   const { data, error } = await supabase
     .from('workstreams')
     .update(updates)
@@ -206,10 +205,8 @@ dataRouter.patch('/api/workstreams/:id', requireAuth, async (req, res) => {
     .select()
     .single();
   if (error) {
-    console.error('[workstream PATCH error]', error);
     return res.status(400).json({ error: error.message });
   }
-  console.log('[workstream PATCH success]', data?.id, data?.reviewer_id);
 
   // Notify reviewer when assigned
   const userId = (req as any).userId;
@@ -538,10 +535,8 @@ dataRouter.get('/api/artifacts/:id/download', requireAuth, async (req, res) => {
   const safeFilename = artifact.filename.replace(/["\r\n\\]/g, '_');
   res.setHeader('Content-Type', artifact.mime_type);
   res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
-  // Stream the file instead of buffering entirely in memory
-  const stream = fileData.stream();
-  // @ts-ignore -- Node ReadableStream is pipeable
-  stream.pipeTo(new WritableStream({ write(chunk) { res.write(chunk); }, close() { res.end(); } }));
+  const buffer = Buffer.from(await fileData.arrayBuffer());
+  res.send(buffer);
 });
 
 dataRouter.delete('/api/artifacts/:id', requireAuth, async (req, res) => {
@@ -790,22 +785,12 @@ or if issues found:
 
 const EXECUTE_CONTEXT = ['claude_md', 'agents_md', 'task_description', 'skills', 'task_images', 'followup_notes'];
 
-/** Maps task types to the default flow name that should handle them. */
-export const TYPE_TO_FLOW_NAME: Record<string, string> = {
-  'bug-fix': 'Bug Hunter',
-  'feature': 'Developer',
-  'ui-fix': 'Developer',
-  'design': 'Developer',
-  'chore': 'Developer',
-  'refactor': 'Refactorer',
-  'test': 'Tester',
-  'doc-search': 'Doc Search',
-};
 
-const DEFAULT_FLOWS: Array<{ name: string; description: string; steps: any[] }> = [
+const DEFAULT_FLOWS: Array<{ name: string; description: string; default_types: string[]; steps: any[] }> = [
   {
     name: 'Developer',
     description: 'Plan and implement features, verify with tests, review.',
+    default_types: ['feature', 'ui-fix', 'design', 'chore'],
     steps: [
       { name: 'implement', position: 1, model: 'opus', tools: ['Read', 'Edit', 'Write', 'Bash', 'Grep', 'Glob'], context_sources: EXECUTE_CONTEXT, is_gate: false, on_fail_jump_to: null, max_retries: 0, on_max_retries: 'pause', include_agents_md: true, instructions: `RULES:
 - You are implementing a task. Plan your approach first, then implement it.
@@ -822,6 +807,7 @@ Read the codebase to understand the relevant files and architecture. Create a pl
   {
     name: 'Bug Hunter',
     description: 'Analyze bugs, fix them, verify and review.',
+    default_types: ['bug-fix'],
     steps: [
       { name: 'fix', position: 1, model: 'opus', tools: ['Read', 'Edit', 'Bash', 'Grep', 'Glob'], context_sources: EXECUTE_CONTEXT, is_gate: false, on_fail_jump_to: null, max_retries: 0, on_max_retries: 'pause', include_agents_md: true, instructions: `RULES:
 - You are fixing a bug. Analyze the problem first, then fix it.
@@ -838,6 +824,7 @@ Analyze the codebase to understand the bug. Identify the root cause and location
   {
     name: 'Refactorer',
     description: 'Plan and execute refactors, verify nothing broke, review.',
+    default_types: ['refactor'],
     steps: [
       { name: 'refactor', position: 1, model: 'opus', tools: ['Read', 'Edit', 'Bash', 'Grep', 'Glob'], context_sources: EXECUTE_CONTEXT, is_gate: false, on_fail_jump_to: null, max_retries: 0, on_max_retries: 'pause', include_agents_md: true, instructions: `RULES:
 - You are refactoring code. Plan the refactor first, then execute it.
@@ -853,6 +840,7 @@ Read the codebase to understand the current structure. Plan the refactor, then e
   {
     name: 'Tester',
     description: 'Plan and write tests, verify they pass, review.',
+    default_types: ['test'],
     steps: [
       { name: 'write-tests', position: 1, model: 'opus', tools: ['Read', 'Write', 'Bash', 'Grep', 'Glob'], context_sources: EXECUTE_CONTEXT, is_gate: false, on_fail_jump_to: null, max_retries: 0, on_max_retries: 'pause', include_agents_md: true, instructions: `RULES:
 - You are writing tests. Plan what to test first, then write the tests.
@@ -868,6 +856,7 @@ Read the codebase to understand what needs testing. Follow existing test pattern
   {
     name: 'Doc Search',
     description: 'Search project documents and answer questions based on the results.',
+    default_types: [],
     steps: [
       { name: 'answer', position: 1, model: 'sonnet', tools: ['Read', 'Grep', 'Glob', 'Bash'], context_sources: ['task_description', 'rag'], is_gate: false, on_fail_jump_to: null, max_retries: 0, on_max_retries: 'skip', include_agents_md: false, instructions: `Answer the user's question based on the document search results provided above. Cite which documents you're referencing. If the results don't contain enough information to answer fully, say so clearly.` },
     ],
@@ -888,7 +877,7 @@ async function createDefaultFlows(projectId: string): Promise<void> {
 
     const { data: flow, error } = await supabase
       .from('flows')
-      .insert({ project_id: projectId, name: def.name, description: def.description, is_builtin: true })
+      .insert({ project_id: projectId, name: def.name, description: def.description, is_builtin: true, default_types: def.default_types })
       .select()
       .single();
     if (error || !flow) continue;

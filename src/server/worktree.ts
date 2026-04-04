@@ -34,11 +34,22 @@ export function ensureWorktree(projectPath: string, workstreamSlug: string): str
 }
 
 /**
+ * Discard all uncommitted changes in a worktree (staged + unstaged + untracked).
+ */
+export function resetWorktree(worktreePath: string): void {
+  try { gitSync(['checkout', '.'], worktreePath); } catch {}
+  try { gitSync(['clean', '-fd'], worktreePath); } catch {}
+}
+
+/**
  * Remove a worktree and optionally delete its branch.
  */
 export function cleanupWorktree(projectPath: string, workstreamSlug: string): void {
   const worktreePath = path.join(projectPath, '.worktrees', workstreamSlug);
   const branch = `workstream/${workstreamSlug}`;
+
+  // Discard dirty changes so worktree remove doesn't fail
+  resetWorktree(worktreePath);
 
   // Remove the worktree
   try {
@@ -51,6 +62,6 @@ export function cleanupWorktree(projectPath: string, workstreamSlug: string): vo
   try {
     gitSync(['branch', '-d', branch], projectPath);
   } catch {
-    // Branch may not exist or may not be fully merged — that's ok
+    // Branch may not exist or may not be fully merged
   }
 }

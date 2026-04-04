@@ -74,8 +74,10 @@ interface WorkstreamColumnProps {
   onReject?: (jobId: string) => void;
   onRework?: (jobId: string, note: string) => void;
   onDeleteJob?: (jobId: string) => void;
+  onContinue?: (jobId: string) => void;
   onCreatePr?: () => void;
   onArchive?: () => void;
+  currentUserId?: string;
 }
 
 export function WorkstreamColumn({
@@ -114,8 +116,10 @@ export function WorkstreamColumn({
   onReject,
   onRework,
   onDeleteJob,
+  onContinue,
   onCreatePr,
   onArchive,
+  currentUserId,
 }: WorkstreamColumnProps) {
   const modal = useModal();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -759,6 +763,7 @@ export function WorkstreamColumn({
                             onReject={onReject}
                             onRework={onRework}
                             onDeleteJob={onDeleteJob}
+                            onContinue={onContinue}
                             onDragStart={handleGroupDragStart}
                             onDragEnd={handleGroupDragEnd}
                             isDragging={isGroupDragging}
@@ -811,6 +816,7 @@ export function WorkstreamColumn({
                     onReject={onReject}
                     onRework={onRework}
                     onDeleteJob={onDeleteJob}
+                    onContinue={onContinue}
                     onDragStart={() => onDragTaskStart(task.id)}
                     onDragEnd={onDragTaskEnd}
                     isDragging={draggedTaskId === task.id}
@@ -874,7 +880,7 @@ export function WorkstreamColumn({
                 View PR
               </a>
             )}
-            {onArchive && (
+            {onArchive && currentUserId && workstream?.reviewer_id === currentUserId && (
               <button className={s.archiveBtn} onClick={onArchive}>
                 Archive
               </button>

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { homedir } from 'os';
 import { runJob, runFlowJob, loadTaskTypeConfig, cancelJob, cancelAllJobs, cleanupOrphanedJobs } from './runner.js';
 import type { FlowConfig } from './runner.js';
 import { supabase } from './supabase.js';
@@ -130,7 +131,7 @@ async function startJob(job: any): Promise<void> {
 
   // Expand ~ to home directory (Node doesn't do this automatically)
   if (localPath.startsWith('~/')) {
-    localPath = localPath.replace('~', process.env.HOME || '/home/sixbox');
+    localPath = localPath.replace('~', process.env.HOME || homedir());
   }
 
   // Mark running
@@ -176,9 +177,9 @@ async function startJob(job: any): Promise<void> {
   const flowSnapshot: FlowConfig | null = job.flow_snapshot || null;
   const taskType = flowSnapshot ? null : loadTaskTypeConfig(localPath, task.type);
 
-  // Determine fresh start vs resume
+  // Determine fresh start vs resume (includes continue from failed)
   const phasesAlreadyCompleted: any[] = (job.phases_completed as any[]) || [];
-  const isResume = phasesAlreadyCompleted.length > 0 && job.answer != null;
+  const isResume = phasesAlreadyCompleted.length > 0;
 
   // Create checkpoint for fresh starts only
   if (!isResume) {
@@ -212,7 +213,7 @@ async function startJob(job: any): Promise<void> {
         await writeLog(jobId, 'review', result);
         // Auto-approve: mark job done + checkpoint cleaned, task done, clean checkpoint
         const now = new Date().toISOString();
-        try { deleteCheckpoint(localPath, jobId); } catch {}
+        try { deleteCheckpoint(localPath, jobId); } catch (e: any) { console.warn(`[worker] Checkpoint delete failed for job ${jobId}:`, e.message); }
         await Promise.all([
           supabase.from('jobs').update({ status: 'done', completed_at: now, checkpoint_status: 'cleaned' }).eq('id', jobId),
           supabase.from('tasks').update({ status: 'done', completed_at: now }).eq('id', task.id),
@@ -289,10 +290,14 @@ async function startJob(job: any): Promise<void> {
       });
     }
   } catch (err: any) {
-    // This catch only fires if runJob() itself throws an unhandled error
-    // (e.g., a bug in the runner code). Phase failures are handled inside
-    // runJob() which updates both job and task status directly.
     console.error(`[worker] Unexpected runner crash for job ${jobId}:`, err.message);
+    // Clean up dirty changes on crash
+    if (job.local_path) {
+      try { revertToCheckpoint(job.local_path, jobId); } catch (e: any) {
+        console.warn(`[worker] Checkpoint revert failed for job ${jobId}:`, e.message);
+        try { const { resetWorktree } = await import('./worktree.js'); resetWorktree(job.local_path); } catch (e2: any) { console.warn(`[worker] Worktree reset also failed:`, e2.message); }
+      }
+    }
     await writeLog(jobId, 'failed', { error: `Runner crashed: ${err.message}` });
     await supabase.from('jobs').update({
       status: 'failed',
@@ -356,7 +361,13 @@ setInterval(async () => {
         if (job.local_path) {
           try {
             revertToCheckpoint(job.local_path, job.id);
-          } catch { /* checkpoint may not exist for queued jobs */ }
+          } catch (e: any) {
+            console.warn(`[worker] Checkpoint revert failed for canceled job ${job.id}:`, e.message);
+            try {
+              const { resetWorktree } = await import('./worktree.js');
+              resetWorktree(job.local_path);
+            } catch (e2: any) { console.warn(`[worker] Worktree reset also failed:`, e2.message); }
+          }
         }
 
         await supabase.from('jobs').update({

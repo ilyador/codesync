@@ -232,19 +232,20 @@ footer a:hover { color: var(--text-2); }
 
 <section class="hero">
   <div class="w">
-    <h1>Your tasks<br>do themselves<br><span>now.</span></h1>
-    <p class="hero-sub">You describe the work. AI workers read your codebase, implement it, run tests, and ask you to review. Like hiring developers who never context-switch, never bikeshed, and never push to main without testing.</p>
+    <h1>Delegate everything.<br>Ship from<br><span>one place.</span></h1>
+    <p class="hero-sub">Non-blocking streams of async work, assigned to AI or humans. Made for small teams that work fast, rely heavily on AI, and never want to sit through another sprint planning meeting.</p>
     <div class="hero-btns">
-      <a href="#how" class="btn-main">See how it works</a>
+      <a href="#workers" class="btn-main">See the AI workers</a>
       <a href="https://github.com/ilyador/workstream" class="btn-ghost">GitHub</a>
     </div>
-    <p class="hero-note">Open source &middot; MIT &middot; Runs locally &middot; Your code never leaves your machine</p>
+    <p class="hero-note">Open source &middot; MIT &middot; Self-deployed &middot; Your code never leaves your machine</p>
   </div>
 </section>
 
-<section class="features" id="team">
+<section class="features" id="workers">
   <div class="w">
-    <h2><span style="color: var(--text-3)">You don't manage tasks.</span> You manage workers.</h2>
+    <h2><span style="color: var(--text-3)">Create AI workers</span> with instructions and strict steps</h2>
+    <p style="font-size: 17px; color: var(--text-2); line-height: 1.65; max-width: 620px; margin-bottom: 48px;">They generate code, documents, images, video -- whatever you need. Output passes between tasks in a stream. Designer designs a page, copywriter adds text, developer builds it. Add a pause at any step to review before it continues.</p>
 
     <div class="anti-grid" style="margin-bottom: 24px;">
       <div class="anti-item">
@@ -263,12 +264,12 @@ footer a:hover { color: var(--text-2); }
         <div class="anti-desc">Follows your existing patterns. Doesn't skip edge cases because it's 5pm on a Friday.<br><span class="feat-tag">write-tests &rarr; verify &rarr; review</span></div>
       </div>
       <div class="anti-item">
-        <div class="anti-label" style="text-decoration: none;">You decide</div>
-        <div class="anti-title">Build any worker you want</div>
-        <div class="anti-desc">Designer from Figma screenshots. Copywriter for docs. Security auditor. Hook up RAG and they search your specs before writing code. If you can describe it, you can build it.</div>
+        <div class="anti-label" style="text-decoration: none;">Your worker</div>
+        <div class="anti-title">If you can describe it, you can build it</div>
+        <div class="anti-desc">Designer from Figma screenshots. Copywriter for release notes. Security auditor. Plug in local LLMs or RAG to search your docs before writing a single line.</div>
       </div>
     </div>
-    <p style="font-size: 14px; color: var(--text-3); line-height: 1.65; max-width: 580px;">Every worker is a composable flow you build visually. Drag steps, switch models, control context. No YAML. No config files.</p>
+    <p style="font-size: 14px; color: var(--text-3); line-height: 1.65; max-width: 580px;">Every worker is a composable flow you build visually. Drag steps, switch models, control context per step. No YAML. No config files. The only dependency is Claude Code. Everything else is included.</p>
   </div>
 </section>
 
@@ -287,9 +288,9 @@ footer a:hover { color: var(--text-2); }
         <div class="anti-desc">Nothing magical happens every two weeks except a meeting where everyone lies about what they'll finish next.</div>
       </div>
       <div class="anti-item">
-        <div class="anti-label">Configuration</div>
-        <div class="anti-title">YAML, JSON, env files</div>
-        <div class="anti-desc">Workers are built visually. Steps are cards you drag. Models are toggles. No one should need a tutorial to assign a task.</div>
+        <div class="anti-label">Cloud Lock-in</div>
+        <div class="anti-title">Your code on someone else's server</div>
+        <div class="anti-desc">Self-deployed. Run on your machine and sync through Supabase. Or run on a VPS your team controls. Your code, your infrastructure, your rules.</div>
       </div>
       <div class="anti-item">
         <div class="anti-label">Velocity Charts</div>
@@ -302,49 +303,50 @@ footer a:hover { color: var(--text-2); }
 
 <section class="features" id="features">
   <div class="w">
-    <h2><span style="color: var(--text-3)">How it</span> actually works</h2>
+    <h2><span style="color: var(--text-3)">Just get things done</span> as fast as you can</h2>
 
     <div class="feat">
       <span class="feat-n">01</span>
-      <div class="feat-t">One dropdown</div>
-      <div class="feat-d">Pick an AI worker or a human. That's the whole task assignment. No mode toggles. No configuration screens. "Who does this?" Done.</div>
+      <div class="feat-t">Streams, not boards</div>
+      <div class="feat-d">Tasks run top-to-bottom. One finishes, next starts. Output flows between tasks. No dragging cards across columns so a PM can feel informed.</div>
     </div>
     <div class="feat">
       <span class="feat-n">02</span>
-      <div class="feat-t">Streams, not boards</div>
-      <div class="feat-d">Tasks run top-to-bottom. One finishes, next starts automatically. No dragging cards across five columns so a PM can feel informed.</div>
+      <div class="feat-t">One dropdown: AI or human</div>
+      <div class="feat-d">Assign a worker or a teammate. Same interface for both. Humans and AI share the same board, same comments, same notifications.</div>
     </div>
     <div class="feat">
       <span class="feat-n">03</span>
-      <div class="feat-t">Workers ask when stuck</div>
-      <div class="feat-d">Job pauses. You answer inline. It picks up exactly where it left off. Unlike your last team lead, it doesn't pretend to understand and break everything.</div>
+      <div class="feat-t">Pause at any step</div>
+      <div class="feat-d">Workers pause when stuck or when you want to review output before the next step. Answer inline. They pick up exactly where they left off.</div>
     </div>
     <div class="feat">
       <span class="feat-n">04</span>
       <div class="feat-t">Git happens automatically</div>
-      <div class="feat-d">Each stream gets its own branch. Each task auto-commits. Auto-revert on failure. Click "Create PR" when the stream is done. You make zero git decisions.</div>
+      <div class="feat-d">Each stream gets its own branch. Each task auto-commits. Auto-revert on failure. Click "Create PR" when done. Zero git decisions.</div>
     </div>
     <div class="feat">
       <span class="feat-n">05</span>
       <div class="feat-t">Watch them think</div>
-      <div class="feat-d">Live streaming as Claude reads files, writes code, runs tests. Push notifications when it's done or needs you. Not 2004-style dashboard refreshing.</div>
+      <div class="feat-d">Live streaming as Claude reads files, writes code, runs tests. Push notifications when done. Telegram bot for your phone. MCP server for your terminal.</div>
     </div>
   </div>
 </section>
 
 <section class="modes" id="modes">
   <div class="w">
-    <h2><span style="color: var(--text-3)">Two ways to</span> run it</h2>
+    <h2><span style="color: var(--text-3)">Self-deployed.</span> Two ways to run it.</h2>
     <div class="anti-grid">
       <div class="anti-item">
         <div class="anti-title">On your machine</div>
-        <div class="anti-desc">Run locally with Docker. Your code never leaves your machine. Good for solo developers who want an AI partner while they work.</div>
+        <div class="anti-desc">Run locally, sync with team members through an online Supabase. All code stays on your machine. Good for solo devs who want an AI partner.</div>
       </div>
       <div class="anti-item">
         <div class="anti-title">On a VPS</div>
-        <div class="anti-desc">AI workers grind tasks 24/7 while you sleep. Wake up to PRs. Good for teams who like mornings more than late nights.</div>
+        <div class="anti-desc">Your team accesses it directly. AI workers grind 24/7 while you sleep. Wake up to PRs. Good for teams who like mornings more than late nights.</div>
       </div>
     </div>
+    <p style="font-size: 14px; color: var(--text-3); margin-top: 20px; line-height: 1.6;">The only dependency is Claude Code. Can plug in local LLMs for other tasks via LM Studio.</p>
   </div>
 </section>
 
