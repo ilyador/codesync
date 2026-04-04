@@ -173,6 +173,7 @@ function useColumnState(flow: Flow) {
   const [editAgentsMd, setEditAgentsMd] = useState(flow.agents_md ?? '');
   const [editSteps, setEditSteps] = useState<FlowStep[]>(cloneSteps(flow.flow_steps.sort((a, b) => a.position - b.position)));
   const [editingStepIdx, setEditingStepIdx] = useState<number | null>(null);
+  const [expandedStep, setExpandedStep] = useState<number | null>(null);
   const [agentsMdOpen, setAgentsMdOpen] = useState(!!flow.agents_md);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -191,6 +192,7 @@ function useColumnState(flow: Flow) {
   return {
     editName, setEditName, editAgentsMd, setEditAgentsMd,
     editSteps, setEditSteps, editingStepIdx, setEditingStepIdx,
+    expandedStep, setExpandedStep,
     agentsMdOpen, setAgentsMdOpen, saving, setSaving,
     error, setError, editing, setEditing,
     dragIdx, setDragIdx, dragOverIdx, setDragOverIdx,
@@ -200,6 +202,7 @@ function useColumnState(flow: Flow) {
 /* ─── FlowColumn — uses WorkstreamColumn + TaskCard CSS ─── */
 function FlowColumn({
   flow, onSave, onSaveSteps, onDeleteFlow, allFlows, taskTypes = BUILT_IN_TYPES,
+  onOpenStepModal, onColumnDragStart, onColumnDragEnd, onColumnDragOver,
 }: {
   flow: Flow;
   onSave: FlowEditor2Props['onSave'];
@@ -207,6 +210,10 @@ function FlowColumn({
   onDeleteFlow: FlowEditor2Props['onDeleteFlow'];
   allFlows: Flow[];
   taskTypes?: string[];
+  onOpenStepModal: (flowId: string, stepIdx: number) => void;
+  onColumnDragStart: (flowId: string) => void;
+  onColumnDragEnd: () => void;
+  onColumnDragOver: (e: React.DragEvent) => void;
 }) {
   const st = useColumnState(flow);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -237,8 +244,9 @@ function FlowColumn({
   const addStep = useCallback(() => {
     const newIdx = st.editSteps.length;
     st.setEditSteps(prev => [...prev, makeBlankStep(prev.length + 1)]);
-    st.setEditingStepIdx(newIdx);
-  }, [st.editSteps.length, st.setEditSteps, st.setEditingStepIdx]);
+    st.setExpandedStep(newIdx);
+    onOpenStepModal(flow.id, newIdx);
+  }, [st.editSteps.length, st.setEditSteps, st.setExpandedStep, onOpenStepModal, flow.id]);
 
   const deleteStep = useCallback((idx: number) => {
     st.setEditSteps(prev => prev.filter((_, i) => i !== idx).map((s, i) => ({ ...s, position: i + 1 })));
@@ -316,7 +324,7 @@ function FlowColumn({
   }, [st.editName, flow.id, flow.name, onSave]);
 
   return (
-    <div className={colStyles.column}>
+    <div className={colStyles.column} onDragOver={onColumnDragOver}>
       {/* Header — reuses WorkstreamColumn header */}
       <div className={colStyles.headerWrap}>
         <div className={colStyles.header}>
@@ -327,8 +335,12 @@ function FlowColumn({
               onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') { st.setEditName(flow.name); st.setEditing(false); } }} />
           ) : (
             <span className={colStyles.name}
+              draggable
+              onDragStart={() => onColumnDragStart(flow.id)}
+              onDragEnd={onColumnDragEnd}
               onDoubleClick={() => { st.setEditName(flow.name); st.setEditing(true); }}
-              title="Double-click to rename"
+              title="Drag to reorder, double-click to rename"
+              style={{ cursor: 'grab' }}
             >{st.editName || flow.name}</span>
           )}
 
@@ -383,57 +395,73 @@ function FlowColumn({
         )}
       </div>
 
-      {/* Step cards — uses TaskCard CSS */}
+      {/* Step cards — uses TaskCard CSS, click to expand like tasks */}
       <div className={colStyles.tasks}>
         {st.editSteps.length === 0 && <div className={colStyles.empty}>No steps yet</div>}
-        {st.editSteps.map((step, idx) => (
-          <div key={step.id}
-            className={`${taskStyles.card} ${st.dragIdx === idx ? taskStyles.dragging : ''}`}
-            onClick={() => st.setEditingStepIdx(idx)}
-            onDragOver={e => handleDragOver(e, idx)}
-            onDragEnd={handleDragEnd}
-          >
-            <div className={taskStyles.compact}>
-              <span className={taskStyles.handle} draggable
-                onDragStart={e => { e.stopPropagation(); handleDragStart(idx); }}
-                onClick={e => e.stopPropagation()}
-                title="Drag to reorder"
-              >&#8942;&#8942;</span>
-              <span className={taskStyles.title}>{step.name || `Step ${idx + 1}`}</span>
-              <div className={taskStyles.tags}>
-                <span className={`${taskStyles.tag} ${step.model === 'opus' ? s.modelOpus : s.modelSonnet}`}>
-                  {step.model}
-                </span>
-                {step.is_gate && <span className={`${taskStyles.tag} ${taskStyles.tagType}`}>gate</span>}
-              </div>
-            </div>
-            {step.instructions && (
-              <div className={taskStyles.preview}>
-                <div className={taskStyles.previewDesc}>
-                  <Markdown remarkPlugins={[remarkGfm]}>{step.instructions}</Markdown>
+        {st.editSteps.map((step, idx) => {
+          const isExpanded = st.expandedStep === idx;
+          return (
+            <div key={step.id}
+              className={`${taskStyles.card} ${st.dragIdx === idx ? taskStyles.dragging : ''}`}
+              onClick={() => st.setExpandedStep(isExpanded ? null : idx)}
+              onDragOver={e => handleDragOver(e, idx)}
+            >
+              {/* Compact row — always visible */}
+              <div className={taskStyles.compact}>
+                <span className={taskStyles.handle} draggable
+                  onDragStart={e => { e.stopPropagation(); handleDragStart(idx); e.dataTransfer.effectAllowed = 'move'; }}
+                  onDragEnd={handleDragEnd}
+                  onClick={e => e.stopPropagation()}
+                  title="Drag to reorder"
+                >&#8942;&#8942;</span>
+                <span className={taskStyles.title}>{step.name || `Step ${idx + 1}`}</span>
+                <div className={taskStyles.tags}>
+                  <span className={`${taskStyles.tag} ${step.model === 'opus' ? s.modelOpus : s.modelSonnet}`}>
+                    {step.model}
+                  </span>
+                  {step.is_gate && <span className={`${taskStyles.tag} ${taskStyles.tagType}`}>gate</span>}
                 </div>
               </div>
-            )}
-          </div>
-        ))}
+
+              {/* Preview — visible when collapsed, like tasks */}
+              {!isExpanded && step.instructions && (
+                <div className={taskStyles.preview}>
+                  <div className={taskStyles.previewDesc}>
+                    <Markdown remarkPlugins={[remarkGfm]}>{step.instructions}</Markdown>
+                  </div>
+                </div>
+              )}
+
+              {/* Expanded detail — like IdleDetail in TaskCard */}
+              {isExpanded && (
+                <div className={taskStyles.detail} onClick={e => e.stopPropagation()}>
+                  {step.instructions && (
+                    <div className={taskStyles.desc}>
+                      <Markdown remarkPlugins={[remarkGfm]}>{step.instructions}</Markdown>
+                    </div>
+                  )}
+                  <div className={taskStyles.meta}>
+                    <span>model: {step.model}</span>
+                    <span>tools: {step.tools.join(', ')}</span>
+                    {step.is_gate && <span>gate step</span>}
+                  </div>
+                  <div className={taskStyles.actions}>
+                    <div className={taskStyles.actionsLeft} />
+                    <div className={taskStyles.actionsRight}>
+                      <button className="btn btnGhost btnSm" onClick={() => onOpenStepModal(flow.id, idx)}>Edit</button>
+                      <button className="btn btnGhost btnSm" style={{ color: 'var(--red)' }}
+                        onClick={() => deleteStep(idx)}>Delete</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Error */}
       {st.error && <div className={s.error}>{st.error}</div>}
-
-      {/* Step edit modal */}
-      {st.editingStepIdx !== null && st.editSteps[st.editingStepIdx] && (
-        <StepModal
-          step={st.editSteps[st.editingStepIdx]}
-          idx={st.editingStepIdx}
-          allSteps={st.editSteps}
-          onUpdate={patch => updateStep(st.editingStepIdx!, patch)}
-          onToggleTool={tool => toggleTool(st.editingStepIdx!, tool)}
-          onToggleContext={src => toggleContext(st.editingStepIdx!, src)}
-          onDelete={() => deleteStep(st.editingStepIdx!)}
-          onClose={() => st.setEditingStepIdx(null)}
-        />
-      )}
     </div>
   );
 }
@@ -441,6 +469,44 @@ function FlowColumn({
 /* ─── FlowEditor2: Board container — uses Board CSS ─── */
 export function FlowEditor2({ flows, onSave, onSaveSteps, onCreateFlow, onDeleteFlow, projectId, taskTypes }: FlowEditor2Props) {
   const [creating, setCreating] = useState(false);
+  // Column reorder (client-side, no position column in DB)
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  const [draggedColId, setDraggedColId] = useState<string | null>(null);
+
+  // Keep columnOrder in sync with flows from server
+  useEffect(() => {
+    setColumnOrder(prev => {
+      const ids = new Set(flows.map(f => f.id));
+      // Keep existing order for known flows, append new ones
+      const kept = prev.filter(id => ids.has(id));
+      const newIds = flows.map(f => f.id).filter(id => !kept.includes(id));
+      return [...kept, ...newIds];
+    });
+  }, [flows]);
+
+  const orderedFlows = useMemo(() => {
+    const map = new Map(flows.map(f => [f.id, f]));
+    return columnOrder.map(id => map.get(id)).filter(Boolean) as Flow[];
+  }, [flows, columnOrder]);
+
+  const handleColumnDragOver = useCallback((e: React.DragEvent, targetId: string) => {
+    if (!draggedColId || draggedColId === targetId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setColumnOrder(prev => {
+      const next = [...prev];
+      const fromIdx = next.indexOf(draggedColId);
+      const toIdx = next.indexOf(targetId);
+      if (fromIdx < 0 || toIdx < 0) return prev;
+      next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, draggedColId);
+      return next;
+    });
+  }, [draggedColId]);
+
+  // Modal state — rendered at board level so it's not clipped by column overflow
+  const [modalTarget, setModalTarget] = useState<{ flowId: string; stepIdx: number } | null>(null);
+  const modalFlow = modalTarget ? flows.find(f => f.id === modalTarget.flowId) : null;
 
   const handleNewFlow = useCallback(async () => {
     setCreating(true);
@@ -451,10 +517,15 @@ export function FlowEditor2({ flows, onSave, onSaveSteps, onCreateFlow, onDelete
 
   return (
     <div className={boardStyles.board}>
-      {flows.map(flow => (
+      {orderedFlows.map(flow => (
         <FlowColumn key={flow.id} flow={flow} onSave={onSave} onSaveSteps={onSaveSteps}
           onDeleteFlow={onDeleteFlow} allFlows={flows}
-          taskTypes={taskTypes?.length ? taskTypes : BUILT_IN_TYPES} />
+          taskTypes={taskTypes?.length ? taskTypes : BUILT_IN_TYPES}
+          onOpenStepModal={(flowId, stepIdx) => setModalTarget({ flowId, stepIdx })}
+          onColumnDragStart={setDraggedColId}
+          onColumnDragEnd={() => setDraggedColId(null)}
+          onColumnDragOver={e => handleColumnDragOver(e, flow.id)}
+        />
       ))}
       <button className={boardStyles.addColumn} onClick={handleNewFlow} disabled={creating}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -462,6 +533,90 @@ export function FlowEditor2({ flows, onSave, onSaveSteps, onCreateFlow, onDelete
         </svg>
         {creating ? 'Creating...' : 'Add flow'}
       </button>
+
+      {/* Step edit modal — rendered at board level so backdrop isn't clipped */}
+      {modalTarget && modalFlow && (
+        <StepModalWrapper
+          flow={modalFlow}
+          stepIdx={modalTarget.stepIdx}
+          onSave={onSave}
+          onSaveSteps={onSaveSteps}
+          onClose={() => setModalTarget(null)}
+        />
+      )}
     </div>
+  );
+}
+
+/** Wrapper that manages its own step state for the modal */
+function StepModalWrapper({
+  flow, stepIdx, onSave, onSaveSteps, onClose,
+}: {
+  flow: Flow; stepIdx: number;
+  onSave: FlowEditor2Props['onSave'];
+  onSaveSteps: FlowEditor2Props['onSaveSteps'];
+  onClose: () => void;
+}) {
+  const sorted = useMemo(() => cloneSteps(flow.flow_steps.sort((a, b) => a.position - b.position)), [flow.flow_steps]);
+  const [steps, setSteps] = useState<FlowStep[]>(sorted);
+  const step = steps[stepIdx];
+
+  // Sync if flow changes externally
+  useEffect(() => { setSteps(sorted); }, [sorted]);
+
+  if (!step) { onClose(); return null; }
+
+  const updateStep = (patch: Partial<FlowStep>) => {
+    setSteps(prev => prev.map((s, i) => i === stepIdx ? { ...s, ...patch } : s));
+  };
+  const toggleTool = (tool: string) => {
+    setSteps(prev => prev.map((s, i) => {
+      if (i !== stepIdx) return s;
+      return { ...s, tools: s.tools.includes(tool) ? s.tools.filter(t => t !== tool) : [...s.tools, tool] };
+    }));
+  };
+  const toggleContext = (src: string) => {
+    setSteps(prev => prev.map((s, i) => {
+      if (i !== stepIdx) return s;
+      return { ...s, context_sources: s.context_sources.includes(src) ? s.context_sources.filter(c => c !== src) : [...s.context_sources, src] };
+    }));
+  };
+  const handleDone = async () => {
+    try {
+      await onSaveSteps(flow.id, steps.map((s, i) => ({
+        name: s.name.trim() || `Step ${i + 1}`, position: i + 1,
+        instructions: s.instructions, model: s.model, tools: s.tools,
+        context_sources: s.context_sources, is_gate: s.is_gate,
+        on_fail_jump_to: s.is_gate ? s.on_fail_jump_to : null,
+        max_retries: s.is_gate ? s.max_retries : 0,
+        on_max_retries: s.is_gate ? s.on_max_retries : 'pause',
+        include_agents_md: s.include_agents_md,
+      })));
+    } catch (err: any) { console.error('Failed to save steps:', err); }
+    onClose();
+  };
+  const handleDelete = async () => {
+    const next = steps.filter((_, i) => i !== stepIdx).map((s, i) => ({ ...s, position: i + 1 }));
+    try {
+      await onSaveSteps(flow.id, next.map((s, i) => ({
+        name: s.name.trim() || `Step ${i + 1}`, position: i + 1,
+        instructions: s.instructions, model: s.model, tools: s.tools,
+        context_sources: s.context_sources, is_gate: s.is_gate,
+        on_fail_jump_to: s.is_gate ? s.on_fail_jump_to : null,
+        max_retries: s.is_gate ? s.max_retries : 0,
+        on_max_retries: s.is_gate ? s.on_max_retries : 'pause',
+        include_agents_md: s.include_agents_md,
+      })));
+    } catch (err: any) { console.error('Failed to delete step:', err); }
+    onClose();
+  };
+
+  return (
+    <StepModal
+      step={step} idx={stepIdx} allSteps={steps}
+      onUpdate={updateStep} onToggleTool={toggleTool} onToggleContext={toggleContext}
+      onDelete={handleDelete}
+      onClose={handleDone}
+    />
   );
 }

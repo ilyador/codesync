@@ -164,6 +164,9 @@ At the end, output a brief summary of what was reviewed and what was fixed (if a
       });
     });
 
+    // Save the review output to the workstream
+    await supabase.from('workstreams').update({ review_output: stdout.substring(0, 50000) }).eq('id', workstreamId);
+
     // Step 2: Commit any fixes from the review
     try {
       await git(['add', '-A'], localPath);
