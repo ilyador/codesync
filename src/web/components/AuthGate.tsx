@@ -32,7 +32,7 @@ export function AuthGate({ onAuth }: Props) {
 
   return (
     <div className={s.container}>
-      <h1 className={s.title}>CodeSync</h1>
+      <h1 className={s.title}>WorkStream</h1>
       <p className={s.subtitle}>{mode === 'signin' ? 'Sign in to continue' : 'Create your account'}</p>
 
       <form className={s.form} onSubmit={handleSubmit}>

@@ -837,7 +837,7 @@ Read the codebase to understand what needs testing. Follow existing test pattern
     name: 'Doc Search',
     description: 'Search project documents and answer questions based on the results.',
     steps: [
-      { name: 'answer', position: 1, model: 'sonnet', tools: ['Read', 'Grep', 'Glob'], context_sources: ['task_description', 'rag'], is_gate: false, on_fail_jump_to: null, max_retries: 0, on_max_retries: 'skip', include_agents_md: false, instructions: `Answer the user's question based on the document search results provided above. Cite which documents you're referencing. If the results don't contain enough information to answer fully, say so clearly.` },
+      { name: 'answer', position: 1, model: 'sonnet', tools: ['Read', 'Grep', 'Glob', 'Bash'], context_sources: ['task_description', 'rag'], is_gate: false, on_fail_jump_to: null, max_retries: 0, on_max_retries: 'skip', include_agents_md: false, instructions: `Answer the user's question based on the document search results provided above. Cite which documents you're referencing. If the results don't contain enough information to answer fully, say so clearly.` },
     ],
   },
 ];

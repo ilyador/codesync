@@ -1,21 +1,21 @@
 const BASE = '';
 
 // Session token management
-let accessToken: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('codesync-token') : null;
-let refreshToken: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('codesync-refresh') : null;
+let accessToken: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('workstream-token') : null;
+let refreshToken: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('workstream-refresh') : null;
 
 export function setSession(access: string, refresh: string) {
   accessToken = access;
   refreshToken = refresh;
-  localStorage.setItem('codesync-token', access);
-  localStorage.setItem('codesync-refresh', refresh);
+  localStorage.setItem('workstream-token', access);
+  localStorage.setItem('workstream-refresh', refresh);
 }
 
 export function clearSession() {
   accessToken = null;
   refreshToken = null;
-  localStorage.removeItem('codesync-token');
-  localStorage.removeItem('codesync-refresh');
+  localStorage.removeItem('workstream-token');
+  localStorage.removeItem('workstream-refresh');
 }
 
 export function getToken() { return accessToken; }

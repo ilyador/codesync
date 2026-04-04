@@ -169,7 +169,7 @@ export function WorkstreamColumn({
     if (dbStatus === 'reviewing') return 'reviewing' as const;
     if (dbStatus === 'review_failed') return 'review failed' as const;
     if (dbStatus === 'complete') return 'done' as const;
-    if (dbStatus === 'archived') return 'merged' as const;
+    if (dbStatus === 'merged' || dbStatus === 'archived') return 'merged' as const;
     if (totalTasks === 0) return 'open' as const;
     const hasActiveTask = tasks.some(t => {
       const job = taskJobMap[t.id];

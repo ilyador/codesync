@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const DISMISS_KEY = 'codesync-notif-dismissed';
+const DISMISS_KEY = 'workstream-notif-dismissed';
 const DISMISS_DAYS = 7; // Re-show prompt after this many days
 
 function isDismissed(): boolean {

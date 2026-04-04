@@ -18,9 +18,9 @@ create or replace function insert_rag_chunk(
 ) returns void as $$
 begin
   insert into rag_chunks (document_id, project_id, content, chunk_index, embedding)
-  values (p_document_id, p_project_id, p_content, p_chunk_index, p_embedding::vector);
+  values (p_document_id, p_project_id, p_content, p_chunk_index, p_embedding::extensions.vector);
 end;
-$$ language plpgsql security definer set search_path = public;
+$$ language plpgsql security definer set search_path = public, extensions;
 
 create or replace function search_rag_chunks(
   p_project_id uuid,
@@ -36,11 +36,11 @@ create or replace function search_rag_chunks(
 begin
   return query
   select c.content, d.file_name, c.document_id, c.chunk_index,
-         1 - (c.embedding <=> p_query_embedding::vector) as similarity
+         1 - (c.embedding <=> p_query_embedding::extensions.vector) as similarity
   from rag_chunks c
   join rag_documents d on d.id = c.document_id
   where c.project_id = p_project_id and d.status = 'ready'
-  order by c.embedding <=> p_query_embedding::vector
+  order by c.embedding <=> p_query_embedding::extensions.vector
   limit p_limit;
 end;
-$$ language plpgsql security definer set search_path = public;
+$$ language plpgsql security definer set search_path = public, extensions;

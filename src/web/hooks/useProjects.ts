@@ -9,7 +9,7 @@ interface Project {
   local_path: string | null;
 }
 
-const STORAGE_KEY = 'codesync-current-project';
+const STORAGE_KEY = 'workstream-current-project';
 
 export function useProjects(userId: string | undefined) {
   const [projects, setProjects] = useState<Project[]>([]);

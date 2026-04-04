@@ -19,9 +19,9 @@ export function slugify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 50);
 }
 
-/** Format the standard codesync commit message. */
+/** Format the standard workstream commit message. */
 export function commitMessage(taskType: string, taskTitle: string): string {
-  return `codesync(${taskType}): ${taskTitle}`;
+  return `workstream(${taskType}): ${taskTitle}`;
 }
 
 /** Stage all changes and commit. Resolves silently if nothing to commit. */

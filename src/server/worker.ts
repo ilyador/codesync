@@ -468,4 +468,4 @@ process.on('SIGINT', shutdown);
 // Startup
 // ---------------------------------------------------------------------------
 
-console.log('[worker] CodeSync worker started, polling for jobs...');
+console.log('[worker] WorkStream worker started, polling for jobs...');

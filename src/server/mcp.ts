@@ -8,18 +8,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || '',
 );
 
-const server = new McpServer({ name: 'codesync', version: '1.0.0' });
+const server = new McpServer({ name: 'workstream', version: '1.0.0' });
 
 /**
  * Resolve a user ID for the MCP system user.
- * Looks up a profile named 'CodeSync Bot'; falls back to the project creator.
+ * Looks up a profile named 'WorkStream Bot'; falls back to the project creator.
  */
 async function getSystemUserId(projectId?: string): Promise<string | null> {
   // Try to find a dedicated bot profile
   const { data: bot } = await supabase
     .from('profiles')
     .select('id')
-    .eq('name', 'CodeSync Bot')
+    .eq('name', 'WorkStream Bot')
     .limit(1)
     .single();
   if (bot) return bot.id;
@@ -157,7 +157,7 @@ server.tool('task_log', 'Add a note/comment to a task', {
   const { data: taskRow } = await supabase.from('tasks').select('project_id').eq('id', task_id).single();
   const userId = await getSystemUserId(taskRow?.project_id);
   if (!userId) {
-    return { content: [{ type: 'text', text: 'Error: Could not resolve a system user for comments. Create a profile named "CodeSync Bot" or ensure the project has a creator.' }] };
+    return { content: [{ type: 'text', text: 'Error: Could not resolve a system user for comments. Create a profile named "WorkStream Bot" or ensure the project has a creator.' }] };
   }
 
   const { error } = await supabase.from('comments').insert({
