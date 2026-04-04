@@ -70,7 +70,7 @@ export function NewProject({ onCreate }: Props) {
     return (
       <div className={s.container}>
         <h1 className={s.title}>How do you want to store data?</h1>
-        <p className={s.subtitle}>CodeSync uses Supabase for storage. Choose a setup.</p>
+        <p className={s.subtitle}>WorkStream uses Supabase for storage. Choose a setup.</p>
 
         <div className={s.cards}>
           <button

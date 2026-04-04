@@ -5,78 +5,79 @@
 [![React](https://img.shields.io/badge/React-19-black.svg)](https://react.dev/)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Powered-black.svg)](https://claude.ai/)
 
-> A task manager for people who'd rather not. Your tasks are executable instructions -- AI implements them, you review a PR.
+> Hire AI workers. Assign them tasks. Review their PRs.
+
+## Your AI Team
+
+WorkStream ships with four AI workers, each specialized for a different job:
+
+| Worker | What it does | Steps |
+|--------|-------------|-------|
+| **AI Developer** | Plans and implements features | implement -> verify -> review |
+| **AI Bug Hunter** | Analyzes and fixes bugs | fix -> verify -> review |
+| **AI Refactorer** | Restructures code without breaking behavior | refactor -> verify -> review |
+| **AI Tester** | Writes test suites | write-tests -> verify -> review |
+
+Assign a worker to a task the same way you'd assign a teammate. It reads your codebase, does the work, runs tests, and asks you to review. You approve or reject. That's it.
+
+Workers are composable flows -- you can edit their instructions, change which AI model they use per step, control what context they see, and create entirely new ones. The flow editor is a visual builder where each worker's pipeline is a sequence of step cards you can customize.
+
+<img width="1365" height="1048" alt="Screenshot 2026-04-02 at 14 13 22" src="https://github.com/user-attachments/assets/31876ed3-1adf-48b2-8ad0-09930e60f781" />
 
 ## How It Works
 
 1. Create a **stream** -- a sequence of tasks that lead to a feature
-2. Click **Run** -- Claude Code reads your codebase, implements each task, runs tests
-3. Each completed task is auto-committed to the workstream's branch
-4. When the workstream is done, click **Create PR**
+2. Assign each task to an **AI worker** or a human teammate
+3. Click **Run** -- the worker reads your codebase, implements the task, runs tests
+4. Each completed task is auto-committed to the stream's branch
+5. When the stream is done, click **Create PR**
 
-<img width="1365" height="1048" alt="Screenshot 2026-04-02 at 14 13 22" src="https://github.com/user-attachments/assets/31876ed3-1adf-48b2-8ad0-09930e60f781" />
+## Token-Efficient by Design
 
+Each worker step only gets the context it actually needs:
+
+- **Execute step**: CLAUDE.md, task description, skills, images -- full project context
+- **Verify step**: just "run the tests" -- ~200 tokens instead of ~15,000
+- **Review step**: git diff + architecture docs -- fresh eyes, never saw the implementation
+
+This cuts token usage roughly in half compared to sending everything to every step.
+
+## What Else
+
+- **Pause & resume** -- worker pauses when stuck, you answer inline, it continues
+- **Auto-revert** -- git checkpoint before each task, auto-rollback on failure
+- **Git worktrees** -- each stream gets its own branch, your main stays clean
+- **Human tasks** -- assign to a person for design reviews, QA, manual work
+- **Skills** -- type `/skillname` in task descriptions to inject methodologies
+- **Realtime** -- watch workers execute live, push notifications when done
+- **Telegram bot** -- create tasks and check status from your phone
+- **MCP server** -- 9 tools for interacting from Claude Code CLI
+- **Team roles** -- admin, dev, manager (managers can't trigger AI execution)
 
 ## Two Ways to Run
 
-### Local Development
-Run CodeSync on your machine, sync through an online Supabase instance. Good for solo developers who want AI as a coding partner.
+**Locally** -- run on your machine, sync through Supabase. Good for solo devs.
 
-### VPS / Server
-Run CodeSync on a VPS with local Supabase. AI grinds tasks 24/7 while you sleep. Good for teams and background automation.
-
-Each workstream gets its own git worktree at `.worktrees/<name>`, so your main checkout stays clean and multiple workstreams can run concurrently without conflicts.
-
-## Features
-
-- **Workstreams** -- sequential task columns, execute top-to-bottom with auto-continue
-- **AI execution** -- spawns Claude Code per task with configurable phase pipelines (plan -> implement -> verify -> review)
-- **Effort & multi-agent** -- per-task effort level (low/medium/high/max) and optional subagent parallelization
-- **Skill references** -- type `/skillname` in task descriptions to inject Claude Code skills into AI prompts, with autocomplete
-- **Pause & resume** -- jobs pause when Claude has a question, you answer inline
-- **Auto-revert** -- git checkpoint before each task, auto-revert on failure
-- **Git integration** -- each workstream gets a worktree, each task = commit, completion = PR
-- **Human tasks** -- toggle to human mode for design reviews, manual QA, etc.
-- **Image attachments** -- drag-drop or paste screenshots, designs, error captures onto tasks; passed to AI as context
-- **Priority levels** -- critical / upcoming / backlog, visible in backlog column
-- **Custom task types** -- define project-specific types beyond the built-in set (feature, bug-fix, refactor, test, ui-fix, design, chore)
-- **Team roles** -- admin, dev, manager (managers can create and manage tasks but cannot run AI execution)
-- **Invite by email** -- invite users who don't have accounts yet; accounts are auto-created
-- **Comments & notifications** -- per-task threads, @mentions, web push notifications for status changes
-- **Telegram bot** -- interact with your project from Telegram: create tasks, check status, get summaries
-- **MCP server** -- `project_focus`, `task_create`, `task_update`, `task_log`, `workstream_status`, `job_reply`, `job_approve`, `job_reject` from CLI
-- **Realtime sync** -- SSE + Supabase Realtime (with polling fallback) for live task/job updates across team members
-- **Row-level security** -- all Supabase tables use RLS scoped to project membership
-- **DB backups** -- included `scripts/backup-db.sh` with pg_dump, gzip, and 7-day retention
-
-## Prerequisites
-
-- **Node.js 18+** and **pnpm**
-- **Docker** (for local Supabase)
-- **Claude Code** -- [install](https://claude.ai/download) and authenticate
-- **git** configured with `user.name` and `user.email`
-- **GitHub CLI** -- [install](https://cli.github.com) (needed for PR creation)
+**On a VPS** -- AI workers grind tasks 24/7 while you sleep. Good for teams.
 
 ## Quick Start
 
 ```bash
-git clone git@github.com:ilyador/codesync.git
-cd codesync
+git clone git@github.com:ilyador/workstream.git
+cd workstream
 pnpm install
 cp .env.example .env
 
-# Start local Supabase
 npx supabase start
 npx supabase db reset
 
 # Fill .env with keys from:
 npx supabase status
 
-# Start all services
 pnpm dev
 ```
 
-Opens at `http://localhost:3000`. The dev command starts Vite (frontend), Express (API), and the worker (task execution) concurrently.
+Opens at `http://localhost:3000`.
 
 ## Architecture
 
@@ -88,101 +89,17 @@ Browser <-> Express API <-> Supabase (Postgres)
                           Claude Code CLI
 ```
 
-- **Express server** -- HTTP/SSE only, stateless, restarts don't affect running jobs
-- **Worker process** -- polls DB for queued jobs, spawns `claude -p`, writes logs to `job_logs` table
-- **SSE streaming** -- server polls `job_logs` every 500ms, streams to browser via Server-Sent Events
+- **Express server** -- stateless HTTP/SSE, restarts don't affect running jobs
+- **Worker process** -- polls DB for queued jobs, spawns `claude -p`, streams logs
 - **Supabase** -- auth, DB, RLS policies, realtime (local Docker or cloud)
-
-## Project Structure
-
-```
-src/
-  server/
-    index.ts          Express entry (port 3001)
-    worker.ts         Independent job execution process
-    runner.ts         Claude CLI spawner + phase orchestrator
-    auto-continue.ts  Shared workstream task queuing
-    checkpoint.ts     Git checkpoint create/revert/delete
-    worktree.ts       Git worktree management per workstream
-    bot.ts            Telegram bot (grammy)
-    routes/
-      execution.ts    Job lifecycle endpoints + SSE
-      data.ts         CRUD for projects, tasks, workstreams, skills
-      git.ts          Commit, push, PR endpoints
-      auth.ts         Signup, signin, session management
-    mcp.ts            MCP server (9 tools)
-  web/
-    App.tsx           Root component
-    components/
-      Board.tsx       Kanban board container
-      WorkstreamColumn.tsx
-      TaskCard.tsx    Card with inline activity
-      TaskForm.tsx    Create/edit task modal with skill autocomplete
-      Header.tsx      Project switcher, notifications
-      LiveLogs.tsx    Real-time job output streaming
-    hooks/            useAuth, useTasks, useWorkstreams, useJobs, etc.
-    lib/
-      api.ts          Fetch wrappers + SSE subscription
-scripts/
-  backup-db.sh        Database backup with retention
-supabase/
-  migrations/         16 migration files
-```
-
-## Task Configuration
-
-Create `.codesync/config.json` in your project:
-
-```json
-{
-  "task_types": {
-    "feature": {
-      "phases": ["plan", "implement", "verify"],
-      "final": { "phase": "review" },
-      "verify_retries": 2,
-      "review_retries": 1
-    }
-  }
-}
-```
-
-## Telegram Bot
-
-Set `TELEGRAM_BOT_TOKEN` in `.env`, then:
-
-```bash
-pnpm dev:bot
-```
-
-Link a chat to a project with `/start`, then send natural language messages to create tasks, check status, or get summaries.
-
-## MCP Server
-
-```bash
-pnpm mcp
-```
-
-Tools: `project_focus`, `project_summary`, `task_create`, `task_update`, `task_log`, `workstream_status`, `job_reply`, `job_approve`, `job_reject`
-
-## Database Backups
-
-```bash
-# Manual backup
-./scripts/backup-db.sh
-
-# Backups saved to ~/backups/codesync/ with 7-day retention
-# Set up daily cron:
-# 0 3 * * * /path/to/codesync/scripts/backup-db.sh >> ~/backups/codesync/cron.log 2>&1
-```
 
 ## Tech Stack
 
-**Frontend:** React 19, Vite 8, TypeScript, CSS Modules, react-markdown
+**Frontend:** React 19, Vite 8, TypeScript, CSS Modules
 **Backend:** Express 5, tsx
 **Database:** Supabase (Postgres, Auth, RLS, Realtime)
 **AI:** Claude Code CLI, MCP SDK
 **Bot:** grammy (Telegram)
-**Tools:** pnpm, concurrently
 
 ## License
 

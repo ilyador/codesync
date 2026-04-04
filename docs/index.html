@@ -232,14 +232,14 @@ footer a:hover { color: var(--text-2); }
 
 <section class="hero">
   <div class="w">
-    <h1>A task manager<br>for people who'd<br><span>rather not.</span></h1>
-    <p class="hero-sub">Tasks here are executable instructions, not decorative items in a Jira board that exists so management can feel productive. You describe the work. Claude Code implements it. You approve a PR.</p>
+    <h1>Hire AI.<br>Assign work.<br><span>Review PRs.</span></h1>
+    <p class="hero-sub">WorkStream gives you AI workers that read your codebase, implement tasks, run tests, and submit PRs. You assign work the same way you would to a teammate. Except these ones don't call in sick or argue about tabs vs spaces.</p>
     <div class="hero-btns">
       <a href="https://github.com/ilyador/workstream" class="btn-main">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
         Get WorkStream
       </a>
-      <a href="#how" class="btn-ghost">How it works</a>
+      <a href="#team" class="btn-ghost">Meet the team</a>
     </div>
     <p class="hero-note">Open source &middot; MIT &middot; Runs locally</p>
   </div>
@@ -273,74 +273,71 @@ footer a:hover { color: var(--text-2); }
   </div>
 </section>
 
-<section class="features" id="features">
+<section class="features" id="team">
   <div class="w">
-    <h2>What it does instead</h2>
+    <h2><span style="color: var(--text-3)">Your new</span> engineering team</h2>
+
+    <div class="anti-grid" style="margin-bottom: 40px;">
+      <div class="anti-item">
+        <div class="anti-label" style="text-decoration: none;">AI Developer</div>
+        <div class="anti-title">Plans and builds features</div>
+        <div class="anti-desc">Reads your codebase, creates an implementation plan, writes the code, runs tests, submits for review. Your most productive hire.<br><span class="feat-tag">implement &rarr; verify &rarr; review</span></div>
+      </div>
+      <div class="anti-item">
+        <div class="anti-label" style="text-decoration: none;">AI Bug Hunter</div>
+        <div class="anti-title">Finds and fixes bugs</div>
+        <div class="anti-desc">Analyzes the root cause, applies the minimal fix, verifies nothing else broke. Does in minutes what takes a human half a day of context-switching.<br><span class="feat-tag">fix &rarr; verify &rarr; review</span></div>
+      </div>
+      <div class="anti-item">
+        <div class="anti-label" style="text-decoration: none;">AI Refactorer</div>
+        <div class="anti-title">Restructures without breaking</div>
+        <div class="anti-desc">Plans the refactor, executes it, runs the full test suite to prove nothing changed. The one developer who actually writes tests after refactoring.<br><span class="feat-tag">refactor &rarr; verify &rarr; review</span></div>
+      </div>
+      <div class="anti-item">
+        <div class="anti-label" style="text-decoration: none;">AI Tester</div>
+        <div class="anti-title">Writes your test suite</div>
+        <div class="anti-desc">Follows your existing test patterns. Doesn't skip edge cases because it's 5pm on a Friday. Doesn't write tests that test the mock instead of the code.<br><span class="feat-tag">write-tests &rarr; verify &rarr; review</span></div>
+      </div>
+    </div>
+
+    <p style="font-size: 15px; color: var(--text-2); line-height: 1.65; max-width: 640px; margin-bottom: 56px;">Every worker is a composable flow you can customize. Change the instructions, switch the model per step, control what context each step sees, or build entirely new workers from scratch. The flow editor is visual -- no config files, no YAML.</p>
+
+    <h2 id="features" style="margin-top: 0;">How they work</h2>
 
     <div class="feat">
       <span class="feat-n">01</span>
-      <div class="feat-t">AI writes your code</div>
-      <div class="feat-d">Click Run. Go make coffee. Come back to a PR. No daily standup to explain why you're "still working on it."<br><span class="feat-tag">plan &rarr; implement &rarr; verify &rarr; review</span></div>
+      <div class="feat-t">Assign like a teammate</div>
+      <div class="feat-d">The task form has one dropdown: pick an AI worker or a human. No separate "AI mode" toggle. No configuration. Just "who does this?"</div>
     </div>
     <div class="feat">
       <span class="feat-n">02</span>
-      <div class="feat-t">Workstreams, not boards</div>
+      <div class="feat-t">Streams, not boards</div>
       <div class="feat-d">Tasks run top-to-bottom. One finishes, next starts. No dragging cards across five columns so a PM can feel informed.</div>
     </div>
     <div class="feat">
       <span class="feat-n">03</span>
-      <div class="feat-t">It asks when it's stuck</div>
-      <div class="feat-d">Job pauses. You answer inline. It continues. Unlike your last team lead, it doesn't pretend to understand and break everything.</div>
+      <div class="feat-t">They ask when stuck</div>
+      <div class="feat-d">Job pauses. You answer inline. It picks up where it left off. Unlike your last team lead, it doesn't pretend to understand and break everything.</div>
     </div>
     <div class="feat">
       <span class="feat-n">04</span>
-      <div class="feat-t">Git without the footgun</div>
-      <div class="feat-d">Each workstream gets a worktree. Each task auto-commits. Done? Click "Create PR." Zero git decisions. AI doesn't get creative with your repo.</div>
+      <div class="feat-t">Git is automatic</div>
+      <div class="feat-d">Each stream gets a worktree. Each task auto-commits. Checkpoint before execution, auto-revert on failure. Done? Click "Create PR."</div>
     </div>
     <div class="feat">
       <span class="feat-n">05</span>
-      <div class="feat-t">Auto-revert on failure</div>
-      <div class="feat-d">Checkpoint before every task. If it breaks, it rolls back. Unlike that intern's force-push, this one cleans up after itself.</div>
+      <div class="feat-t">Watch them work</div>
+      <div class="feat-d">Live streaming logs as Claude reads files, edits code, runs tests. Push notifications when it's done. No refreshing dashboards.</div>
     </div>
     <div class="feat">
       <span class="feat-n">06</span>
-      <div class="feat-t">Skills &amp; screenshots</div>
-      <div class="feat-d">Type <code>/skill</code> to inject methodologies. Paste screenshots. Claude sees what you see. No more "can you describe the bug in words."</div>
+      <div class="feat-t">Humans welcome</div>
+      <div class="feat-d">Design reviews, QA, meetings -- assign to a person. AI and humans share the same task board. Comments, @mentions, notifications for everyone.</div>
     </div>
     <div class="feat">
       <span class="feat-n">07</span>
-      <div class="feat-t">Three roles, zero meetings</div>
-      <div class="feat-d">Admin, dev, manager. Managers can't press the Run button. Finally, a permission system that prevents damage instead of causing it.</div>
-    </div>
-    <div class="feat">
-      <span class="feat-n">08</span>
-      <div class="feat-t">Realtime everything</div>
-      <div class="feat-d">Watch Claude work live. Push notifications when it finishes. No refreshing a dashboard every 30 seconds like it's 2004.</div>
-    </div>
-    <div class="feat">
-      <span class="feat-n">09</span>
-      <div class="feat-t">Comments &amp; @mentions</div>
-      <div class="feat-d">Talk about tasks on the task. Not in Slack, not in email, not in a Google Doc that links to a Notion page that links to Jira.</div>
-    </div>
-    <div class="feat">
-      <span class="feat-n">10</span>
-      <div class="feat-t">Human tasks</div>
-      <div class="feat-d">Design reviews, QA, meetings. Assign to a person. It's a toggle. Not a $49/seat add-on.</div>
-    </div>
-    <div class="feat">
-      <span class="feat-n">11</span>
-      <div class="feat-t">Telegram bot</div>
-      <div class="feat-d">Create tasks from your phone. Check status from bed. The project manager lifestyle, minus the project manager.</div>
-    </div>
-    <div class="feat">
-      <span class="feat-n">12</span>
-      <div class="feat-t">MCP server</div>
-      <div class="feat-d">"What should I work on?" from your terminal. No browser tab required. Nine tools for people who hate context-switching.<br><span class="feat-tag">9 MCP tools</span></div>
-    </div>
-    <div class="feat">
-      <span class="feat-n">13</span>
-      <div class="feat-t">Local or VPS</div>
-      <div class="feat-d">Run on your laptop or a server. AI grinds while you sleep. Daily backups so nobody accidentally nukes the database.</div>
+      <div class="feat-t">Control from anywhere</div>
+      <div class="feat-d">Telegram bot for your phone. MCP server for your terminal. Web UI for your browser. Create tasks, check status, approve work -- from wherever you are.</div>
     </div>
   </div>
 </section>
@@ -396,15 +393,15 @@ footer a:hover { color: var(--text-2); }
 
 <section class="manifesto">
   <div class="w">
-    <blockquote>"Built by a developer who spent more time configuring Jira than writing code. So he quit Jira and taught AI to do the work instead."</blockquote>
+    <blockquote>"I wanted to hire developers who never get distracted, never need onboarding, and never push to main without running tests. So I built them."</blockquote>
     <cite>~ The README, honestly</cite>
   </div>
 </section>
 
 <section class="cta">
   <div class="w">
-    <h2>Stop managing.<br>Start shipping.</h2>
-    <p>Open source. Free forever. MIT licensed.</p>
+    <h2>Hire your first<br>AI worker today.</h2>
+    <p>Open source. Free forever. MIT licensed. Your AI team starts at zero dollars.</p>
     <a href="https://github.com/ilyador/workstream" class="btn-main">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
       Get WorkStream on GitHub

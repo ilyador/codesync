@@ -32,7 +32,7 @@ async function getLinkedProject(chatId: number) {
 async function showProjectPicker(chatId: number) {
   const { data: projects } = await supabase.from('projects').select('id, name').order('name');
   if (!projects || projects.length === 0) {
-    await bot.api.sendMessage(chatId, 'No projects found in CodeSync.');
+    await bot.api.sendMessage(chatId, 'No projects found in WorkStream.');
     return;
   }
   const kb = new InlineKeyboard();
@@ -101,7 +101,7 @@ function askClaude(systemPrompt: string, userMessage: string): Promise<string> {
 }
 
 function buildSystemPrompt(projectName: string, summary: string): string {
-  return `You are the CodeSync project assistant for "${projectName}". Here is the current project state:
+  return `You are the WorkStream project assistant for "${projectName}". Here is the current project state:
 
 ${summary}
 
@@ -191,7 +191,7 @@ async function executeAction(action: Action, projectId: string): Promise<string>
       const { data: botProfile } = await supabase
         .from('profiles')
         .select('id')
-        .eq('name', 'CodeSync Bot')
+        .eq('name', 'WorkStream Bot')
         .limit(1)
         .single();
       let userId = botProfile?.id;
@@ -304,7 +304,7 @@ bot.on('message:text', async (ctx) => {
 // ---------------------------------------------------------------------------
 
 bot.start({
-  onStart: () => console.log('[bot] CodeSync Telegram bot started'),
+  onStart: () => console.log('[bot] WorkStream Telegram bot started'),
 });
 
 process.on('SIGTERM', () => { bot.stop(); process.exit(0); });

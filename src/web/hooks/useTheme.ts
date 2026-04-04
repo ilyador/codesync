@@ -7,7 +7,7 @@ function getSystemTheme(): Theme {
 }
 
 function getInitialTheme(): Theme {
-  const stored = localStorage.getItem('codesync-theme') as Theme | null;
+  const stored = localStorage.getItem('workstream-theme') as Theme | null;
   if (stored === 'light' || stored === 'dark') return stored;
   return getSystemTheme();
 }
@@ -15,7 +15,7 @@ function getInitialTheme(): Theme {
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
   // Track whether the user has explicitly chosen a theme (vs following system)
-  const isExplicit = useRef(!!localStorage.getItem('codesync-theme'));
+  const isExplicit = useRef(!!localStorage.getItem('workstream-theme'));
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -36,7 +36,7 @@ export function useTheme() {
   const toggle = useCallback(() => {
     setTheme(t => {
       const next = t === 'light' ? 'dark' : 'light';
-      localStorage.setItem('codesync-theme', next);
+      localStorage.setItem('workstream-theme', next);
       isExplicit.current = true;
       return next;
     });

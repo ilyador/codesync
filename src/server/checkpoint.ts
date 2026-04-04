@@ -22,15 +22,15 @@ export function createCheckpoint(localPath: string, jobId: string): CheckpointIn
   git(['add', '-A'], localPath);
 
   // Create checkpoint commit
-  git(['commit', '--allow-empty', '-m', `codesync-checkpoint-before:${jobId}`], localPath);
+  git(['commit', '--allow-empty', '-m', `workstream-checkpoint-before:${jobId}`], localPath);
 
   // Save the commit as a ref (includes branch info in the ref for restore)
   const commitSha = git(['rev-parse', 'HEAD'], localPath);
-  git(['update-ref', `refs/codesync/checkpoints/${jobId}`, commitSha], localPath);
+  git(['update-ref', `refs/workstream/checkpoints/${jobId}`, commitSha], localPath);
 
   // Also save the branch name as a separate ref note
   if (branch) {
-    git(['config', `codesync.checkpoint.${jobId}.branch`, branch], localPath);
+    git(['config', `workstream.checkpoint.${jobId}.branch`, branch], localPath);
   }
 
   // Undo the commit but keep files as they were (mixed reset)
@@ -40,7 +40,7 @@ export function createCheckpoint(localPath: string, jobId: string): CheckpointIn
 }
 
 export function revertToCheckpoint(localPath: string, jobId: string): { reverted: boolean } {
-  const ref = `refs/codesync/checkpoints/${jobId}`;
+  const ref = `refs/workstream/checkpoints/${jobId}`;
 
   // Verify checkpoint exists
   try {
@@ -65,7 +65,7 @@ export function revertToCheckpoint(localPath: string, jobId: string): { reverted
 
   // Restore branch if we were on one
   try {
-    const branch = git(['config', `codesync.checkpoint.${jobId}.branch`], localPath);
+    const branch = git(['config', `workstream.checkpoint.${jobId}.branch`], localPath);
     if (branch) {
       // Make sure HEAD is on the right branch
       const currentBranch = git(['rev-parse', '--abbrev-ref', 'HEAD'], localPath);
@@ -85,9 +85,9 @@ export function revertToCheckpoint(localPath: string, jobId: string): { reverted
 
 export function deleteCheckpoint(localPath: string, jobId: string): void {
   try {
-    git(['update-ref', '-d', `refs/codesync/checkpoints/${jobId}`], localPath);
+    git(['update-ref', '-d', `refs/workstream/checkpoints/${jobId}`], localPath);
   } catch { /* ignore if ref doesn't exist */ }
   try {
-    git(['config', '--unset', `codesync.checkpoint.${jobId}.branch`], localPath);
+    git(['config', '--unset', `workstream.checkpoint.${jobId}.branch`], localPath);
   } catch { /* ignore */ }
 }

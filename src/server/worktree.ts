@@ -4,13 +4,13 @@ import { gitSync } from './git-utils.js';
 
 /**
  * Ensure a git worktree exists for the given workstream slug.
- * Creates `<projectPath>/.worktrees/<slug>` on branch `codesync/<slug>`.
+ * Creates `<projectPath>/.worktrees/<slug>` on branch `workstream/<slug>`.
  * Returns the absolute worktree path.
  */
 export function ensureWorktree(projectPath: string, workstreamSlug: string): string {
   const worktreeDir = path.join(projectPath, '.worktrees');
   const worktreePath = path.join(worktreeDir, workstreamSlug);
-  const branch = `codesync/${workstreamSlug}`;
+  const branch = `workstream/${workstreamSlug}`;
 
   // Already set up — just return the path
   if (existsSync(path.join(worktreePath, '.git'))) {
@@ -38,7 +38,7 @@ export function ensureWorktree(projectPath: string, workstreamSlug: string): str
  */
 export function cleanupWorktree(projectPath: string, workstreamSlug: string): void {
   const worktreePath = path.join(projectPath, '.worktrees', workstreamSlug);
-  const branch = `codesync/${workstreamSlug}`;
+  const branch = `workstream/${workstreamSlug}`;
 
   // Remove the worktree
   try {

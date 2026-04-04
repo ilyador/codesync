@@ -22,13 +22,13 @@ export function OnboardingCheck({ onReady }: { onReady: () => void }) {
         setReady(data.ready);
         if (data.ready) onReady();
       })
-      .catch(() => setError('Cannot connect to CodeSync server. Is it running on port 3001?'));
+      .catch(() => setError('Cannot connect to WorkStream server. Is it running on port 3001?'));
   }, []);
 
   if (error) {
     return (
       <div className={s.container}>
-        <h1 className={s.title}>CodeSync</h1>
+        <h1 className={s.title}>WorkStream</h1>
         <div className={s.error}>{error}</div>
         <p className={s.hint}>Start the server: <code>pnpm dev:server</code></p>
       </div>
@@ -38,7 +38,7 @@ export function OnboardingCheck({ onReady }: { onReady: () => void }) {
   if (!checks) {
     return (
       <div className={s.container}>
-        <h1 className={s.title}>CodeSync</h1>
+        <h1 className={s.title}>WorkStream</h1>
         <p className={s.loading}>Checking environment...</p>
       </div>
     );
@@ -48,7 +48,7 @@ export function OnboardingCheck({ onReady }: { onReady: () => void }) {
 
   return (
     <div className={s.container}>
-      <h1 className={s.title}>CodeSync</h1>
+      <h1 className={s.title}>WorkStream</h1>
       <p className={s.subtitle}>Let's make sure everything is set up.</p>
 
       <div className={s.list}>

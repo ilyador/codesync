@@ -222,6 +222,7 @@ async function buildStepPrompt(
         break;
       case 'rag':
         if (task._ragResults?.length > 0) prompt += formatRagResults(task._ragResults);
+        prompt += `## Document Search Tool\nYou can search project documents for specific information using the Bash tool:\n\`\`\`\nnpx tsx src/server/rag-cli.ts ${task.project_id} "your search query"\n\`\`\`\nUse targeted queries to find rules, lore, specs, or any project documentation. You can run multiple searches.\n\n`;
         break;
       case 'all_previous_steps':
         if (previousOutputs.length > 0) {

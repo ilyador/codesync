@@ -49,7 +49,7 @@ export function AddProjectModal({ onClose, onCreate }: Props) {
     <div className={s.overlay} ref={overlayRef} onClick={handleOverlayClick}>
       <div className={s.modal}>
         <h2 className={s.title}>New Project</h2>
-        <p className={s.subtitle}>Add another project to CodeSync.</p>
+        <p className={s.subtitle}>Add another project to WorkStream.</p>
         {error && <div className={s.error}>{error}</div>}
         <form className={s.form} onSubmit={handleSubmit}>
           <label className={s.fieldLabel}>Project name</label>
