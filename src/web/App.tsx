@@ -502,6 +502,7 @@ export default function App() {
               images: data.images,
               workstream_id: data.workstream_id,
               priority: data.priority,
+              chaining: data.chaining,
             });
           }}
           onClose={() => { setShowTaskForm(false); setTaskFormWorkstream(null); }}
@@ -537,6 +538,7 @@ export default function App() {
               images: data.images,
               workstream_id: data.workstream_id,
               priority: data.priority,
+              chaining: data.chaining,
             });
           }}
           onClose={() => setEditingTask(null)}

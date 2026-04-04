@@ -84,7 +84,8 @@
 .previewDesc p { margin: 0; }
 .previewDesc a { color: var(--blue); text-decoration: none; }
 .previewDesc a:hover { text-decoration: underline; }
-.previewDesc img { display: none; }
+.previewDesc img, .previewDesc table, .previewDesc pre, .previewDesc ul, .previewDesc ol { display: none; }
+.previewDesc h1, .previewDesc h2, .previewDesc h3, .previewDesc h4, .previewDesc h5, .previewDesc h6 { font-size: inherit; font-weight: inherit; display: inline; }
 .previewDesc code {
   font-size: 12px;
   padding: 1px 4px;
@@ -191,6 +192,19 @@
   font-size: 12px;
   flex-shrink: 0;
   title: attr(title);
+}
+
+/* Broken chaining link warning */
+.brokenLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 10px;
+  color: var(--amber);
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--amber-bg);
+  flex-shrink: 0;
 }
 
 /* Status dot on compact view */

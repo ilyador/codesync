@@ -54,6 +54,7 @@ interface TaskCardProps {
   projectId?: string;
   hasUnreadMention?: boolean;
   commentCount?: number;
+  brokenLink?: { up: boolean; down: boolean } | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -90,6 +91,7 @@ export function TaskCard({
   projectId,
   hasUnreadMention,
   commentCount = 0,
+  brokenLink,
 }: TaskCardProps) {
   const jobStatus = job?.status;
   const isActive = jobStatus === 'queued' || jobStatus === 'running' || jobStatus === 'paused' || jobStatus === 'review';
@@ -181,6 +183,15 @@ export function TaskCard({
         <span className={s.title}>{task.title}</span>
 
         <div className={s.tags}>
+          {brokenLink && (
+            <span className={s.brokenLink} title={
+              brokenLink.up && brokenLink.down ? 'Missing input and output connection'
+              : brokenLink.up ? 'No previous task produces files'
+              : 'No next task accepts files'
+            }>
+              {brokenLink.up && '\u2191'}{'\u26A0'}{brokenLink.down && '\u2193'}
+            </span>
+          )}
           {!task.auto_continue && (!task.assignee || task.assignee.type === 'ai') && (
             <span className={s.chain} title="Manual review required">&#9646;&#9646;</span>
           )}

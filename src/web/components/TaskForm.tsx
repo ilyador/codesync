@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getSkills, type SkillInfo, type Flow } from '../lib/api';
+import { MdField } from './MdField';
+import mdStyles from './MdField.module.css';
 import { useSlashCommands } from '../hooks/useSlashCommands';
 import { useArtifacts } from '../hooks/useArtifacts';
 import { getFileIcon, formatFileSize } from '../lib/file-utils';
@@ -116,21 +118,6 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const slash = useSlashCommands(skills);
 
-  // Auto-resize textarea to fit content, capped at 300px
-  const autoResizeTextarea = useCallback(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 300) + 'px';
-  }, []);
-
-  // Auto-resize on mount when editing a task with existing description
-  useEffect(() => {
-    if (editTask?.description) {
-      autoResizeTextarea();
-    }
-  }, [editTask?.description, autoResizeTextarea]);
-
   // Fetch skills on mount
   useEffect(() => {
     getSkills(localPath).then(data => {
@@ -154,11 +141,13 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
     const val = e.target.value;
     const cursor = e.target.selectionStart;
     setDescription(val);
-    autoResizeTextarea();
+    // Auto-resize textarea to fit content
+    e.target.style.height = 'auto';
+    e.target.style.height = e.target.scrollHeight + 'px';
     if (mode === 'ai') {
       slash.handleTextChange(val, cursor);
     }
-  }, [autoResizeTextarea, mode, slash]);
+  }, [mode, slash]);
 
   const insertSkill = useCallback((skillName: string) => {
     const ta = textareaRef.current;
@@ -179,10 +168,11 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
         ta.focus();
         const pos = prefix.length + skillName.length + 2;
         ta.selectionStart = ta.selectionEnd = pos;
+        ta.style.height = 'auto';
+        ta.style.height = ta.scrollHeight + 'px';
       }
-      autoResizeTextarea();
     });
-  }, [description, autoResizeTextarea, slash]);
+  }, [description, slash]);
 
   const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
@@ -295,21 +285,40 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
             autoFocus
           />
           <div className={s.descriptionWrap}>
-            <textarea
-              ref={textareaRef}
-              className={s.textarea}
-              placeholder={mode === 'ai' ? "Description (optional) — type / to insert a skill" : "Description (optional)"}
+            <MdField
               value={description}
-              onChange={handleDescriptionChange}
-              onKeyDown={handleDescriptionKeyDown}
-              onBlur={() => { setTimeout(() => slash.dismiss(), 150); }}
-              onPaste={e => {
-                const hasImage = Array.from(e.clipboardData.items).some(i => i.type.startsWith('image/'));
-                if (hasImage) {
-                  e.preventDefault();
-                  handleImagePaste(e);
-                }
-              }}
+              onChange={setDescription}
+              placeholder={mode === 'ai' ? "Description (optional) -- type / to insert a skill" : "Description (optional)"}
+              minHeight={72}
+              renderTextarea={(stopEditing) => (
+                <textarea
+                  ref={el => {
+                    (textareaRef as any).current = el;
+                    if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+                  }}
+                  className={mdStyles.textarea}
+                  placeholder={mode === 'ai' ? "Description (optional) -- type / to insert a skill" : "Description (optional)"}
+                  value={description}
+                  onChange={handleDescriptionChange}
+                  onKeyDown={handleDescriptionKeyDown}
+                  onBlur={(e) => {
+                    // Don't switch to preview if clicking a button -- layout shift steals the click
+                    const related = e.relatedTarget as HTMLElement | null;
+                    if (!related?.tagName?.match(/^BUTTON$/i) && !related?.closest('button')) {
+                      stopEditing();
+                    }
+                    setTimeout(() => slash.dismiss(), 150);
+                  }}
+                  onPaste={e => {
+                    const hasImage = Array.from(e.clipboardData.items).some(i => i.type.startsWith('image/'));
+                    if (hasImage) {
+                      e.preventDefault();
+                      handleImagePaste(e);
+                    }
+                  }}
+                  autoFocus
+                />
+              )}
             />
             {mode === 'ai' && slash.matches.length > 0 && (
               <div className={s.skillDropdown}>
@@ -333,7 +342,7 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
                   <span key={name} className={s.skillBadgeValid}>/{name}</span>
                 ))}
                 {invalidSkills.map(name => (
-                  <span key={name} className={s.skillBadgeInvalid} title="Skill not found — will be ignored">/{name}</span>
+                  <span key={name} className={s.skillBadgeInvalid} title="Skill not found - will be ignored">/{name}</span>
                 ))}
               </div>
             )}

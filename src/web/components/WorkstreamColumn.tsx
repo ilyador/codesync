@@ -163,6 +163,26 @@ export function WorkstreamColumn({
     return chainGroups.find(g => g.taskIds.includes(taskId)) || null;
   }, [chainGroups]);
 
+  // Detect broken chaining links (unmet produce/accept with no matching neighbor)
+  const brokenLinks = useMemo(() => {
+    if (isBacklog) return new Map<string, { up: boolean; down: boolean }>();
+    const map = new Map<string, { up: boolean; down: boolean }>();
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      const accepts = task.chaining === 'accept' || task.chaining === 'both';
+      const produces = task.chaining === 'produce' || task.chaining === 'both';
+      if (!accepts && !produces) continue;
+      const prev = i > 0 ? tasks[i - 1] : null;
+      const next = i < tasks.length - 1 ? tasks[i + 1] : null;
+      const up = accepts && !(prev && (prev.chaining === 'produce' || prev.chaining === 'both'));
+      const down = produces && !(next && (next.chaining === 'accept' || next.chaining === 'both'));
+      if (up || down) map.set(task.id, { up, down });
+    }
+    return map;
+  }, [tasks, isBacklog]);
+
+  const hasBrokenLinks = brokenLinks.size > 0;
+
   const wsId = workstream?.id || null;
   const doneTasks = tasks.filter(t => t.status === 'done').length;
   const totalTasks = tasks.length;
@@ -551,7 +571,7 @@ export function WorkstreamColumn({
           )}
 
           {/* Run button: only when idle (open status) with tasks */}
-          {!isBacklog && canRunAi && onRunWorkstream && wsStatus === 'open' && totalTasks > 0 && (
+          {!isBacklog && canRunAi && onRunWorkstream && wsStatus === 'open' && totalTasks > 0 && !hasBrokenLinks && (
             <button
               className={s.runBtn}
               onClick={onRunWorkstream}
@@ -713,6 +733,7 @@ export function WorkstreamColumn({
                             projectId={projectId || undefined}
                             hasUnreadMention={mentionedTaskIds.has(gt.id)}
                             commentCount={commentCounts?.[gt.id] || 0}
+                            brokenLink={brokenLinks.get(gt.id) || null}
                             isExpanded={expandedIds.has(gt.id)}
                             onToggleExpand={() => setExpandedIds(prev => {
                               const next = new Set(prev);
@@ -720,7 +741,7 @@ export function WorkstreamColumn({
                               else next.add(gt.id);
                               return next;
                             })}
-                            onRun={isBacklog ? undefined : onRunTask}
+                            onRun={isBacklog || brokenLinks.has(gt.id) ? undefined : onRunTask}
                             onEdit={onEditTask ? () => onEditTask(gt) : undefined}
                             onDelete={onDeleteTask ? () => onDeleteTask(gt.id) : undefined}
                             onUpdateTask={onUpdateTask}
@@ -764,6 +785,7 @@ export function WorkstreamColumn({
                     projectId={projectId || undefined}
                     hasUnreadMention={mentionedTaskIds.has(task.id)}
                     commentCount={commentCounts?.[task.id] || 0}
+                    brokenLink={brokenLinks.get(task.id) || null}
                     isExpanded={expandedIds.has(task.id)}
                     onToggleExpand={() => setExpandedIds(prev => {
                       const next = new Set(prev);
@@ -771,7 +793,7 @@ export function WorkstreamColumn({
                       else next.add(task.id);
                       return next;
                     })}
-                    onRun={isBacklog ? undefined : onRunTask}
+                    onRun={isBacklog || brokenLinks.has(task.id) ? undefined : onRunTask}
                     onEdit={onEditTask ? () => onEditTask(task) : undefined}
                     onDelete={onDeleteTask ? () => onDeleteTask(task.id) : undefined}
                     onUpdateTask={onUpdateTask}

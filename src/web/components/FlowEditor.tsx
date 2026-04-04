@@ -1,56 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import type { Flow, FlowStep } from '../lib/api';
+import { MdField } from './MdField';
 import s from './FlowEditor.module.css';
-
-/** Markdown field: shows rendered preview, switches to textarea on click. */
-function MdField({ value, onChange, placeholder, autoResizeFn }: {
-  value: string;
-  onChange: (val: string) => void;
-  placeholder?: string;
-  autoResizeFn?: (el: HTMLTextAreaElement) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const taRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (editing && taRef.current) {
-      taRef.current.focus();
-      if (autoResizeFn) autoResizeFn(taRef.current);
-    }
-  }, [editing, autoResizeFn]);
-
-  if (editing) {
-    return (
-      <textarea
-        ref={taRef}
-        className={s.textarea}
-        value={value}
-        onChange={e => {
-          onChange(e.target.value);
-          if (autoResizeFn) autoResizeFn(e.target);
-        }}
-        onBlur={() => setEditing(false)}
-        placeholder={placeholder}
-      />
-    );
-  }
-
-  if (!value) {
-    return (
-      <div className={s.mdPreviewEmpty} onClick={() => setEditing(true)}>
-        {placeholder || 'Click to edit...'}
-      </div>
-    );
-  }
-
-  return (
-    <div className={s.mdPreview} onClick={() => setEditing(true)}>
-      <Markdown remarkPlugins={[remarkGfm]}>{value}</Markdown>
-    </div>
-  );
-}
 
 interface FlowEditorProps {
   flows: Flow[];
@@ -290,13 +241,6 @@ function FlowColumn({
     state.setEditing(false);
   }, [state.editName, flow.id, flow.name, state.setEditName, state.setEditing, state.setError, onSave]);
 
-  // ---- Auto-resize textarea helper ----
-  const autoResize = useCallback((el: HTMLTextAreaElement | null) => {
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 300) + 'px';
-  }, []);
-
   return (
     <div className={s.column}>
       {/* Header */}
@@ -379,7 +323,6 @@ function FlowColumn({
               value={state.editAgentsMd}
               onChange={val => state.setEditAgentsMd(val)}
               placeholder="Shared instructions for all steps in this flow (markdown)..."
-              autoResizeFn={autoResize}
             />
           </div>
         )}
@@ -440,7 +383,6 @@ function FlowColumn({
                       value={step.instructions}
                       onChange={val => updateStep(idx, { instructions: val })}
                       placeholder="What should the AI do in this step..."
-                      autoResizeFn={autoResize}
                     />
                   </div>
 
