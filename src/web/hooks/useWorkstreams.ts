@@ -11,6 +11,7 @@ interface Workstream {
   status: string;
   position: number;
   pr_url: string | null;
+  reviewer_id: string | null;
   created_at: string;
 }
 

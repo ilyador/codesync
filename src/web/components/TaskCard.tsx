@@ -395,7 +395,7 @@ function IdleDetail({
         </span>
       </div>
 
-      <TaskAttachments taskId={task.id} legacyImages={task.images} />
+      <TaskAttachments taskId={task.id} legacyImages={task.images} readOnly />
 
       <div className={s.actions}>
         <div className={s.actionsLeft}>
@@ -432,7 +432,7 @@ function IdleDetail({
 }
 
 /** Attachments section using artifacts API */
-function TaskAttachments({ taskId, legacyImages }: { taskId: string; legacyImages?: string[] }) {
+function TaskAttachments({ taskId, legacyImages, readOnly }: { taskId: string; legacyImages?: string[]; readOnly?: boolean }) {
   const { artifacts, upload, remove } = useArtifacts(taskId);
   // Include legacy task.images as read-only artifacts for backward compat
   const legacyArtifacts = (legacyImages || []).map((url, i) => ({
@@ -445,6 +445,9 @@ function TaskAttachments({ taskId, legacyImages }: { taskId: string; legacyImage
   }));
   const allFiles = [...artifacts.map(a => ({ ...a, isLegacy: false })), ...legacyArtifacts];
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // In readOnly mode, only render if there are files
+  if (readOnly && allFiles.length === 0) return null;
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -474,11 +477,15 @@ function TaskAttachments({ taskId, legacyImages }: { taskId: string; legacyImage
     <div className={s.attachments}>
       <div className={s.attachmentsHeader}>
         <span>Attachments{allFiles.length > 0 ? ` (${allFiles.length})` : ''}</span>
-        <button className={s.attachAddBtn} onClick={() => fileInputRef.current?.click()}>+ Add</button>
-        <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileSelect} />
+        {!readOnly && (
+          <>
+            <button className={s.attachAddBtn} onClick={() => fileInputRef.current?.click()}>+ Add</button>
+            <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileSelect} />
+          </>
+        )}
       </div>
       {allFiles.length > 0 ? (
-        <div className={s.attachList} onDragOver={e => e.preventDefault()} onDrop={handleDrop}>
+        <div className={s.attachList} {...(!readOnly ? { onDragOver: (e: React.DragEvent) => e.preventDefault(), onDrop: handleDrop } : {})}>
           {allFiles.map(a => (
             <div key={a.id} className={s.attachItem}>
               {a.mime_type.startsWith('image/') ? (
@@ -492,15 +499,15 @@ function TaskAttachments({ taskId, legacyImages }: { taskId: string; legacyImage
                 <a href={a.url} target="_blank" rel="noopener noreferrer" className={s.attachName}>{a.filename}</a>
                 {a.size_bytes > 0 && <span className={s.attachSize}>{formatSize(a.size_bytes)}</span>}
               </div>
-              {!a.isLegacy && <button className={s.attachDelete} onClick={() => remove(a.id)} title="Remove">&times;</button>}
+              {!readOnly && !a.isLegacy && <button className={s.attachDelete} onClick={() => remove(a.id)} title="Remove">&times;</button>}
             </div>
           ))}
         </div>
-      ) : (
+      ) : !readOnly ? (
         <div className={s.attachDropZone} onDragOver={e => e.preventDefault()} onDrop={handleDrop}>
           Drop files here
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

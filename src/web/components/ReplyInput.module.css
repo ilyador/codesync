@@ -1,3 +1,5 @@
+.replyWrap { position: relative; }
+
 .replyRow { display: flex; gap: 10px; align-items: stretch; }
 
 .replyInput {
@@ -11,6 +13,10 @@
   color: var(--text);
   outline: none;
   transition: border-color 0.15s;
+}
+.replyInput:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-bg);
 }
 
 .replySend {
@@ -28,3 +34,53 @@
   flex-shrink: 0;
 }
 .replySend:hover { opacity: 0.8; }
+
+/* Skill autocomplete dropdown — appears above the input */
+.skillDropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  z-index: 300;
+  background: var(--white);
+  border: 1.5px solid var(--divider);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 4px;
+}
+.skillItem {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.skillItem:first-child { border-radius: 6px 6px 0 0; }
+.skillItem:last-child { border-radius: 0 0 6px 6px; }
+.skillItemActive {
+  background: var(--blue-bg);
+}
+.skillName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+.skillDesc {
+  font-size: 12px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.skillSource {
+  font-size: 11px;
+  color: var(--text-4);
+  white-space: nowrap;
+  flex-shrink: 0;
+}

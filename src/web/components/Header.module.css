@@ -39,8 +39,11 @@
 }
 
 @media (max-width: 768px) {
-  .bar { padding: 0 10px; height: 48px; gap: 4px; }
-  .left { gap: 4px; flex: 1; min-width: 0; overflow-x: auto; }
+  .bar {
+    position: fixed; top: 0; left: 0; width: 100%; z-index: 100;
+    padding: 0 10px; height: 48px; gap: 4px;
+  }
+  .left { gap: 4px; flex: 1; min-width: 0; }
   .right { gap: 4px; flex-shrink: 0; }
   .logo { font-size: 13px; flex-shrink: 0; }
   .sep { display: none; }

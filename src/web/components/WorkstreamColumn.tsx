@@ -30,6 +30,7 @@ interface Workstream {
   status: string;
   position: number;
   pr_url?: string | null;
+  reviewer_id?: string | null;
 }
 
 interface WorkstreamColumnProps {
@@ -39,6 +40,7 @@ interface WorkstreamColumnProps {
   isBacklog: boolean;
   canRunAi: boolean;
   projectId: string | null;
+  members?: Array<{ id: string; name: string; initials: string }>;
   mentionedTaskIds: Set<string>;
   commentCounts?: Record<string, number>;
   focusTaskId: string | null;
@@ -56,6 +58,7 @@ interface WorkstreamColumnProps {
   // Column actions
   onRenameWorkstream?: (id: string, name: string) => void;
   onDeleteWorkstream?: (id: string) => void;
+  onUpdateWorkstream?: (id: string, data: Record<string, unknown>) => Promise<void>;
   // Task actions
   onAddTask: () => void;
   onRunWorkstream?: () => void;
@@ -81,6 +84,7 @@ export function WorkstreamColumn({
   isBacklog,
   canRunAi,
   projectId,
+  members,
   mentionedTaskIds,
   commentCounts,
   focusTaskId,
@@ -95,6 +99,7 @@ export function WorkstreamColumn({
   onColumnDrop,
   onRenameWorkstream,
   onDeleteWorkstream,
+  onUpdateWorkstream,
   onAddTask,
   onRunWorkstream,
   onRunTask,
@@ -773,11 +778,39 @@ export function WorkstreamColumn({
       {wsStatus === 'done' && (
         <div className={s.completeBanner}>
           <span>PR open</span>
-          {workstream?.pr_url && (
-            <a href={workstream.pr_url} target="_blank" rel="noopener noreferrer" className={s.prLink}>
-              View PR
-            </a>
-          )}
+          <div className={s.completeBannerActions}>
+            {workstream && members && members.length > 0 && onUpdateWorkstream && (
+              workstream.reviewer_id ? (() => {
+                const reviewer = members.find(m => m.id === workstream.reviewer_id);
+                return reviewer ? (
+                  <span className={s.reviewerChip}>
+                    <span className={s.reviewerAvatar}>{reviewer.initials}</span>
+                    {reviewer.name}
+                  </span>
+                ) : null;
+              })() : (
+                <select
+                  className={s.reviewerSelect}
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      onUpdateWorkstream(workstream.id, { reviewer_id: e.target.value });
+                    }
+                  }}
+                >
+                  <option value="">Assign reviewer</option>
+                  {members.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              )
+            )}
+            {workstream?.pr_url && (
+              <a href={workstream.pr_url} target="_blank" rel="noopener noreferrer" className={s.prLink}>
+                View PR
+              </a>
+            )}
+          </div>
         </div>
       )}
 
@@ -785,6 +818,15 @@ export function WorkstreamColumn({
         <div className={`${s.completeBanner} ${s.mergedBanner}`}>
           <span>&#10003; PR merged</span>
           <div className={s.completeBannerActions}>
+            {workstream?.reviewer_id && members && (() => {
+              const reviewer = members.find(m => m.id === workstream.reviewer_id);
+              return reviewer ? (
+                <span className={s.reviewerChip}>
+                  <span className={s.reviewerAvatar}>{reviewer.initials}</span>
+                  {reviewer.name}
+                </span>
+              ) : null;
+            })()}
             {workstream?.pr_url && (
               <a href={workstream.pr_url} target="_blank" rel="noopener noreferrer" className={s.prLink}>
                 View PR

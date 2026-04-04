@@ -17,8 +17,8 @@
 
 @media (max-width: 768px) {
   .column {
-    flex: 0 0 calc(100vw - 32px);
-    min-width: calc(100vw - 32px);
+    flex: 0 0 calc(100vw - 24px);
+    min-width: calc(100vw - 24px);
     max-width: none;
     max-height: calc(100dvh - 80px);
     border-radius: 10px;
@@ -391,6 +391,49 @@
   background: var(--bg-hover);
   color: var(--text-2);
   border-color: var(--text-4);
+}
+
+/* Reviewer selector in PR banners */
+.reviewerSelect {
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--text-3);
+  cursor: pointer;
+  outline: none;
+  appearance: auto;
+}
+.reviewerSelect:hover {
+  border-color: var(--text-4);
+  color: var(--text-2);
+}
+
+.reviewerChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.reviewerAvatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
 }
 
 /* Dark mode: bump status pill opacities */

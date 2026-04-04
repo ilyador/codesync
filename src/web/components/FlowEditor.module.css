@@ -349,11 +349,11 @@
   flex-direction: column;
   gap: 12px;
   border-top: 1px solid var(--divider);
-  animation: slideDown 0.15s ease-out;
+  animation: fadeIn 0.15s ease-out;
 }
-@keyframes slideDown {
-  from { opacity: 0; max-height: 0; }
-  to { opacity: 1; max-height: 800px; }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Form elements inside step body */
@@ -689,13 +689,13 @@
 @media (max-width: 768px) {
   .board {
     gap: 12px;
-    padding: 10px 12px;
-    height: calc(100dvh - 48px);
+    padding: 58px 12px 10px;
+    height: 100dvh;
     scroll-snap-type: x mandatory;
   }
   .column {
-    flex: 0 0 calc(100vw - 32px);
-    min-width: calc(100vw - 32px);
+    flex: 0 0 calc(100vw - 24px);
+    min-width: calc(100vw - 24px);
     max-width: none;
     max-height: calc(100dvh - 80px);
     border-radius: 10px;
@@ -712,8 +712,8 @@
     gap: 4px;
   }
   .addColumn {
-    flex: 0 0 calc(100vw - 32px);
-    min-width: calc(100vw - 32px);
+    flex: 0 0 calc(100vw - 24px);
+    min-width: calc(100vw - 24px);
     scroll-snap-align: start;
   }
   .stepCompact {

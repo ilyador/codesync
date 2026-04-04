@@ -307,6 +307,11 @@ async function buildStepPrompt(
   // Step instructions (the core prompt for this step)
   prompt += `## Current Step: ${step.name}\n${step.instructions}\n\n`;
 
+  // File output instruction for tasks that produce artifacts
+  if (task.chaining === 'produce' || task.chaining === 'both') {
+    prompt += '## File Output\nIf you produce any output files (documents, images, configs, etc.), save them to the `.artifacts/` directory in the project root. They will be automatically captured and made available for download.\n\n';
+  }
+
   // Human answer (if resuming from pause)
   if (answer) {
     prompt += `## Human Answer to Your Question\n${answer}\n\n`;
@@ -860,6 +865,11 @@ or if issues found:
   }
 
   prompt += `\n## Current Phase: ${phase}\n${phaseText}\n`;
+
+  // File output instruction for tasks that produce artifacts
+  if (task.chaining === 'produce' || task.chaining === 'both') {
+    prompt += '\n## File Output\nIf you produce any output files (documents, images, configs, etc.), save them to the `.artifacts/` directory in the project root. They will be automatically captured and made available for download.\n';
+  }
 
   // Feature 4: Skill field injection — read actual skill file if available
   if (phaseConfig.skill) {

@@ -29,6 +29,7 @@ interface Workstream {
   status: string;
   position: number;
   pr_url?: string | null;
+  reviewer_id?: string | null;
 }
 
 interface BoardProps {
@@ -151,6 +152,11 @@ export function Board({
   const sortedWs = useMemo(
     () => [...workstreams].sort((a, b) => a.position - b.position),
     [workstreams]
+  );
+
+  const members = useMemo(
+    () => Object.entries(memberMap).map(([id, m]) => ({ id, name: m.name, initials: m.initials })),
+    [memberMap]
   );
 
   const handleDragGroupStart = (taskIds: string[]) => {
@@ -306,6 +312,7 @@ export function Board({
           isBacklog={false}
           canRunAi={userRole !== 'manager'}
           projectId={projectId}
+          members={members}
           mentionedTaskIds={mentionedTaskIds}
         commentCounts={commentCounts}
           focusTaskId={focusTaskId}
@@ -320,6 +327,7 @@ export function Board({
           onColumnDrop={handleColumnDrop}
           onRenameWorkstream={(id, name) => onUpdateWorkstream(id, { name })}
           onDeleteWorkstream={onDeleteWorkstream}
+          onUpdateWorkstream={onUpdateWorkstream}
           onAddTask={() => onAddTask(ws.id)}
           onRunWorkstream={() => onRunWorkstream(ws.id)}
           onRunTask={onRunTask}

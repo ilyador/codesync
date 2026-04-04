@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getSkills, type SkillInfo, type Flow } from '../lib/api';
+import { useSlashCommands } from '../hooks/useSlashCommands';
+import { useArtifacts } from '../hooks/useArtifacts';
 import s from './TaskForm.module.css';
 
 interface Workstream {
@@ -110,11 +112,8 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
   // Skill autocomplete state
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [skillsLoaded, setSkillsLoaded] = useState(false);
-  const [showSkills, setShowSkills] = useState(false);
-  const [skillFilter, setSkillFilter] = useState('');
-  const [selectedSkillIdx, setSelectedSkillIdx] = useState(0);
-  const [slashStart, setSlashStart] = useState(-1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const slash = useSlashCommands(skills);
 
   // Auto-resize textarea to fit content, capped at 300px
   const autoResizeTextarea = useCallback(() => {
@@ -141,13 +140,9 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
     });
   }, [localPath]);
 
-  const filteredSkills = skills.filter(sk =>
-    sk.name.toLowerCase().includes(skillFilter.toLowerCase())
-  );
-
-  // Validate skill references in the description
+  // Validate skill references in the description (AI mode only)
   const skillNames = new Set(skills.map(sk => sk.name));
-  const referencedSkills = description
+  const referencedSkills = mode === 'ai' && description
     ? [...description.matchAll(/(?:^|[\s\n])\/([a-zA-Z0-9_][\w:-]*)/g)].map(m => m[1])
     : [];
   const invalidSkills = referencedSkills.filter(name => !skillNames.has(name));
@@ -159,40 +154,34 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
     const cursor = e.target.selectionStart;
     setDescription(val);
     autoResizeTextarea();
-
-    // Find the `/` that triggers autocomplete: must be at start of line or after whitespace
-    const textBefore = val.substring(0, cursor);
-    const slashMatch = textBefore.match(/(?:^|[\s\n])\/([a-zA-Z0-9_:-]*)$/);
-    if (slashMatch) {
-      const matchStart = textBefore.lastIndexOf('/' + slashMatch[1]);
-      setSlashStart(matchStart);
-      setSkillFilter(slashMatch[1]);
-      setShowSkills(true);
-      setSelectedSkillIdx(0);
-    } else {
-      setShowSkills(false);
+    if (mode === 'ai') {
+      slash.handleTextChange(val, cursor);
     }
-  }, [autoResizeTextarea]);
+  }, [autoResizeTextarea, mode, slash]);
 
   const insertSkill = useCallback((skillName: string) => {
-    if (slashStart < 0) return;
-    const before = description.substring(0, slashStart);
-    const cursor = textareaRef.current?.selectionStart ?? (slashStart + skillFilter.length + 1);
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const cursor = ta.selectionStart;
+    const before = description.slice(0, cursor);
+    // Find the slash that started the query
+    const slashMatch = before.match(/(?:^|[\s\n])(\/[a-zA-Z0-9_:-]*)$/);
+    if (!slashMatch) return;
+    const slashStart = before.length - slashMatch[1].length;
+    const prefix = description.substring(0, slashStart);
     const after = description.substring(cursor);
-    const newDesc = before + '/' + skillName + ' ' + after;
+    const newDesc = prefix + '/' + skillName + ' ' + after;
     setDescription(newDesc);
-    setShowSkills(false);
-    // Restore focus and cursor, then resize
+    slash.dismiss();
     requestAnimationFrame(() => {
-      const ta = textareaRef.current;
       if (ta) {
         ta.focus();
-        const pos = before.length + skillName.length + 2; // +2 for / and space
+        const pos = prefix.length + skillName.length + 2;
         ta.selectionStart = ta.selectionEnd = pos;
       }
       autoResizeTextarea();
     });
-  }, [description, slashStart, skillFilter, autoResizeTextarea]);
+  }, [description, autoResizeTextarea, slash]);
 
   const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
@@ -247,21 +236,10 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
   }
 
   const handleDescriptionKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!showSkills || filteredSkills.length === 0) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedSkillIdx(i => Math.min(i + 1, filteredSkills.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedSkillIdx(i => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault();
-      insertSkill(filteredSkills[selectedSkillIdx].name);
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      setShowSkills(false);
+    if (mode === 'ai') {
+      slash.handleKeyDown(e, insertSkill);
     }
-  }, [showSkills, filteredSkills, selectedSkillIdx, insertSkill]);
+  }, [mode, slash, insertSkill]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -323,7 +301,7 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
               value={description}
               onChange={handleDescriptionChange}
               onKeyDown={handleDescriptionKeyDown}
-              onBlur={() => { setTimeout(() => setShowSkills(false), 150); }}
+              onBlur={() => { setTimeout(() => slash.dismiss(), 150); }}
               onPaste={e => {
                 const hasImage = Array.from(e.clipboardData.items).some(i => i.type.startsWith('image/'));
                 if (hasImage) {
@@ -332,14 +310,14 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
                 }
               }}
             />
-            {showSkills && filteredSkills.length > 0 && (
+            {mode === 'ai' && slash.matches.length > 0 && (
               <div className={s.skillDropdown}>
-                {filteredSkills.map((sk, i) => (
+                {slash.matches.map((sk, i) => (
                   <div
                     key={sk.name}
-                    className={`${s.skillItem} ${i === selectedSkillIdx ? s.skillItemActive : ''}`}
+                    className={`${s.skillItem} ${i === slash.selectedIdx ? s.skillItemActive : ''}`}
                     onMouseDown={(e) => { e.preventDefault(); insertSkill(sk.name); }}
-                    onMouseEnter={() => setSelectedSkillIdx(i)}
+                    onMouseEnter={() => {/* selection handled by hook */}}
                   >
                     <span className={s.skillName}>/{sk.name}</span>
                     {sk.description && <span className={s.skillDesc}>{sk.description}</span>}
@@ -348,7 +326,7 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
                 ))}
               </div>
             )}
-            {referencedSkills.length > 0 && !showSkills && skillsLoaded && (
+            {mode === 'ai' && referencedSkills.length > 0 && slash.matches.length === 0 && skillsLoaded && (
               <div className={s.skillBadges}>
                 {validSkills.map(name => (
                   <span key={name} className={s.skillBadgeValid}>/{name}</span>
@@ -517,6 +495,13 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
             {dragOver && <div className={s.dragHint}>Drop images anywhere on this form</div>}
           </div>
 
+          {isEdit && editTask?.id && (
+            <div>
+              <label className={s.label}>Attachments</label>
+              <TaskAttachmentsEdit taskId={editTask.id} />
+            </div>
+          )}
+
           {error && <div className={s.error}>{error}</div>}
 
           <div className={s.actions}>
@@ -527,6 +512,107 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/** Inline attachments editor for the edit modal */
+function TaskAttachmentsEdit({ taskId }: { taskId: string }) {
+  const { artifacts, upload, remove } = useArtifacts(taskId);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    for (const file of Array.from(e.dataTransfer.files)) upload(file);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    for (const file of Array.from(e.target.files || [])) upload(file);
+    e.target.value = '';
+  };
+
+  const getIcon = (mime: string) => {
+    if (mime.startsWith('image/')) return '\u{1F5BC}';
+    if (mime.startsWith('video/')) return '\u{1F3AC}';
+    if (mime === 'application/pdf') return '\u{1F4D5}';
+    if (mime.includes('zip')) return '\u{1F4E6}';
+    return '\u{1F4C4}';
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)}KB`;
+    return `${(bytes / 1048576).toFixed(1)}MB`;
+  };
+
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)' }}>
+          {artifacts.length > 0 ? `${artifacts.length} file${artifacts.length > 1 ? 's' : ''}` : ''}
+        </span>
+        <button
+          type="button"
+          className="btn btnGhost btnSm"
+          onClick={() => fileInputRef.current?.click()}
+        >+ Add</button>
+        <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileSelect} />
+      </div>
+      {artifacts.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {artifacts.map(a => (
+            <div key={a.id} style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
+              border: '1px solid var(--divider)', borderRadius: 6, background: 'var(--white)',
+            }}>
+              {a.mime_type.startsWith('image/') ? (
+                <a href={a.url} target="_blank" rel="noopener noreferrer">
+                  <img src={a.url} alt={a.filename} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
+                </a>
+              ) : (
+                <span style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{getIcon(a.mime_type)}</span>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <a href={a.url} target="_blank" rel="noopener noreferrer" style={{
+                  fontSize: 12, fontWeight: 500, color: 'var(--text)', textDecoration: 'none',
+                  display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{a.filename}</a>
+                {a.size_bytes > 0 && <span style={{ fontSize: 10, color: 'var(--text-4)' }}>{formatSize(a.size_bytes)}</span>}
+              </div>
+              <button
+                type="button"
+                onClick={() => remove(a.id)}
+                title="Remove"
+                style={{
+                  width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'none', border: 'none', color: 'var(--text-4)', fontSize: 14, cursor: 'pointer',
+                  borderRadius: 4,
+                }}
+              >&times;</button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div
+          onDragOver={e => e.preventDefault()}
+          onDrop={handleDrop}
+          style={{
+            border: '2px dashed var(--divider)', borderRadius: 8, padding: 16,
+            textAlign: 'center', fontSize: 12, color: 'var(--text-4)',
+          }}
+        >
+          Drop files here or click + Add
+        </div>
+      )}
+      {artifacts.length > 0 && (
+        <div
+          onDragOver={e => e.preventDefault()}
+          onDrop={handleDrop}
+          style={{ marginTop: 4, padding: '8px 0', textAlign: 'center', fontSize: 11, color: 'var(--text-4)' }}
+        >
+          Drop more files here
+        </div>
+      )}
     </div>
   );
 }

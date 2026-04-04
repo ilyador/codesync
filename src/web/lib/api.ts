@@ -75,7 +75,7 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
       headers['Authorization'] = `Bearer ${accessToken}`;
       return parseResponse(await fetch(`${BASE}${path}`, { ...options, headers }));
     }
-    window.location.reload();
+    clearSession();
     throw new Error('Session expired');
   }
 

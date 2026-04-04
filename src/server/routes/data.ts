@@ -193,7 +193,7 @@ dataRouter.post('/api/workstreams', requireAuth, async (req, res) => {
 });
 
 dataRouter.patch('/api/workstreams/:id', requireAuth, async (req, res) => {
-  const allowed = ['name', 'position', 'status', 'description', 'has_code'];
+  const allowed = ['name', 'position', 'status', 'description', 'has_code', 'reviewer_id'];
   const updates: Record<string, any> = {};
   for (const key of allowed) {
     if (key in req.body) updates[key] = req.body[key];
