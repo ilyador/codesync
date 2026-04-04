@@ -419,7 +419,7 @@ setInterval(async () => {
   try {
     const { data: workstreams } = await supabase
       .from('workstreams')
-      .select('id, pr_url')
+      .select('id, name, project_id, pr_url')
       .eq('status', 'complete')
       .not('pr_url', 'is', null);
 
@@ -439,6 +439,30 @@ setInterval(async () => {
         const pr = JSON.parse(stdout.trim());
         if (pr.state === 'MERGED') {
           await supabase.from('workstreams').update({ status: 'merged' }).eq('id', ws.id);
+          // Clean up worktree
+          try {
+            const { data: project } = await supabase
+              .from('projects')
+              .select('id')
+              .eq('id', ws.project_id)
+              .single();
+            if (project) {
+              const { data: member } = await supabase
+                .from('project_members')
+                .select('local_path')
+                .eq('project_id', project.id)
+                .not('local_path', 'is', null)
+                .limit(1)
+                .single();
+              if (member?.local_path) {
+                const { cleanupWorktree } = await import('./worktree.js');
+                cleanupWorktree(member.local_path, slugify(ws.name));
+                console.log(`[worker] Cleaned up worktree for workstream ${ws.name}`);
+              }
+            }
+          } catch (err: any) {
+            console.log(`[worker] Worktree cleanup failed for ${ws.id}: ${err.message}`);
+          }
           console.log(`[worker] PR merged for workstream ${ws.id}`);
         } else if (pr.state === 'CLOSED') {
           // PR was closed without merging -- reset to complete so user can re-create
