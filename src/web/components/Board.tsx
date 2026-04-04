@@ -61,7 +61,7 @@ interface BoardProps {
   onReply: (jobId: string, answer: string) => void;
   onApprove: (jobId: string) => void;
   onReject: (jobId: string) => void;
-  onRevert: (jobId: string) => void;
+  onRework: (jobId: string, note: string) => void;
   onDeleteJob: (jobId: string) => void;
   onCreatePr: (workstreamId: string) => void;
 }
@@ -92,7 +92,7 @@ export function Board({
   onReply,
   onApprove,
   onReject,
-  onRevert,
+  onRework,
   onDeleteJob,
   onCreatePr,
 }: BoardProps) {
@@ -300,7 +300,7 @@ export function Board({
         onReply={onReply}
         onApprove={onApprove}
         onReject={onReject}
-        onRevert={onRevert}
+        onRework={onRework}
         onDeleteJob={onDeleteJob}
       />
 
@@ -341,7 +341,7 @@ export function Board({
           onReply={onReply}
           onApprove={onApprove}
           onReject={onReject}
-          onRevert={onRevert}
+          onRework={onRework}
           onDeleteJob={onDeleteJob}
           onCreatePr={() => onCreatePr(ws.id)}
           onArchive={async () => {

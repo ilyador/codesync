@@ -61,9 +61,14 @@
   gap: 6px;
   padding: 3px 4px;
   border-radius: 4px;
-  text-decoration: none;
+  background: none;
+  border: none;
   color: var(--text);
   font-size: 11px;
+  font-family: var(--font);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
   transition: background 0.1s;
 }
 .fileItem:hover { background: var(--bg-active); }

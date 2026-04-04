@@ -10,7 +10,7 @@ import { useCommentCounts } from './hooks/useCommentCounts';
 import { useWebNotifications } from './hooks/useWebNotifications';
 import { useFlows } from './hooks/useFlows';
 import { useCustomTypes } from './hooks/useCustomTypes';
-import { signUp, signIn, signOut, runTaskApi, replyToJob, approveJob, rejectJob, revertJob, terminateJob, deleteJob, updateTask, reviewAndCreatePr } from './lib/api';
+import { signUp, signIn, signOut, runTaskApi, replyToJob, approveJob, rejectJob, reworkJob, revertJob, terminateJob, deleteJob, updateTask, reviewAndCreatePr } from './lib/api';
 import { Routes, Route, useSearchParams } from 'react-router-dom';
 import { OnboardingCheck } from './components/OnboardingCheck';
 import { AuthGate } from './components/AuthGate';
@@ -373,6 +373,7 @@ export default function App() {
                 workstream_id: task.workstream_id,
                 auto_continue: task.auto_continue,
                 priority: task.priority,
+                chaining: rawTask?.chaining,
               });
             }}
             onDeleteTask={async (taskId) => {
@@ -412,22 +413,20 @@ export default function App() {
             }}
             onReject={async (jobId) => {
               try {
-                await rejectJob(jobId, '');
+                await rejectJob(jobId);
                 jobs.reload();
                 tasks.reload();
               } catch (err: any) {
                 await modal.alert('Error', err.message || 'Failed to reject');
               }
             }}
-            onRevert={async (jobId) => {
-              if (await modal.confirm('Revert changes', 'Revert all file changes? This restores files to their state before the task ran.', { label: 'Revert', danger: true })) {
-                try {
-                  await revertJob(jobId, projects.current?.local_path || '');
-                  jobs.reload();
-                  tasks.reload();
-                } catch (err: any) {
-                  await modal.alert('Error', err.message || 'Failed to revert');
-                }
+            onRework={async (jobId, note) => {
+              try {
+                await reworkJob(jobId, note, projects.current!.id, projects.current!.local_path!);
+                jobs.reload();
+                tasks.reload();
+              } catch (err: any) {
+                await modal.alert('Error', err.message || 'Failed to rework');
               }
             }}
             onDeleteJob={async (jobId) => {
@@ -463,7 +462,7 @@ export default function App() {
             <FlowEditor
               flows={aiFlows.flows}
               projectId={projects.current.id}
-              onSave={async (flowId, updates) => { await aiFlows.updateFlow(flowId, updates); }}
+              onSave={async (flowId, updates) => { await aiFlows.updateFlow(flowId, updates); await aiFlows.reload(); }}
               onSaveSteps={async (flowId, steps) => { await aiFlows.updateFlowSteps(flowId, steps); await aiFlows.reload(); }}
               onCreateFlow={async (data) => { return await aiFlows.createFlow(data); }}
               onDeleteFlow={async (flowId) => { await aiFlows.deleteFlow(flowId); }}

@@ -70,7 +70,7 @@
 
 /* Preview section below title row — description + thumbnails */
 .preview {
-  padding: 0 12px 10px 34px;
+  padding: 0 12px 10px 12px;
 }
 .previewDesc {
   font-size: 13px;
@@ -577,6 +577,9 @@
 .attachInfo { flex: 1; min-width: 0; }
 .attachName { font-size: 12px; font-weight: 500; color: var(--text); text-decoration: none; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachName:hover { color: var(--blue); }
+.attachNameBtn { font-size: 12px; font-weight: 500; color: var(--text); background: none; border: none; padding: 0; cursor: pointer; text-align: left; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; font-family: var(--font); }
+.attachNameBtn:hover { color: var(--blue); }
+.attachThumbBtn { background: none; border: none; padding: 0; cursor: pointer; flex-shrink: 0; }
 .attachSize { font-size: 10px; color: var(--text-4); }
 .attachDelete { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--text-4); font-size: 14px; cursor: pointer; border-radius: 4px; opacity: 0; transition: opacity 0.12s, color 0.12s, background 0.12s; }
 .attachItem:hover .attachDelete { opacity: 1; }
@@ -606,7 +609,7 @@
 
 @media (max-width: 768px) {
   .compact { padding: 8px 10px; }
-  .preview { padding: 0 10px 8px 24px; }
+  .preview { padding: 0 10px 8px 10px; }
   .detail { padding: 0 10px 12px; }
   .tags { flex-wrap: wrap; }
   .title { font-size: 13px; }

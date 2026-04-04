@@ -93,8 +93,8 @@
   outline: none;
 }
 
-/* Backlog count badge (shown in header row for backlog columns) */
-.backlogCount {
+/* Task count badge -- pushed to the right, before the delete button */
+.taskCount {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-4);
@@ -102,6 +102,7 @@
   padding: 2px 8px;
   background: var(--bg-hover);
   border-radius: 10px;
+  margin-left: auto;
 }
 
 /* ─── Status pill: compact badge next to stream name ─── */

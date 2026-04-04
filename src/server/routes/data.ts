@@ -501,8 +501,6 @@ dataRouter.post('/api/artifacts', requireAuth, async (req, res) => {
     .upload(storagePath, buffer, { contentType: mime_type, upsert: true });
   if (uploadErr) return res.status(500).json({ error: `Storage upload failed: ${uploadErr.message}` });
 
-  const { data: urlData } = supabase.storage.from('task-artifacts').getPublicUrl(storagePath);
-
   const { data: artifact, error } = await supabase.from('task_artifacts').insert({
     task_id,
     filename,
@@ -512,7 +510,7 @@ dataRouter.post('/api/artifacts', requireAuth, async (req, res) => {
     repo_path: repo_path || null,
   }).select().single();
   if (error) return res.status(400).json({ error: error.message });
-  res.json({ ...artifact, url: urlData.publicUrl });
+  res.json({ ...artifact, url: `/api/artifacts/${artifact.id}/download` });
 });
 
 dataRouter.get('/api/artifacts', requireAuth, async (req, res) => {
@@ -522,11 +520,28 @@ dataRouter.get('/api/artifacts', requireAuth, async (req, res) => {
   const access = await verifyTaskAccess(userId, taskId);
   if (!access) return res.status(403).json({ error: 'Not authorized to access this task' });
   const { data } = await supabase.from('task_artifacts').select('*').eq('task_id', taskId).order('created_at');
-  const artifacts = (data || []).map(a => {
-    const { data: urlData } = supabase.storage.from('task-artifacts').getPublicUrl(a.storage_path);
-    return { ...a, url: urlData.publicUrl };
-  });
+  const artifacts = (data || []).map(a => ({
+    ...a,
+    url: `/api/artifacts/${a.id}/download`,
+  }));
   res.json(artifacts);
+});
+
+dataRouter.get('/api/artifacts/:id/download', requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
+  const { data: artifact } = await supabase.from('task_artifacts').select('*').eq('id', req.params.id).single();
+  if (!artifact) return res.status(404).json({ error: 'Artifact not found' });
+  const access = await verifyTaskAccess(userId, artifact.task_id);
+  if (!access) return res.status(403).json({ error: 'Not authorized' });
+  const { data: fileData, error } = await supabase.storage.from('task-artifacts').download(artifact.storage_path);
+  if (error || !fileData) return res.status(500).json({ error: 'Failed to download file' });
+  const safeFilename = artifact.filename.replace(/["\r\n\\]/g, '_');
+  res.setHeader('Content-Type', artifact.mime_type);
+  res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+  // Stream the file instead of buffering entirely in memory
+  const stream = fileData.stream();
+  // @ts-ignore -- Node ReadableStream is pipeable
+  stream.pipeTo(new WritableStream({ write(chunk) { res.write(chunk); }, close() { res.end(); } }));
 });
 
 dataRouter.delete('/api/artifacts/:id', requireAuth, async (req, res) => {
@@ -940,7 +955,7 @@ dataRouter.patch('/api/flows/:id', requireAuth, async (req, res) => {
   const { data: member } = await supabase.from('project_members').select('role').eq('project_id', flow.project_id).eq('user_id', userId).single();
   if (!member) return res.status(403).json({ error: 'Not a member of this project' });
 
-  const allowed = ['name', 'description', 'icon', 'agents_md'];
+  const allowed = ['name', 'description', 'icon', 'agents_md', 'default_types'];
   const updates: Record<string, any> = {};
   for (const key of allowed) {
     if (key in req.body) updates[key] = req.body[key];
