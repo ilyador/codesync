@@ -464,7 +464,7 @@ function TaskAttachments({ taskId }: { taskId: string }) {
         <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileSelect} />
       </div>
       {artifacts.length > 0 ? (
-        <div className={s.attachList}>
+        <div className={s.attachList} onDragOver={e => e.preventDefault()} onDrop={handleDrop}>
           {artifacts.map(a => (
             <div key={a.id} className={s.attachItem}>
               {a.mime_type.startsWith('image/') ? (
