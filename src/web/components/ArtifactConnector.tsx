@@ -2,6 +2,7 @@ import { useState } from 'react';
 import s from './ArtifactConnector.module.css';
 import { useArtifacts } from '../hooks/useArtifacts';
 import { getFileIcon } from '../lib/file-utils';
+import { useFilePreview } from './FilePreview';
 
 interface Props {
   taskId: string;  // The producing task's ID
@@ -9,6 +10,7 @@ interface Props {
 
 export function ArtifactConnector({ taskId }: Props) {
   const { artifacts, loading } = useArtifacts(taskId);
+  const { preview } = useFilePreview();
   const [expanded, setExpanded] = useState(false);
   const hasFiles = !loading && artifacts.length > 0;
 
@@ -29,10 +31,10 @@ export function ArtifactConnector({ taskId }: Props) {
       {expanded && hasFiles && (
         <div className={s.fileList}>
           {artifacts.map(a => (
-            <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer" className={s.fileItem}>
+            <button key={a.id} className={s.fileItem} onClick={() => preview(a)}>
               <span className={s.fileIcon}>{getFileIcon(a.mime_type)}</span>
               <span className={s.fileName}>{a.filename}</span>
-            </a>
+            </button>
           ))}
         </div>
       )}

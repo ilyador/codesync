@@ -6,6 +6,7 @@ import { useMembers } from '../hooks/useMembers';
 import { useArtifacts } from '../hooks/useArtifacts';
 import { getFileIcon, formatFileSize } from '../lib/file-utils';
 import { useModal } from '../hooks/useModal';
+import { useFilePreview } from './FilePreview';
 import { timeAgo, elapsed } from '../lib/time';
 import { LiveLogs } from './LiveLogs';
 import { ReplyInput } from './ReplyInput';
@@ -43,7 +44,7 @@ interface TaskCardProps {
   onReply?: (jobId: string, answer: string) => void;
   onApprove?: (jobId: string) => void;
   onReject?: (jobId: string) => void;
-  onRevert?: (jobId: string) => void;
+  onRework?: (jobId: string, note: string) => void;
   onDeleteJob?: (jobId: string) => void;
   onDragStart?: (e?: React.DragEvent) => void;
   onDragEnd?: () => void;
@@ -80,7 +81,7 @@ export function TaskCard({
   onReply,
   onApprove,
   onReject,
-  onRevert,
+  onRework,
   onDeleteJob,
   onDragStart,
   onDragEnd,
@@ -133,6 +134,8 @@ export function TaskCard({
     const interval = setInterval(() => setElapsedText(elapsed(job.startedAt!)), 1000);
     return () => clearInterval(interval);
   }, [jobStatus, job?.startedAt]);
+
+  const [showRework, setShowRework] = useState(false);
 
   return (
     <div
@@ -275,6 +278,7 @@ export function TaskCard({
           {/* REVIEW */}
           {jobStatus === 'review' && (
             <div className={s.reviewSection}>
+              <TaskAttachments taskId={task.id} legacyImages={task.images} readOnly />
               {job.review?.changedFiles && (
                 <div className={s.files}>
                   <span className={s.filesLabel}>Changed files</span>
@@ -293,17 +297,16 @@ export function TaskCard({
                 {onApprove && (
                   <button className="btn btnSuccess btnSm" onClick={() => onApprove(job.id)}>Approve</button>
                 )}
-                {onReject && (
-                  <button className="btn btnDanger btnSm" onClick={() => onReject(job.id)}>
-                    Reject &rarr; Backlog
-                  </button>
+                {onRework && (
+                  <button className="btn btnWarning btnSm" onClick={() => setShowRework(v => !v)} title="Give feedback and re-run the task">Rework</button>
                 )}
-                {onRevert && (
-                  <button className="btn btnWarning btnSm" onClick={() => onRevert(job.id)}>
-                    Revert Changes
-                  </button>
+                {onReject && (
+                  <button className="btn btnDanger btnSm" onClick={() => onReject(job.id)} title="Undo all changes and reset the task">Reject</button>
                 )}
               </div>
+              {showRework && onRework && (
+                <ReplyInput onReply={(answer) => { onRework(job.id, answer); setShowRework(false); }} placeholder="What should change?" />
+              )}
             </div>
           )}
         </div>
@@ -354,6 +357,7 @@ export function TaskCard({
               {job.review?.summary && (
                 <div className={s.doneSummary}>{job.review.summary}</div>
               )}
+              <TaskAttachments taskId={task.id} legacyImages={task.images} readOnly />
             </div>
           )}
 
@@ -447,6 +451,7 @@ function IdleDetail({
 /** Attachments section using artifacts API */
 function TaskAttachments({ taskId, legacyImages, readOnly }: { taskId: string; legacyImages?: string[]; readOnly?: boolean }) {
   const { artifacts, upload, remove } = useArtifacts(taskId);
+  const { preview } = useFilePreview();
   // Include legacy task.images as read-only artifacts for backward compat
   const legacyArtifacts = (legacyImages || []).map((url, i) => ({
     id: `legacy-${i}`,
@@ -487,19 +492,17 @@ function TaskAttachments({ taskId, legacyImages, readOnly }: { taskId: string; l
       {allFiles.length > 0 ? (
         <div className={s.attachList} {...(!readOnly ? { onDragOver: (e: React.DragEvent) => e.preventDefault(), onDrop: handleDrop } : {})}>
           {allFiles.map(a => (
-            <div key={a.id} className={s.attachItem}>
+            <div key={a.id} className={s.attachItem} onClick={(e) => { e.stopPropagation(); preview(a); }} style={{ cursor: 'pointer' }}>
               {a.mime_type.startsWith('image/') ? (
-                <a href={a.url} target="_blank" rel="noopener noreferrer">
-                  <img src={a.url} alt={a.filename} className={s.attachThumb} />
-                </a>
+                <img src={a.url} alt={a.filename} className={s.attachThumb} />
               ) : (
                 <span className={s.attachIcon}>{getFileIcon(a.mime_type)}</span>
               )}
               <div className={s.attachInfo}>
-                <a href={a.url} target="_blank" rel="noopener noreferrer" className={s.attachName}>{a.filename}</a>
+                <span className={s.attachName}>{a.filename}</span>
                 {a.size_bytes > 0 && <span className={s.attachSize}>{formatFileSize(a.size_bytes)}</span>}
               </div>
-              {!readOnly && !a.isLegacy && <button className={s.attachDelete} onClick={() => remove(a.id)} title="Remove">&times;</button>}
+              {!readOnly && !a.isLegacy && <button className={s.attachDelete} onClick={(e) => { e.stopPropagation(); remove(a.id); }} title="Remove">&times;</button>}
             </div>
           ))}
         </div>

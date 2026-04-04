@@ -89,11 +89,8 @@ executionRouter.post('/api/run', requireAuth, async (req, res) => {
       maxAttempts = taskType.verify_retries + 1;
     }
   } else {
-    // No flow_id on task -- try to find a matching default flow by task type
-    const flowName = TYPE_TO_FLOW_NAME[task.type];
-    const { data: flow } = flowName
-      ? await supabase.from('flows').select('*, flow_steps(*)').eq('project_id', projectId).eq('name', flowName).single()
-      : { data: null };
+    // No flow_id on task -- try to find a flow with this type in default_types
+    const { data: flow } = await supabase.from('flows').select('*, flow_steps(*)').eq('project_id', projectId).contains('default_types', [task.type]).limit(1).single();
     if (flow) {
       ({ flowSnapshot, firstPhase, maxAttempts } = resolveFlow(flow));
     } else {
@@ -292,33 +289,102 @@ executionRouter.post('/api/jobs/:id/approve', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// Reject job -> back to backlog
+// Reject job -> revert code, delete artifacts, reset task to todo
 executionRouter.post('/api/jobs/:id/reject', requireAuth, async (req, res) => {
   const jobId = req.params.id;
-  const { note } = req.body;
 
   const { data: job } = await supabase.from('jobs').select('*').eq('id', jobId).single();
   if (!job) return res.status(404).json({ error: 'Job not found' });
 
-  // Clean up checkpoint on rejection
+  // Revert git checkpoint
   if (job.local_path) {
-    try { deleteCheckpoint(job.local_path, jobId); } catch {}
+    try { revertToCheckpoint(job.local_path, jobId); } catch {}
   }
 
+  // Delete task artifacts from storage + DB
+  const { data: artifacts } = await supabase.from('task_artifacts').select('id, storage_path').eq('task_id', job.task_id);
+  if (artifacts && artifacts.length > 0) {
+    await supabase.storage.from('task-artifacts').remove(artifacts.map(a => a.storage_path));
+    await supabase.from('task_artifacts').delete().eq('task_id', job.task_id);
+  }
+
+  // Delete job, reset task
+  await supabase.from('jobs').delete().eq('id', jobId);
+  await supabase.from('tasks').update({ status: 'todo', followup_notes: null }).eq('id', job.task_id);
+
+  res.json({ ok: true });
+});
+
+// Rework job -> save feedback, re-run with own artifacts as context
+executionRouter.post('/api/jobs/:id/rework', requireAuth, async (req, res) => {
+  const jobId = req.params.id;
+  const { note, localPath, projectId } = req.body;
+
+  const { data: job } = await supabase.from('jobs').select('*').eq('id', jobId).single();
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  if (job.status !== 'review') return res.status(400).json({ error: 'Job is not in review' });
+
+  // Complete current job
+  if (job.local_path) { try { deleteCheckpoint(job.local_path, jobId); } catch {} }
   await supabase.from('jobs').update({
     status: 'done',
     completed_at: new Date().toISOString(),
     checkpoint_status: 'cleaned',
   }).eq('id', jobId);
+  await supabase.from('job_logs').insert({ job_id: jobId, event: 'done', data: {} });
 
+  // Save feedback and reset task for re-run
   await supabase.from('tasks').update({
-    status: 'backlog',
+    status: 'in_progress',
     followup_notes: note || null,
   }).eq('id', job.task_id);
 
-  await supabase.from('job_logs').insert({ job_id: jobId, event: 'done', data: {} });
+  // Fetch task to build flow snapshot
+  const { data: task } = await supabase.from('tasks').select('*').eq('id', job.task_id).single();
+  if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  res.json({ ok: true });
+  let flowSnapshot: any = null;
+  let firstPhase: string;
+  let maxAttempts: number;
+
+  if (task.flow_id) {
+    const { data: flow } = await supabase.from('flows').select('*, flow_steps(*)').eq('id', task.flow_id).single();
+    if (flow) {
+      ({ flowSnapshot, firstPhase, maxAttempts } = resolveFlow(flow));
+    } else {
+      const taskType = loadTaskTypeConfig(localPath || job.local_path, task.type);
+      firstPhase = taskType.phases[0];
+      maxAttempts = taskType.verify_retries + 1;
+    }
+  } else {
+    const flowName = TYPE_TO_FLOW_NAME[task.type];
+    const { data: flow } = flowName
+      ? await supabase.from('flows').select('*, flow_steps(*)').eq('project_id', projectId || job.project_id).eq('name', flowName).single()
+      : { data: null };
+    if (flow) {
+      ({ flowSnapshot, firstPhase, maxAttempts } = resolveFlow(flow));
+    } else {
+      const taskType = loadTaskTypeConfig(localPath || job.local_path, task.type);
+      firstPhase = taskType.phases[0];
+      maxAttempts = taskType.verify_retries + 1;
+    }
+  }
+
+  // Create new job
+  const { data: newJob, error: jobErr } = await supabase.from('jobs').insert({
+    task_id: job.task_id,
+    project_id: projectId || job.project_id,
+    local_path: localPath || job.local_path,
+    status: 'queued',
+    current_phase: firstPhase!,
+    max_attempts: maxAttempts!,
+    flow_id: task.flow_id || null,
+    flow_snapshot: flowSnapshot,
+  }).select().single();
+
+  if (jobErr || !newJob) return res.status(500).json({ error: 'Failed to create rework job' });
+
+  res.json({ jobId: newJob.id });
 });
 
 // Revert job -> restore files to pre-job state
@@ -344,8 +410,7 @@ executionRouter.post('/api/jobs/:id/revert', requireAuth, async (req, res) => {
   }
 
   await supabase.from('jobs').update({ checkpoint_status: 'reverted' }).eq('id', jobId);
-
-  await supabase.from('tasks').update({ status: 'backlog' }).eq('id', job.task_id);
+  await supabase.from('tasks').update({ status: 'todo' }).eq('id', job.task_id);
 
   res.json({ ok: true });
 });

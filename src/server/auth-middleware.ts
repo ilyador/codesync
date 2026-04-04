@@ -7,7 +7,7 @@ import { supabase } from './supabase.js';
  * On failure, responds with 401.
  */
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const token = req.headers.authorization?.replace('Bearer ', '');
+  const token = req.headers.authorization?.replace('Bearer ', '') || (req.query.token as string);
   if (!token) {
     res.status(401).json({ error: 'No token provided' });
     return;

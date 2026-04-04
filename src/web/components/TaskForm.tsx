@@ -372,6 +372,13 @@ export function TaskForm({ workstreams, members, existingTasks, flows = [], cust
                     setIsCustomType(true);
                   } else {
                     setType(e.target.value);
+                    // Auto-select flow if one is linked to this type
+                    const matchingFlow = flows.find(f => (f.default_types || []).includes(e.target.value));
+                    if (matchingFlow) {
+                      setFlowId(matchingFlow.id);
+                      setAssignee('');
+                      setMode('ai');
+                    }
                   }
                 }}>
                   {BUILT_IN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}

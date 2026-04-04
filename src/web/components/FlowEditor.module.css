@@ -83,6 +83,23 @@
 }
 
 /* Step count badge (like .backlogCount) */
+.typeSelect {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--white);
+  border: 1.5px solid var(--text-4);
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  max-width: 160px;
+  flex-shrink: 0;
+}
+.typeSelect:hover {
+  border-color: var(--text-2);
+}
+
 .stepCount {
   font-size: 12px;
   font-weight: 500;

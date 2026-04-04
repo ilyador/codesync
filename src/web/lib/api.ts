@@ -216,8 +216,12 @@ export async function approveJob(jobId: string) {
   return apiFetch(`/api/jobs/${jobId}/approve`, { method: 'POST' });
 }
 
-export async function rejectJob(jobId: string, note: string) {
-  return apiFetch(`/api/jobs/${jobId}/reject`, { method: 'POST', body: JSON.stringify({ note }) });
+export async function rejectJob(jobId: string) {
+  return apiFetch(`/api/jobs/${jobId}/reject`, { method: 'POST' });
+}
+
+export async function reworkJob(jobId: string, note: string, projectId: string, localPath: string) {
+  return apiFetch(`/api/jobs/${jobId}/rework`, { method: 'POST', body: JSON.stringify({ note, projectId, localPath }) });
 }
 
 export async function terminateJob(jobId: string) {
@@ -297,8 +301,15 @@ export interface Artifact {
   created_at: string;
 }
 
+function withAuthToken(url: string): string {
+  const token = getToken();
+  return (token && url.startsWith('/api/')) ? `${url}?token=${encodeURIComponent(token)}` : url;
+}
+
 export async function getArtifacts(taskId: string): Promise<Artifact[]> {
-  return apiFetch(`/api/artifacts?task_id=${taskId}`);
+  const artifacts: Artifact[] = await apiFetch(`/api/artifacts?task_id=${taskId}`);
+  for (const a of artifacts) a.url = withAuthToken(a.url);
+  return artifacts;
 }
 
 export async function uploadArtifact(taskId: string, file: File): Promise<Artifact> {
@@ -311,7 +322,7 @@ export async function uploadArtifact(taskId: string, file: File): Promise<Artifa
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-  return apiFetch('/api/artifacts', {
+  const artifact: Artifact = await apiFetch('/api/artifacts', {
     method: 'POST',
     body: JSON.stringify({
       task_id: taskId,
@@ -320,6 +331,8 @@ export async function uploadArtifact(taskId: string, file: File): Promise<Artifa
       data: base64,
     }),
   });
+  artifact.url = withAuthToken(artifact.url);
+  return artifact;
 }
 
 export async function deleteArtifact(id: string) {
@@ -388,6 +401,7 @@ export interface Flow {
   icon: string;
   is_builtin: boolean;
   agents_md: string | null;
+  default_types: string[];
   flow_steps: FlowStep[];
   created_at: string;
 }

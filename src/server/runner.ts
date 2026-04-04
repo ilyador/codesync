@@ -176,7 +176,25 @@ async function buildStepPrompt(
         break;
       case 'followup_notes':
         if (task.followup_notes) {
-          prompt += `## Followup Notes (from previous rejection)\n${task.followup_notes}\n\n`;
+          prompt += `## Rework Feedback\n${task.followup_notes}\n\n`;
+          // Include task's own artifacts so the AI can revise them
+          const { data: ownArtifacts } = await supabase
+            .from('task_artifacts').select('*').eq('task_id', task.id).order('created_at');
+          if (ownArtifacts && ownArtifacts.length > 0) {
+            prompt += '## Previously Generated Files\n';
+            for (const a of ownArtifacts) {
+              if (a.mime_type.startsWith('text/') || a.mime_type === 'application/json') {
+                const { data: fileData } = await supabase.storage.from('task-artifacts').download(a.storage_path);
+                if (fileData) {
+                  const content = await fileData.text();
+                  prompt += `### ${a.filename}\n\`\`\`\n${content}\n\`\`\`\n\n`;
+                }
+              } else {
+                prompt += `- ${a.filename} (${a.mime_type})\n`;
+              }
+            }
+            prompt += 'Revise these files based on the feedback above.\n\n';
+          }
         }
         break;
       case 'architecture_md': {
@@ -752,7 +770,25 @@ Description: ${task.description || 'No description provided.'}
   }
 
   if (task.followup_notes) {
-    prompt += `\n## Followup Notes (from previous rejection)\n${task.followup_notes}\n`;
+    prompt += `\n## Rework Feedback\n${task.followup_notes}\n`;
+    // Include task's own artifacts so the AI can revise them
+    const { data: ownArtifacts } = await supabase
+      .from('task_artifacts').select('*').eq('task_id', task.id).order('created_at');
+    if (ownArtifacts && ownArtifacts.length > 0) {
+      prompt += '\n## Previously Generated Files\n';
+      for (const a of ownArtifacts) {
+        if (a.mime_type.startsWith('text/') || a.mime_type === 'application/json') {
+          const { data: fileData } = await supabase.storage.from('task-artifacts').download(a.storage_path);
+          if (fileData) {
+            const content = await fileData.text();
+            prompt += `### ${a.filename}\n\`\`\`\n${content}\n\`\`\`\n\n`;
+          }
+        } else {
+          prompt += `- ${a.filename} (${a.mime_type})\n`;
+        }
+      }
+      prompt += 'Revise these files based on the feedback above.\n';
+    }
   }
 
   if (previousOutputs.length > 0) {

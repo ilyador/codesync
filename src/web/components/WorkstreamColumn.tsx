@@ -72,7 +72,7 @@ interface WorkstreamColumnProps {
   onReply?: (jobId: string, answer: string) => void;
   onApprove?: (jobId: string) => void;
   onReject?: (jobId: string) => void;
-  onRevert?: (jobId: string) => void;
+  onRework?: (jobId: string, note: string) => void;
   onDeleteJob?: (jobId: string) => void;
   onCreatePr?: () => void;
   onArchive?: () => void;
@@ -112,7 +112,7 @@ export function WorkstreamColumn({
   onReply,
   onApprove,
   onReject,
-  onRevert,
+  onRework,
   onDeleteJob,
   onCreatePr,
   onArchive,
@@ -198,13 +198,18 @@ export function WorkstreamColumn({
     if (dbStatus === 'complete') return 'done' as const;
     if (dbStatus === 'merged' || dbStatus === 'archived') return 'merged' as const;
     if (totalTasks === 0) return 'open' as const;
-    const hasActiveTask = tasks.some(t => {
+    const hasRunningTask = tasks.some(t => {
       const job = taskJobMap[t.id];
-      if (job && ['queued', 'running', 'paused', 'review'].includes(job.status)) return true;
+      if (job && ['queued', 'running', 'paused'].includes(job.status)) return true;
       if (t.mode === 'human' && t.status === 'in_progress') return true;
       return false;
     });
-    if (hasActiveTask) return 'in progress' as const;
+    if (hasRunningTask) return 'in progress' as const;
+    const hasPendingApproval = tasks.some(t => {
+      const job = taskJobMap[t.id];
+      return job && job.status === 'review';
+    });
+    if (hasPendingApproval) return 'pending review' as const;
     const hasFailedTask = tasks.some(t => {
       const job = taskJobMap[t.id];
       return job && job.status === 'failed';
@@ -563,13 +568,6 @@ export function WorkstreamColumn({
             </span>
           )}
 
-          {/* Backlog shows count inline */}
-          {isBacklog && (
-            <span className={s.backlogCount}>
-              {doneTasks}/{totalTasks}
-            </span>
-          )}
-
           {/* Run button: only when idle (open status) with tasks */}
           {!isBacklog && canRunAi && onRunWorkstream && wsStatus === 'open' && totalTasks > 0 && !hasBrokenLinks && (
             <button
@@ -582,9 +580,8 @@ export function WorkstreamColumn({
             </button>
           )}
 
-          {/* Add/rename/delete buttons: only before work starts */}
+          {/* Add button: only before work starts */}
           {(isBacklog || wsStatus === 'open' || !wsStatus) && (
-            <>
               <button
                 className={s.addBtn}
                 onClick={onAddTask}
@@ -592,7 +589,18 @@ export function WorkstreamColumn({
               >
                 +
               </button>
+          )}
 
+          {/* Task count: pushed right */}
+          {totalTasks > 0 && (
+            <span className={s.taskCount}>
+              {isBacklog ? totalTasks : `${doneTasks}/${totalTasks}`}
+            </span>
+          )}
+
+          {/* Delete button: rightmost */}
+          {(isBacklog || wsStatus === 'open' || !wsStatus) && (
+            <>
               {!isBacklog && workstream && onDeleteWorkstream && (
                 <button
                   className={`${s.actionBtn} ${s.actionBtnDanger}`}
@@ -749,7 +757,7 @@ export function WorkstreamColumn({
                             onReply={onReply}
                             onApprove={onApprove}
                             onReject={onReject}
-                            onRevert={onRevert}
+                            onRework={onRework}
                             onDeleteJob={onDeleteJob}
                             onDragStart={handleGroupDragStart}
                             onDragEnd={handleGroupDragEnd}
@@ -801,7 +809,7 @@ export function WorkstreamColumn({
                     onReply={onReply}
                     onApprove={onApprove}
                     onReject={onReject}
-                    onRevert={onRevert}
+                    onRework={onRework}
                     onDeleteJob={onDeleteJob}
                     onDragStart={() => onDragTaskStart(task.id)}
                     onDragEnd={onDragTaskEnd}
