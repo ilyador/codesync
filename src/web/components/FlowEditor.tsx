@@ -5,12 +5,15 @@ import s from './FlowEditor.module.css';
 
 interface FlowEditorProps {
   flows: Flow[];
-  onSave: (flowId: string, updates: { name?: string; description?: string; agents_md?: string }) => Promise<void>;
+  onSave: (flowId: string, updates: { name?: string; description?: string; agents_md?: string; default_types?: string[] }) => Promise<void>;
   onSaveSteps: (flowId: string, steps: any[]) => Promise<void>;
   onCreateFlow: (data: { project_id: string; name: string; description?: string; steps?: any[] }) => Promise<Flow>;
   onDeleteFlow: (flowId: string) => Promise<void>;
   projectId: string;
+  taskTypes?: string[];
 }
+
+const BUILT_IN_TYPES = ['feature', 'bug-fix', 'ui-fix', 'refactor', 'test', 'design', 'chore', 'doc-search'];
 
 const ALL_TOOLS = ['Read', 'Edit', 'Write', 'Bash', 'Grep', 'Glob'];
 const ALL_CONTEXT_SOURCES = [
@@ -89,11 +92,15 @@ function FlowColumn({
   onSave,
   onSaveSteps,
   onDeleteFlow,
+  allFlows,
+  taskTypes = BUILT_IN_TYPES,
 }: {
   flow: Flow;
   onSave: FlowEditorProps['onSave'];
   onSaveSteps: FlowEditorProps['onSaveSteps'];
   onDeleteFlow: FlowEditorProps['onDeleteFlow'];
+  allFlows: Flow[];
+  taskTypes?: string[];
 }) {
   const state = useFlowColumnState(flow);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -273,6 +280,32 @@ function FlowColumn({
               {state.editName || flow.name}
             </span>
           )}
+
+          <select
+            className={s.typeSelect}
+            value=""
+            onChange={e => {
+              const type = e.target.value;
+              if (!type) return;
+              const current = flow.default_types || [];
+              const updated = current.includes(type)
+                ? current.filter(t => t !== type)
+                : [...current, type];
+              onSave(flow.id, { default_types: updated });
+            }}
+            title="Default task types for this flow"
+          >
+            <option value="">{(flow.default_types || []).length > 0 ? (flow.default_types || []).join(', ') : 'types'}</option>
+            {taskTypes.map(t => {
+              const ownedByOther = allFlows.some(f => f.id !== flow.id && (f.default_types || []).includes(t));
+              const owned = (flow.default_types || []).includes(t);
+              return (
+                <option key={t} value={t} disabled={ownedByOther}>
+                  {owned ? '\u2713 ' : ''}{t}{ownedByOther ? ' (other flow)' : ''}
+                </option>
+              );
+            })}
+          </select>
 
           <span className={s.stepCount}>
             {state.editSteps.length} {state.editSteps.length === 1 ? 'step' : 'steps'}
@@ -527,7 +560,7 @@ function FlowColumn({
 }
 
 /* ─── FlowEditor: Board container ─── */
-export function FlowEditor({ flows, onSave, onSaveSteps, onCreateFlow, onDeleteFlow, projectId }: FlowEditorProps) {
+export function FlowEditor({ flows, onSave, onSaveSteps, onCreateFlow, onDeleteFlow, projectId, taskTypes }: FlowEditorProps) {
   const [creating, setCreating] = useState(false);
 
   const handleNewFlow = useCallback(async () => {
@@ -561,6 +594,8 @@ export function FlowEditor({ flows, onSave, onSaveSteps, onCreateFlow, onDeleteF
           onSave={onSave}
           onSaveSteps={onSaveSteps}
           onDeleteFlow={onDeleteFlow}
+          allFlows={flows}
+          taskTypes={taskTypes?.length ? taskTypes : BUILT_IN_TYPES}
         />
       ))}
 
