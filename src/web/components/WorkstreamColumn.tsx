@@ -31,6 +31,7 @@ interface Workstream {
   position: number;
   pr_url?: string | null;
   reviewer_id?: string | null;
+  review_output?: string | null;
 }
 
 interface WorkstreamColumnProps {
@@ -874,6 +875,28 @@ export function WorkstreamColumn({
               </a>
             )}
           </div>
+          {workstream?.review_output && (
+            <div className={s.reviewPanel}>
+              <button className={s.reviewToggle} onClick={() => setExpandedIds(prev => {
+                const next = new Set(prev);
+                if (next.has('__review__')) next.delete('__review__'); else next.add('__review__');
+                return next;
+              })}>
+                <span className={s.sectionArrow} style={expandedIds.has('__review__') ? { transform: 'rotate(90deg)' } : undefined}>&#9654;</span>
+                Code Review
+              </button>
+              {expandedIds.has('__review__') && (
+                <div className={s.reviewContent}>
+                  <pre className={s.reviewOutput}>{workstream.review_output}</pre>
+                  <div className={s.reviewActions}>
+                    {onCreatePr && (
+                      <button className="btn btnWarning btnSm" onClick={onCreatePr}>Re-review &amp; Fix</button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
