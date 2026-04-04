@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -6,41 +6,20 @@ function getSystemTheme(): Theme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-function getInitialTheme(): Theme {
-  const stored = localStorage.getItem('workstream-theme') as Theme | null;
-  if (stored === 'light' || stored === 'dark') return stored;
-  return getSystemTheme();
-}
-
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
-  // Track whether the user has explicitly chosen a theme (vs following system)
-  const isExplicit = useRef(!!localStorage.getItem('workstream-theme'));
+  const [theme, setTheme] = useState<Theme>(getSystemTheme);
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
-  // Listen for system preference changes -- only update when user hasn't explicitly chosen
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e: MediaQueryListEvent) => {
-      if (!isExplicit.current) {
-        setTheme(e.matches ? 'dark' : 'light');
-      }
-    };
+    const handler = (e: MediaQueryListEvent) => setTheme(e.matches ? 'dark' : 'light');
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  const toggle = useCallback(() => {
-    setTheme(t => {
-      const next = t === 'light' ? 'dark' : 'light';
-      localStorage.setItem('workstream-theme', next);
-      isExplicit.current = true;
-      return next;
-    });
-  }, []);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  }, [theme]);
 
-  return { theme, toggle };
+  return { theme };
 }
