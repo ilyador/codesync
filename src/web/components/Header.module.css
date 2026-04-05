@@ -248,6 +248,24 @@
   padding: 16px 20px 12px;
   border-bottom: 1px solid var(--divider);
 }
+.actionClose {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.actionClose:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
 .actionModalTitle {
   font-size: 16px;
   font-weight: 700;
@@ -320,6 +338,12 @@
   .center { gap: 8px; }
   .actionBtn { padding: 4px 10px; font-size: 12px; gap: 5px; }
   .actionCount { min-width: 17px; height: 17px; font-size: 10px; padding: 0 4px; }
+  .actionModal {
+    max-width: 100%;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+  .actionList { max-height: calc(100dvh - 60px); }
 }
 
 .milestone { font-size: 13px; color: var(--text-3); }
