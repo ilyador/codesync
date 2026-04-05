@@ -474,8 +474,8 @@ function IdleDetail({
   const chaining = task.chaining || 'none';
   const needsAccept = chaining === 'accept' || chaining === 'both';
   const needsProduce = chaining === 'produce' || chaining === 'both';
-  const acceptBlocked = needsAccept && prevArtifacts.loaded && prevArtifacts.artifacts.length === 0;
-  const produceBlocked = needsProduce && ownArtifacts.loaded && ownArtifacts.artifacts.length === 0;
+  const acceptBlocked = needsAccept && (!prevArtifacts.loaded || prevArtifacts.artifacts.length === 0);
+  const produceBlocked = needsProduce && (!ownArtifacts.loaded || ownArtifacts.artifacts.length === 0);
   const completionBlocked = acceptBlocked || produceBlocked;
   const blockReason = acceptBlocked ? 'Awaiting file from previous task' : produceBlocked ? 'Attach a file before completing' : '';
 

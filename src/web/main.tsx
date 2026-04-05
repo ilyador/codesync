@@ -9,6 +9,11 @@ import App from './App.tsx'
 // Restore route/scroll from iOS Safari tab kill (must run before React renders)
 initSessionRestore();
 
+// Register service worker for instant reloads (cache app shell)
+if ('serviceWorker' in navigator && !import.meta.env.DEV) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

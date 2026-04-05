@@ -231,6 +231,7 @@ export function Board({
       className={`${s.board} ${drag.isDragging ? s.boardDragging : ''}`}
       ref={drag.boardRef}
       onDragOver={drag.handleBoardDragOver}
+      data-board
     >
       {/* Backlog column */}
       <WorkstreamColumn

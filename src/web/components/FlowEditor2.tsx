@@ -381,6 +381,7 @@ export function FlowEditor2({ flows, setFlows, onSave, onSaveSteps, onCreateFlow
     <div
       className={`${boardStyles.board} ${drag.isDragging ? boardStyles.boardDragging : ''}`}
       ref={drag.boardRef}
+      data-board
       onDragOver={drag.handleBoardDragOver}
     >
       {flows.map(flow => (
