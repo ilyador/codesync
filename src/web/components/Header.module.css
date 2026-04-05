@@ -238,7 +238,6 @@
   100% { transform: scale(1); }
 }
 .actionModal {
-  max-width: 480px;
   overflow: hidden;
 }
 .actionModalHeader {
