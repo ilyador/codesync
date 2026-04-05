@@ -196,6 +196,9 @@ export function Header({
             <div className={s.actionModalHeader}>
               <span className={s.actionModalTitle}>To Do</span>
               {todoItems.length > 0 && <span className={`${s.actionCount} ${s.actionCountTodo}`}>{todoItems.length}</span>}
+              <button className={s.actionClose} onClick={() => setTodoOpen(false)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
             </div>
             {todoItems.length === 0 ? (
               <div className={s.actionEmpty}>Nothing to do</div>
@@ -226,6 +229,9 @@ export function Header({
             <div className={s.actionModalHeader}>
               <span className={s.actionModalTitle}>To Review</span>
               {reviewItems.length > 0 && <span className={`${s.actionCount} ${s.actionCountReview}`}>{reviewItems.length}</span>}
+              <button className={s.actionClose} onClick={() => setReviewOpen(false)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
             </div>
             {reviewItems.length === 0 ? (
               <div className={s.actionEmpty}>Nothing to review</div>
