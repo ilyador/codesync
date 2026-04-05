@@ -238,10 +238,8 @@
   100% { transform: scale(1); }
 }
 .actionModal {
+  max-width: 480px;
   overflow: hidden;
-}
-@media (min-width: 769px) {
-  .actionModal { max-width: 480px; }
 }
 .actionModalHeader {
   display: flex;
