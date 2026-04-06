@@ -903,7 +903,7 @@ export function WorkstreamColumn({
           )}
           {onCreatePr && (
             <div className={s.reviewActions}>
-              <button className="btn btnGhost btnSm" onClick={onCreatePr}>Re-review &amp; Fix</button>
+              <button className="btn btnWarning btnSm" onClick={onCreatePr}>Re-review &amp; Fix</button>
             </div>
           )}
         </div>
