@@ -888,9 +888,9 @@ export function WorkstreamColumn({
       {wsStatus === 'done' && (
         <div className={`${s.completeBanner} ${s.doneBanner}`}>
           <div className={s.doneHeader}>
-            <span className={s.doneLabel}>&#10003; Complete</span>
+            <span className={s.doneLabel}>{workstream?.pr_url ? 'PR open' : '&#10003; Complete'}</span>
             <div className={s.completeBannerActions}>
-              {renderReviewer()}
+              {workstream?.pr_url && renderReviewer()}
               {workstream?.pr_url && (
                 <a href={workstream.pr_url} target="_blank" rel="noopener noreferrer" className={s.prLink}>
                   View PR
@@ -903,7 +903,9 @@ export function WorkstreamColumn({
           )}
           {onCreatePr && (
             <div className={s.reviewActions}>
-              <button className="btn btnWarning btnSm" onClick={onCreatePr}>Re-review &amp; Fix</button>
+              <button className="btn btnWarning btnSm" onClick={onCreatePr}>
+                {workstream?.pr_url ? 'Re-review & Fix' : 'Create PR'}
+              </button>
             </div>
           )}
         </div>
