@@ -68,6 +68,7 @@ interface BoardProps {
   onMoveToBacklog: (jobId: string) => void;
   onContinue: (jobId: string) => void;
   onCreatePr: (workstreamId: string) => void;
+  onCreatePrOnly?: (workstreamId: string) => void;
   currentUserId?: string;
 }
 
@@ -103,6 +104,7 @@ export function Board({
   onMoveToBacklog,
   onContinue,
   onCreatePr,
+  onCreatePrOnly,
   currentUserId,
 }: BoardProps) {
   const drag = useBoardDrag({ onSwapColumns });
@@ -309,6 +311,7 @@ export function Board({
           onContinue={onContinue}
           currentUserId={currentUserId}
           onCreatePr={() => onCreatePr(ws.id)}
+          onCreatePrOnly={onCreatePrOnly ? () => onCreatePrOnly(ws.id) : undefined}
           onArchive={async () => {
             try {
               await onUpdateWorkstream(ws.id, { status: 'archived' });

@@ -78,6 +78,7 @@ interface WorkstreamColumnProps {
   onMoveToBacklog?: (jobId: string) => void;
   onContinue?: (jobId: string) => void;
   onCreatePr?: () => void;
+  onCreatePrOnly?: () => void;
   onArchive?: () => void;
   currentUserId?: string;
   metaItems?: (taskId: string) => { label: string; value: string }[] | undefined;
@@ -125,6 +126,7 @@ export function WorkstreamColumn({
   onMoveToBacklog,
   onContinue,
   onCreatePr,
+  onCreatePrOnly,
   onArchive,
   currentUserId,
   metaItems,
@@ -901,13 +903,16 @@ export function WorkstreamColumn({
           {workstream?.review_output && (
             <pre className={s.reviewOutput}>{workstream.review_output}</pre>
           )}
-          {onCreatePr && (
-            <div className={s.reviewActions}>
+          <div className={s.reviewActions}>
+            {!workstream?.pr_url && onCreatePrOnly && (
+              <button className="btn btnPrimary btnSm" onClick={onCreatePrOnly}>Create PR</button>
+            )}
+            {onCreatePr && (
               <button className="btn btnWarning btnSm" onClick={onCreatePr}>
-                {workstream?.pr_url ? 'Re-review & Fix' : 'Create PR'}
+                {workstream?.pr_url ? 'Re-review & Fix' : 'Review & Create PR'}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
