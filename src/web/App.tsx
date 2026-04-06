@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useProjects } from './hooks/useProjects';
 import { useTasks } from './hooks/useTasks';
@@ -19,22 +19,20 @@ import { Header } from './components/Header';
 import { Board } from './components/Board';
 import { ArchivePage } from './components/ArchivePage';
 import { ProjectTaskDialogs } from './components/ProjectTaskDialogs';
-import type { EditTaskData } from './components/TaskForm';
 import { AddProjectModal } from './components/AddProjectModal';
 import { MembersModal } from './components/MembersModal';
 import { FlowEditor2 } from './components/FlowEditor2';
 import { useModal } from './hooks/modal-context';
 import { useExecutionActions } from './hooks/useExecutionActions';
 import { useProjectOrderingMutations } from './hooks/useProjectOrderingMutations';
+import { useProjectWorkspaceEffects } from './hooks/useProjectWorkspaceEffects';
 import { useProjectViewModels } from './hooks/useProjectViewModels';
+import { useTaskEditorState } from './hooks/useTaskEditorState';
 import appStyles from './App.module.css';
 import './styles/global.css';
 
 export default function App() {
   const [envReady, setEnvReady] = useState(false);
-  const [showTaskForm, setShowTaskForm] = useState(false);
-  const [taskFormWorkstream, setTaskFormWorkstream] = useState<string | null>(null);
-  const [editingTask, setEditingTask] = useState<EditTaskData | null>(null);
   const [showAddProject, setShowAddProject] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const auth = useAuth();
@@ -54,6 +52,15 @@ export default function App() {
   const focusWsId = searchParams.get('ws');
   const { notify } = webNotifs;
   const currentProjectName = projects.current?.name || null;
+  const {
+    showTaskForm,
+    taskFormWorkstream,
+    editingTask,
+    openCreateTask,
+    closeCreateTask,
+    startEditingTask,
+    closeEditTask,
+  } = useTaskEditorState();
   const executionActions = useExecutionActions({
     projectId: projects.current?.id || null,
     localPath: projects.current?.local_path,
@@ -62,14 +69,6 @@ export default function App() {
     jobs,
     workstreams,
   });
-
-  // Clear ?task= and ?ws= params after a short delay so they don't stick
-  useEffect(() => {
-    if (focusTaskId || focusWsId) {
-      const timer = setTimeout(() => setSearchParams({}, { replace: true }), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [focusTaskId, focusWsId, setSearchParams]);
 
   const {
     mentionedTaskIds,
@@ -107,51 +106,16 @@ export default function App() {
     setFlows: aiFlows.setFlows,
     reloadFlows: aiFlows.reload,
   });
-
-  // Track previous job/task statuses for web push notifications
-  const prevJobStatuses = useRef<Record<string, string>>({});
-  const prevTaskStatuses = useRef<Record<string, string>>({});
-
-  useEffect(() => {
-    const prev = prevJobStatuses.current;
-    for (const job of jobs.jobs) {
-      const oldStatus = prev[job.id];
-      if (oldStatus !== job.status) {
-        const title = taskTitleMap[job.task_id] || 'Task';
-        // Failed notifications fire even on first sight (no oldStatus guard)
-        if (job.status === 'failed') {
-          notify('Task failed', `${title}: ${job.question || 'unknown error'}`);
-        } else if (oldStatus) {
-          // Other notifications only fire on status transitions (not initial load)
-          if (job.status === 'paused') {
-            notify('Question asked', `${title} needs your input`);
-          } else if (job.status === 'done') {
-            notify('Task completed', `${title} finished successfully`);
-          }
-        }
-      }
-      prev[job.id] = job.status;
-    }
-  }, [jobs.jobs, notify, taskTitleMap]);
-
-  useEffect(() => {
-    const prev = prevTaskStatuses.current;
-    for (const task of tasks.tasks) {
-      const oldStatus = prev[task.id];
-      if (oldStatus && oldStatus !== task.status && task.status === 'review') {
-        notify('Ready for review', `${task.title} is ready for review`);
-      }
-      prev[task.id] = task.status;
-    }
-  }, [notify, tasks.tasks]);
-
-  // Tick removed — elapsed is now computed locally inside TaskCard
-
-  useEffect(() => {
-    document.title = currentProjectName
-      ? `${currentProjectName} - WorkStream`
-      : 'WorkStream';
-  }, [currentProjectName]);
+  useProjectWorkspaceEffects({
+    focusTaskId,
+    focusWsId,
+    setSearchParams,
+    jobs: jobs.jobs,
+    tasks: tasks.tasks,
+    taskTitleMap,
+    notify,
+    currentProjectName,
+  });
 
   // Step 1: Environment check
   if (!envReady) {
@@ -264,30 +228,12 @@ export default function App() {
             }}
             onDeleteWorkstream={executionActions.deleteWorkstreamAndReloadTasks}
             onSwapColumns={handleSwapWorkstreams}
-            onAddTask={(workstreamId) => {
-              setTaskFormWorkstream(workstreamId);
-              setShowTaskForm(true);
-            }}
+            onAddTask={openCreateTask}
             onRunWorkstream={executionActions.runWorkstream}
             onRunTask={executionActions.runTask}
             onEditTask={(task) => {
               const rawTask = tasks.tasks.find(t => t.id === task.id);
-              setEditingTask({
-                id: task.id,
-                title: task.title,
-                description: task.description,
-                type: task.type,
-                mode: task.mode,
-                effort: task.effort,
-                multiagent: task.multiagent,
-                assignee: rawTask?.assignee ?? null,
-                flow_id: rawTask?.flow_id ?? null,
-                images: task.images,
-                workstream_id: task.workstream_id,
-                auto_continue: task.auto_continue,
-                priority: task.priority,
-                chaining: rawTask?.chaining,
-              });
+              startEditingTask(task, rawTask);
             }}
             onDeleteTask={async (taskId) => {
               await tasks.deleteTask(taskId);
@@ -381,8 +327,8 @@ export default function App() {
               chaining: data.chaining,
             });
           }}
-          onCloseCreate={() => { setShowTaskForm(false); setTaskFormWorkstream(null); }}
-          onCloseEdit={() => setEditingTask(null)}
+          onCloseCreate={closeCreateTask}
+          onCloseEdit={closeEditTask}
         />
       )}
 
