@@ -35,12 +35,13 @@ interface ArchivePageProps {
   memberMap: Record<string, { name: string; initials: string }>;
   projectId: string | null;
   onRestore: (workstreamId: string) => void;
+  onUpdateTask: (taskId: string, data: Record<string, unknown>) => void;
 }
 
 const emptySet = new Set<string>();
 const noop = () => {};
 
-export function ArchivePage({ workstreams, tasks, jobs, memberMap, projectId, onRestore }: ArchivePageProps) {
+export function ArchivePage({ workstreams, tasks, jobs, memberMap, projectId, onRestore, onUpdateTask }: ArchivePageProps) {
   const taskJobMap = useMemo(() => {
     const priority: Record<string, number> = { running: 0, queued: 1, paused: 2, review: 3, done: 4, failed: 5 };
     const map: Record<string, JobView> = {};
@@ -94,6 +95,7 @@ export function ArchivePage({ workstreams, tasks, jobs, memberMap, projectId, on
             onDragTaskEnd={noop}
             onDropTask={noop}
             onAddTask={noop}
+            onUpdateTask={onUpdateTask}
           />
         </div>
       )}

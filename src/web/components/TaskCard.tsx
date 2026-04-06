@@ -378,6 +378,9 @@ export function TaskCard({
             {!job && (
               <div className={s.doneHeader}>
                 <span className={s.doneLabel}>&#10003; Completed</span>
+                {onUpdateTask && (
+                  <button className="btn btnGhost btnSm" onClick={() => onUpdateTask(task.id, { status: 'backlog' })}>Unarchive</button>
+                )}
               </div>
             )}
             <TaskAttachments taskId={task.id} projectId={projectId} legacyImages={task.images} readOnly />
