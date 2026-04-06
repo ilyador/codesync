@@ -43,6 +43,20 @@ executionRouter.post('/api/run', requireAuth, async (req, res) => {
     return res.status(409).json({ error: 'A job is already queued, running, or paused for this task', jobId: existingJobs[0].id });
   }
 
+  // Prevent concurrent jobs in the same workstream (shared worktree)
+  const { data: taskRow } = await supabase.from('tasks').select('workstream_id').eq('id', taskId).single();
+  if (taskRow?.workstream_id) {
+    const { data: wsJobs } = await supabase
+      .from('jobs')
+      .select('id, tasks!inner(workstream_id)')
+      .eq('tasks.workstream_id', taskRow.workstream_id)
+      .in('status', ['queued', 'running'])
+      .limit(1);
+    if (wsJobs && wsJobs.length > 0) {
+      return res.status(409).json({ error: 'Another task in this workstream is already running', jobId: wsJobs[0].id });
+    }
+  }
+
   // Fetch task
   const { data: task, error: taskErr } = await supabase
     .from('tasks')

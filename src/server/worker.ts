@@ -317,14 +317,31 @@ setInterval(async () => {
 
     const { data: jobs } = await supabase
       .from('jobs')
-      .select('*')
+      .select('*, tasks!inner(workstream_id)')
       .eq('status', 'queued')
       .order('started_at', { ascending: true })
-      .limit(1);
+      .limit(5);
 
     if (!jobs || jobs.length === 0) return;
 
-    const job = jobs[0];
+    // Skip jobs whose workstream already has a running job
+    let job = null;
+    for (const candidate of jobs) {
+      const wsId = (candidate as any).tasks?.workstream_id;
+      if (wsId) {
+        const { data: running } = await supabase
+          .from('jobs')
+          .select('id, tasks!inner(workstream_id)')
+          .eq('tasks.workstream_id', wsId)
+          .eq('status', 'running')
+          .limit(1);
+        if (running && running.length > 0) continue;
+      }
+      job = candidate;
+      break;
+    }
+    if (!job) return;
+
     busyJobId = job.id;
     console.log(`[worker] Picked up job ${job.id} for task ${job.task_id}`);
 

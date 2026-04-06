@@ -61,6 +61,18 @@ export async function queueNextWorkstreamTask(params: {
     return null;
   }
 
+  // Don't queue if another job in this workstream is already running
+  const { data: wsJobs } = await supabase
+    .from('jobs')
+    .select('id, tasks!inner(workstream_id)')
+    .eq('tasks.workstream_id', workstreamId)
+    .in('status', ['queued', 'running'])
+    .limit(1);
+  if (wsJobs && wsJobs.length > 0) {
+    console.log(`[auto-continue] Workstream ${workstreamId} already has a running job, skipping`);
+    return null;
+  }
+
   // Queue the next AI task
   const { flowSnapshot, firstPhase, maxAttempts, flowId } = await resolveFlowForTask(nextTask, projectId, localPath);
 
