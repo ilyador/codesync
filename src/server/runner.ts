@@ -457,7 +457,12 @@ export async function runFlowJob(ctx: FlowJobContext): Promise<void> {
           summary: extractPhaseSummary(output),
         };
         phasesCompleted.push(phaseOutput);
-        await supabase.from('jobs').update({ phases_completed: phasesCompleted }).eq('id', jobId);
+        let { error: pcErr } = await supabase.from('jobs').update({ phases_completed: phasesCompleted }).eq('id', jobId);
+        if (pcErr) {
+          console.error(`[runner] Failed to save phases_completed for job ${jobId}, retrying:`, pcErr.message);
+          ({ error: pcErr } = await supabase.from('jobs').update({ phases_completed: phasesCompleted }).eq('id', jobId));
+          if (pcErr) console.error(`[runner] Retry also failed for job ${jobId}:`, pcErr.message);
+        }
         onPhaseComplete(step.name, phaseOutput);
 
         // Check if claude asked a question
@@ -622,11 +627,12 @@ export async function runFlowJob(ctx: FlowJobContext): Promise<void> {
     summary: finalSummary,
   };
 
-  await supabase.from('jobs').update({
+  const { error: reviewErr } = await supabase.from('jobs').update({
     status: 'review',
     phases_completed: phasesCompleted,
     review_result: reviewResult,
   }).eq('id', jobId);
+  if (reviewErr) console.error(`[runner] Failed to save review for job ${jobId}:`, reviewErr.message);
   await supabase.from('tasks').update({ status: 'review' }).eq('id', task.id);
   await onReview(reviewResult);
   await onDone();
@@ -1225,7 +1231,12 @@ export async function runJob(ctx: JobContext): Promise<void> {
           summary: extractPhaseSummary(output),
         };
         phasesCompleted.push(phaseOutput);
-        await supabase.from('jobs').update({ phases_completed: phasesCompleted }).eq('id', jobId);
+        let { error: pcErr } = await supabase.from('jobs').update({ phases_completed: phasesCompleted }).eq('id', jobId);
+        if (pcErr) {
+          console.error(`[runner] Failed to save phases_completed for job ${jobId}, retrying:`, pcErr.message);
+          ({ error: pcErr } = await supabase.from('jobs').update({ phases_completed: phasesCompleted }).eq('id', jobId));
+          if (pcErr) console.error(`[runner] Retry also failed for job ${jobId}:`, pcErr.message);
+        }
         onPhaseComplete(phase, phaseOutput);
 
         // Check if claude asked a question (simple heuristic: ends with ?)
