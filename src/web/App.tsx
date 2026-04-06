@@ -1,16 +1,10 @@
 import { useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useProjects } from './hooks/useProjects';
-import { useTasks } from './hooks/useTasks';
-import { useJobs } from './hooks/useJobs';
-import { useWorkstreams } from './hooks/useWorkstreams';
-import { useMembers } from './hooks/useMembers';
 import { useNotifications } from './hooks/useNotifications';
-import { useCommentCounts } from './hooks/useCommentCounts';
 import { useWebNotifications } from './hooks/useWebNotifications';
-import { useFlows } from './hooks/useFlows';
-import { useCustomTypes } from './hooks/useCustomTypes';
 import { signUp, signIn, signOut } from './lib/api';
+import { toTaskCreatePayload, toTaskMutationPayload } from './lib/task-form-payload';
 import { useSearchParams } from 'react-router-dom';
 import { OnboardingCheck } from './components/OnboardingCheck';
 import { AuthGate } from './components/AuthGate';
@@ -22,6 +16,7 @@ import { useProjectOrderingMutations } from './hooks/useProjectOrderingMutations
 import { useProjectWorkspaceEffects } from './hooks/useProjectWorkspaceEffects';
 import { useProjectViewModels } from './hooks/useProjectViewModels';
 import { useTaskEditorState } from './hooks/useTaskEditorState';
+import { useCurrentProjectResources } from './hooks/useCurrentProjectResources';
 import appStyles from './App.module.css';
 import './styles/global.css';
 
@@ -31,14 +26,8 @@ export default function App() {
   const [showMembersModal, setShowMembersModal] = useState(false);
   const auth = useAuth();
   const projects = useProjects(auth.profile?.id);
-  const tasks = useTasks(projects.current?.id || null);
-  const jobs = useJobs(projects.current?.id || null);
-  const workstreams = useWorkstreams(projects.current?.id || null);
-  const members = useMembers(projects.current?.id || null);
-  const aiFlows = useFlows(projects.current?.id || null);
-  const customTypes = useCustomTypes(projects.current?.id || null);
+  const projectResources = useCurrentProjectResources(projects.current?.id || null);
   const notifs = useNotifications(auth.profile?.id);
-  const commentCounts = useCommentCounts(projects.current?.id || null);
   const webNotifs = useWebNotifications();
   const modal = useModal();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -59,9 +48,9 @@ export default function App() {
     projectId: projects.current?.id || null,
     localPath: projects.current?.local_path,
     modal,
-    tasks,
-    jobs,
-    workstreams,
+    tasks: projectResources.tasks,
+    jobs: projectResources.jobs,
+    workstreams: projectResources.workstreams,
   });
 
   const {
@@ -75,12 +64,12 @@ export default function App() {
     reviewItems,
     wsProgress,
   } = useProjectViewModels({
-    tasks: tasks.tasks,
-    jobs: jobs.jobs,
-    activeWorkstreams: workstreams.active,
-    workstreams: workstreams.workstreams,
-    members: members.members,
-    flows: aiFlows.flows,
+    tasks: projectResources.tasks.tasks,
+    jobs: projectResources.jobs.jobs,
+    activeWorkstreams: projectResources.workstreams.active,
+    workstreams: projectResources.workstreams.workstreams,
+    members: projectResources.members.members,
+    flows: projectResources.aiFlows.flows,
     notifications: notifs.notifications,
     currentUserId: auth.profile?.id,
   });
@@ -90,22 +79,22 @@ export default function App() {
     handleSwapFlows,
   } = useProjectOrderingMutations({
     modal,
-    workstreams: workstreams.workstreams,
-    setWorkstreams: workstreams.setWorkstreams,
-    reloadWorkstreams: workstreams.reload,
-    tasks: tasks.tasks,
-    setTasks: tasks.setTasks,
-    reloadTasks: tasks.reload,
-    flows: aiFlows.flows,
-    setFlows: aiFlows.setFlows,
-    reloadFlows: aiFlows.reload,
+    workstreams: projectResources.workstreams.workstreams,
+    setWorkstreams: projectResources.workstreams.setWorkstreams,
+    reloadWorkstreams: projectResources.workstreams.reload,
+    tasks: projectResources.tasks.tasks,
+    setTasks: projectResources.tasks.setTasks,
+    reloadTasks: projectResources.tasks.reload,
+    flows: projectResources.aiFlows.flows,
+    setFlows: projectResources.aiFlows.setFlows,
+    reloadFlows: projectResources.aiFlows.reload,
   });
   useProjectWorkspaceEffects({
     focusTaskId,
     focusWsId,
     setSearchParams,
-    jobs: jobs.jobs,
-    tasks: tasks.tasks,
+    jobs: projectResources.jobs.jobs,
+    tasks: projectResources.tasks.tasks,
     taskTitleMap,
     notify,
     currentProjectName,
@@ -146,15 +135,7 @@ export default function App() {
     return <Loading text="Loading project..." />;
   }
 
-  const projectReady = tasks.ready
-    && jobs.ready
-    && workstreams.ready
-    && members.ready
-    && aiFlows.ready
-    && customTypes.ready
-    && commentCounts.ready;
-
-  if (!projectReady) {
+  if (!projectResources.ready) {
     return <Loading text="Loading project..." />;
   }
 
@@ -173,19 +154,19 @@ export default function App() {
       milestone={wsProgress}
       todoItems={todoItems}
       reviewItems={reviewItems}
-      tasks={tasks.tasks}
-      activeWorkstreams={workstreams.active}
-      allWorkstreams={workstreams.workstreams}
-      members={members.members}
-      flows={aiFlows.flows}
-      setFlows={aiFlows.setFlows}
-      customTypes={customTypes.types}
+      tasks={projectResources.tasks.tasks}
+      activeWorkstreams={projectResources.workstreams.active}
+      allWorkstreams={projectResources.workstreams.workstreams}
+      members={projectResources.members.members}
+      flows={projectResources.aiFlows.flows}
+      setFlows={projectResources.aiFlows.setFlows}
+      customTypes={projectResources.customTypes.types}
       jobs={jobViews}
       memberMap={memberMap}
       flowMap={flowMap}
       typeFlowMap={typeFlowMap}
       mentionedTaskIds={mentionedTaskIds}
-      commentCounts={commentCounts.counts}
+      commentCounts={projectResources.commentCounts.counts}
       focusTaskId={focusTaskId}
       focusWsId={focusWsId}
       showTaskForm={showTaskForm}
@@ -203,54 +184,25 @@ export default function App() {
         await projects.createProject(name, undefined, localPath);
       }}
       onCloseMembersModal={() => setShowMembersModal(false)}
-      onSaveCustomType={customTypes.addType}
+      onSaveCustomType={projectResources.customTypes.addType}
       onCreateTask={async (data) => {
-        await tasks.createTask({
-          project_id: projects.current.id,
-          title: data.title,
-          description: data.description,
-          type: data.type,
-          mode: data.mode,
-          effort: data.effort,
-          multiagent: data.multiagent,
-          assignee: data.assignee,
-          flow_id: data.flow_id,
-          auto_continue: data.auto_continue,
-          images: data.images,
-          workstream_id: data.workstream_id,
-          priority: data.priority,
-          chaining: data.chaining,
-        });
+        await projectResources.tasks.createTask(toTaskCreatePayload(projects.current.id, data));
       }}
       onUpdateTaskForm={async (taskId, data) => {
-        await tasks.updateTask(taskId, {
-          title: data.title,
-          description: data.description,
-          type: data.type,
-          mode: data.mode,
-          effort: data.effort,
-          multiagent: data.multiagent,
-          assignee: data.assignee,
-          flow_id: data.flow_id,
-          auto_continue: data.auto_continue,
-          images: data.images,
-          workstream_id: data.workstream_id,
-          priority: data.priority,
-          chaining: data.chaining,
-        });
+        await projectResources.tasks.updateTask(taskId, toTaskMutationPayload(data));
       }}
       onCloseCreateTask={closeCreateTask}
       onCloseEditTask={closeEditTask}
       onStartEditingTask={startEditingTask}
-      onCreateWorkstream={workstreams.createWorkstream}
-      onUpdateWorkstream={workstreams.updateWorkstream}
+      onCreateWorkstream={projectResources.workstreams.createWorkstream}
+      onUpdateWorkstream={projectResources.workstreams.updateWorkstream}
       onDeleteWorkstream={executionActions.deleteWorkstreamAndReloadTasks}
       onSwapColumns={handleSwapWorkstreams}
       onAddTask={openCreateTask}
       onRunWorkstream={executionActions.runWorkstream}
       onRunTask={executionActions.runTask}
-      onDeleteTask={tasks.deleteTask}
-      onUpdateTask={tasks.updateTask}
+      onDeleteTask={projectResources.tasks.deleteTask}
+      onUpdateTask={projectResources.tasks.updateTask}
       onMoveTask={handleMoveTask}
       onTerminate={executionActions.terminate}
       onReply={executionActions.reply}
@@ -261,11 +213,11 @@ export default function App() {
       onMoveToBacklog={executionActions.sendToBacklog}
       onContinue={executionActions.continueExecution}
       onCreatePr={executionActions.createPr}
-      onRestoreArchiveWorkstream={async (workstreamId) => { await workstreams.updateWorkstream(workstreamId, { status: 'active' }); }}
-      onSaveFlow={async (flowId, updates) => { await aiFlows.updateFlow(flowId, updates); await aiFlows.reload(); }}
-      onSaveFlowSteps={async (flowId, steps) => { await aiFlows.updateFlowSteps(flowId, steps); await aiFlows.reload(); }}
-      onCreateFlow={aiFlows.createFlow}
-      onDeleteFlow={aiFlows.deleteFlow}
+      onRestoreArchiveWorkstream={async (workstreamId) => { await projectResources.workstreams.updateWorkstream(workstreamId, { status: 'active' }); }}
+      onSaveFlow={async (flowId, updates) => { await projectResources.aiFlows.updateFlow(flowId, updates); await projectResources.aiFlows.reload(); }}
+      onSaveFlowSteps={async (flowId, steps) => { await projectResources.aiFlows.updateFlowSteps(flowId, steps); await projectResources.aiFlows.reload(); }}
+      onCreateFlow={projectResources.aiFlows.createFlow}
+      onDeleteFlow={projectResources.aiFlows.deleteFlow}
       onSwapFlows={handleSwapFlows}
     />
   );

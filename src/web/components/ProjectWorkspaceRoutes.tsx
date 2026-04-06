@@ -5,7 +5,7 @@ import { ArchivePage } from './ArchivePage';
 import { FlowEditor } from './FlowEditor';
 import type { JobView } from './job-types';
 
-interface ProjectWorkspaceRoutesProps {
+export interface ProjectWorkspaceRoutesProps {
   project: {
     id: string;
     role: string;
