@@ -297,6 +297,15 @@ dataRouter.patch('/api/tasks/:id', requireAuth, async (req, res) => {
   if (updates.status === 'done' && !updates.completed_at) {
     updates.completed_at = new Date().toISOString();
   }
+  // Auto-resolve flow_id when type changes (if caller didn't explicitly set flow_id)
+  if (updates.type && !('flow_id' in updates)) {
+    const { data: task } = await supabase.from('tasks').select('project_id').eq('id', req.params.id).single();
+    if (task) {
+      const { data: flows } = await supabase.from('flows').select('id, default_types').eq('project_id', task.project_id);
+      const match = flows?.find(f => (f.default_types || []).includes(updates.type));
+      if (match) updates.flow_id = match.id;
+    }
+  }
   const { data, error } = await supabase
     .from('tasks')
     .update(updates)

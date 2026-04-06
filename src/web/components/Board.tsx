@@ -132,6 +132,8 @@ export function Board({
 
     for (const task of tasks) {
       const key = task.workstream_id || '__backlog__';
+      // Done/canceled backlog tasks belong in the archive, not the live board
+      if (key === '__backlog__' && (task.status === 'done' || task.status === 'canceled')) continue;
       if (!groups[key]) groups[key] = [];
       const member = task.assignee ? memberMap[task.assignee] : null;
       const resolvedFlowId = task.flow_id || typeFlowMap[task.type];
