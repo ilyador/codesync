@@ -2,46 +2,13 @@ import { useState, useMemo } from 'react';
 import { WorkstreamColumn } from './WorkstreamColumn';
 import { useBoardDrag } from '../hooks/useBoardDrag';
 import type { JobView } from './job-types';
+import type { TaskRecord } from '../lib/api';
+import { compareByPosition, toTaskView, type TaskView, type WorkstreamView } from '../lib/task-view';
 import s from './Board.module.css';
 
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  type: string;
-  mode: string;
-  effort: string;
-  multiagent?: string;
-  auto_continue: boolean;
-  workstream_id: string | null;
-  position: number;
-  assignee?: string | null;
-  images?: string[];
-  status?: string;
-  priority?: string;
-  flow_id?: string | null;
-}
-
-type BoardColumnTask = Omit<Task, 'assignee' | 'workstream_id' | 'position'> & {
-  assignee?: { type: string; name?: string; initials?: string } | null;
-  workstream_id?: string | null;
-  position?: number;
-};
-
-interface Workstream {
-  id: string;
-  name: string;
-  description?: string;
-  has_code?: boolean;
-  status: string;
-  position: number;
-  pr_url?: string | null;
-  reviewer_id?: string | null;
-}
-
 interface BoardProps {
-  workstreams: Workstream[];
-  tasks: Task[];
+  workstreams: WorkstreamView[];
+  tasks: TaskRecord[];
   jobs: JobView[];
   memberMap: Record<string, { name: string; initials: string }>;
   flowMap: Record<string, string>;
@@ -61,7 +28,7 @@ interface BoardProps {
   onAddTask: (workstreamId: string | null) => void;
   onRunTask: (taskId: string) => void;
   onRunWorkstream: (workstreamId: string) => void;
-  onEditTask: (task: BoardColumnTask) => void;
+  onEditTask: (task: TaskView) => void;
   onDeleteTask: (taskId: string) => void;
   onUpdateTask: (taskId: string, data: Record<string, unknown>) => Promise<void>;
   onMoveTask: (taskId: string, workstreamId: string | null, newPosition: number) => void;
@@ -145,7 +112,7 @@ export function Board({
   }, [jobs]);
 
   const tasksByWorkstream = useMemo(() => {
-    const groups: Record<string, BoardColumnTask[]> = { __backlog__: [] };
+    const groups: Record<string, TaskView[]> = { __backlog__: [] };
     for (const ws of workstreams) groups[ws.id] = [];
 
     for (const task of tasks) {
@@ -153,23 +120,13 @@ export function Board({
       // Done/canceled backlog tasks belong in the archive, not the live board
       if (key === '__backlog__' && (task.status === 'done' || task.status === 'canceled')) continue;
       if (!groups[key]) groups[key] = [];
-      const member = task.assignee ? memberMap[task.assignee] : null;
       const resolvedFlowId = task.flow_id || typeFlowMap[task.type];
       const flowName = resolvedFlowId ? flowMap[resolvedFlowId] : null;
-      groups[key].push({
-        ...task,
-        assignee: member
-          ? { type: 'user', name: member.name, initials: member.initials }
-          : flowName
-            ? { type: 'ai', name: flowName }
-            : task.assignee
-              ? { type: 'ai' }
-              : null,
-      });
+      groups[key].push(toTaskView(task, memberMap, flowName));
     }
 
     for (const key of Object.keys(groups)) {
-      groups[key].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+      groups[key].sort(compareByPosition);
     }
     return groups;
   }, [tasks, workstreams, memberMap, flowMap, typeFlowMap]);
@@ -367,7 +324,7 @@ export function Board({
             placeholder="Goal (optional, max 100 chars)"
             maxLength={100}
           />
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-2)', cursor: 'pointer' }}>
+          <label className={s.addCheckboxLabel}>
             <input type="checkbox" checked={newWsHasCode} onChange={e => setNewWsHasCode(e.target.checked)} />
             Code (PR flow on completion)
           </label>

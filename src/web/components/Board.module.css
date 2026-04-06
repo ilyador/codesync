@@ -113,4 +113,11 @@
 .addInput::placeholder {
   color: var(--text-4);
 }
-
+.addCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+}

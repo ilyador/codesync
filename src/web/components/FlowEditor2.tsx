@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { Flow, FlowStep } from '../lib/api';
+import type { TaskView, WorkstreamView } from '../lib/task-view';
 import { MdField } from './MdField';
 import { WorkstreamColumn } from './WorkstreamColumn';
 import { useBoardDrag } from '../hooks/useBoardDrag';
@@ -64,7 +65,7 @@ function sortedSteps(flow: Flow): FlowStep[] {
 }
 
 /** Map a flow step to a task-shaped object for TaskCard */
-function stepToTask(step: FlowStep, idx: number) {
+function stepToTask(step: FlowStep, idx: number): TaskView {
   return {
     id: step.id,
     title: step.name || `Step ${idx + 1}`,
@@ -78,7 +79,7 @@ function stepToTask(step: FlowStep, idx: number) {
 }
 
 /** Map a flow to a workstream-shaped object for WorkstreamColumn */
-function flowToWorkstream(flow: Flow) {
+function flowToWorkstream(flow: Flow): WorkstreamView {
   return {
     id: flow.id,
     name: flow.name,

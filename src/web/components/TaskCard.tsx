@@ -11,28 +11,13 @@ import { timeAgo, elapsed } from '../lib/time';
 import { LiveLogs } from './LiveLogs';
 import { ReplyInput } from './ReplyInput';
 import type { JobView } from './job-types';
+import type { TaskView } from '../lib/task-view';
 import s from './TaskCard.module.css';
 
 function cap(str: string) { return str.charAt(0).toUpperCase() + str.slice(1); }
 
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  type: string;
-  mode: string;
-  effort: string;
-  multiagent?: string;
-  auto_continue: boolean;
-  assignee?: { type: string; name?: string; initials?: string } | null;
-  images?: string[];
-  status?: string;
-  priority?: string;
-  chaining?: 'none' | 'produce' | 'accept' | 'both';
-}
-
 interface TaskCardProps {
-  task: Task;
+  task: TaskView;
   job: JobView | null;
   canRunAi: boolean;
   isExpanded: boolean;
