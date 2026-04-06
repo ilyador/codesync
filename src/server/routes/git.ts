@@ -122,7 +122,7 @@ After fixing, run the tests to make sure everything still passes.
 
 At the end, output a brief summary of what was reviewed and what was fixed (if anything).`;
 
-    await new Promise<string>((resolve, reject) => {
+    const stdout = await new Promise<string>((resolve, reject) => {
       const proc = spawn('claude', ['-p', '--output-format', 'text', '--max-turns', '30', '--model', 'opus'], {
         cwd: localPath,
         stdio: ['pipe', 'pipe', 'pipe'],
