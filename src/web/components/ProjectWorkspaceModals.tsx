@@ -1,10 +1,10 @@
 import type { CustomTaskType, Flow, MemberRecord, WorkstreamRecord } from '../lib/api';
 import { ProjectTaskDialogs } from './ProjectTaskDialogs';
-import type { EditTaskData, TaskFormData } from './TaskForm';
+import type { EditTaskData, TaskFormData } from './task-form-types';
 import { AddProjectModal } from './AddProjectModal';
 import { MembersModal } from './MembersModal';
 
-interface ProjectWorkspaceModalsProps {
+export interface ProjectWorkspaceModalsProps {
   project: {
     id: string;
     local_path: string | null;

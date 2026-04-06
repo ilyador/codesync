@@ -6,40 +6,8 @@ import { TaskAttachmentsEditor } from './TaskAttachmentsEditor';
 import { TaskFormOptions } from './TaskFormOptions';
 import { useTaskImages } from '../hooks/useTaskImages';
 import { getPreferredFlowId, type CustomTypeOption, type MemberOption, type WorkstreamOption } from './task-form-shared';
+import type { EditTaskData, TaskFormData } from './task-form-types';
 import s from './TaskForm.module.css';
-
-export interface TaskFormData {
-  title: string;
-  description: string;
-  type: string;
-  mode: string;
-  effort: string;
-  multiagent: string;
-  assignee: string | null;
-  flow_id: string | null;
-  auto_continue: boolean;
-  images: string[];
-  workstream_id: string | null;
-  priority: string;
-  chaining: string;
-}
-
-export interface EditTaskData {
-  id: string;
-  title: string;
-  description?: string;
-  type: string;
-  mode: string;
-  effort: string;
-  multiagent?: string;
-  assignee?: string | null;
-  flow_id?: string | null;
-  auto_continue?: boolean;
-  images?: string[];
-  workstream_id?: string | null;
-  priority?: string;
-  chaining?: string;
-}
 
 interface Props {
   workstreams: WorkstreamOption[];

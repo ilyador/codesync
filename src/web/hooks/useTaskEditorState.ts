@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { TaskRecord } from '../lib/api';
 import type { TaskView } from '../lib/task-view';
-import type { EditTaskData } from '../components/TaskForm';
+import type { EditTaskData } from '../components/task-form-types';
 
 export function useTaskEditorState() {
   const [showTaskForm, setShowTaskForm] = useState(false);

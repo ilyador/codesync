@@ -2,7 +2,7 @@ import { Header } from './Header';
 import appStyles from '../App.module.css';
 import type { NotificationRecord } from '../lib/api';
 
-interface ProjectWorkspaceHeaderProps {
+export interface ProjectWorkspaceHeaderProps {
   project: {
     id: string;
     name: string;

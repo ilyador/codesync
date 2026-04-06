@@ -1,4 +1,5 @@
-import { TaskForm, type EditTaskData, type TaskFormData } from './TaskForm';
+import { TaskForm } from './TaskForm';
+import type { EditTaskData, TaskFormData } from './task-form-types';
 import type { CustomTaskType, Flow, MemberRecord, WorkstreamRecord } from '../lib/api';
 
 interface ProjectTaskDialogsProps {
