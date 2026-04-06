@@ -80,6 +80,10 @@ const PIPELINE_OPTIONS = [
   { value: 'test', label: 'test (plan → write-tests → verify → review)' },
 ];
 
+function getPreferredFlowId(flows: Flow[], taskType: string): string {
+  return flows.find(flow => (flow.default_types || []).includes(taskType))?.id || flows[0]?.id || '';
+}
+
 export function TaskForm({ workstreams, members, flows = [], customTypes = [], onSaveCustomType, localPath, defaultWorkstreamId, editTask, onSubmit, onClose }: Props) {
   const isEdit = !!editTask;
 
@@ -103,17 +107,20 @@ export function TaskForm({ workstreams, members, flows = [], customTypes = [], o
   const [effort, setEffort] = useState(editTask?.effort || 'max');
   const [workstreamId, setWorkstreamId] = useState(editTask?.workstream_id || defaultWorkstreamId || '');
   const [assignee, setAssignee] = useState(editTask?.assignee || '');
-  const [flowId, setFlowId] = useState(isEdit ? (editTask?.flow_id ?? '') : (
-    flows.find(f => (f.default_types || []).includes('feature'))?.id || (flows.length > 0 ? flows[0].id : '')
-  ));
-  // When flows load after mount (new task), sync flowId with current type
+  const [flowId, setFlowId] = useState(isEdit ? (editTask?.flow_id ?? '') : getPreferredFlowId(flows, 'feature'));
+  const preferredFlowId = getPreferredFlowId(flows, type);
+
   useEffect(() => {
-    if (isEdit || flows.length === 0) return;
-    if (!flowId) {
-      const match = flows.find(f => (f.default_types || []).includes(type));
-      if (match) setFlowId(match.id);
+    if (isEdit || assignee || flows.length === 0) return;
+    const currentFlowExists = flowId ? flows.some(flow => flow.id === flowId) : false;
+    if (!currentFlowExists && preferredFlowId) {
+      setFlowId(preferredFlowId);
+      return;
     }
-  }, [flows]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!flowId && preferredFlowId) {
+      setFlowId(preferredFlowId);
+    }
+  }, [assignee, flowId, flows, isEdit, preferredFlowId]);
   const [multiagent, setMultiagent] = useState(editTask?.multiagent || 'auto');
   const [autoContinue, setAutoContinue] = useState(editTask?.auto_continue ?? true);
   const [priority, setPriority] = useState(editTask?.priority || 'backlog');
@@ -388,14 +395,14 @@ export function TaskForm({ workstreams, members, flows = [], customTypes = [], o
                     );
                     setIsCustomType(true);
                   } else {
-                    setType(e.target.value);
-                    // Auto-select flow if one is linked to this type
-                    const matchingFlow = flows.find(f => (f.default_types || []).includes(e.target.value));
-                    if (matchingFlow) {
-                      setFlowId(matchingFlow.id);
-                      setAssignee('');
-                      setMode('ai');
+                    const nextType = e.target.value;
+                    setType(nextType);
+                    const matchingFlowId = getPreferredFlowId(flows, nextType);
+                    if (matchingFlowId) {
+                      setFlowId(matchingFlowId);
                     }
+                    setAssignee('');
+                    setMode('ai');
                   }
                 }}>
                   {BUILT_IN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -534,7 +541,7 @@ export function TaskForm({ workstreams, members, flows = [], customTypes = [], o
             <div>
               <label className={s.label}>Attachments</label>
               {(chaining === 'produce' || chaining === 'both') && (
-                <div style={{ padding: '8px 12px', marginBottom: 8, background: 'var(--amber-bg)', borderLeft: '3px solid var(--amber)', borderRadius: 6, fontSize: 12, color: 'var(--amber)', fontWeight: 500 }}>
+                <div className={s.attachmentNotice}>
                   This task requires a file attachment before it can be completed
                 </div>
               )}
@@ -573,9 +580,9 @@ function TaskAttachmentsEdit({ taskId }: { taskId: string }) {
 
 
   return (
-    <div style={{ marginTop: 6 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)' }}>
+    <div className={s.attachmentsEditor}>
+      <div className={s.attachmentsHeader}>
+        <span className={s.attachmentsCount}>
           {artifacts.length > 0 ? `${artifacts.length} file${artifacts.length > 1 ? 's' : ''}` : ''}
         </span>
         <button
@@ -586,35 +593,25 @@ function TaskAttachmentsEdit({ taskId }: { taskId: string }) {
         <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileSelect} />
       </div>
       {artifacts.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className={s.attachmentsList}>
           {artifacts.map(a => (
-            <div key={a.id} style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
-              border: '1px solid var(--divider)', borderRadius: 6, background: 'var(--white)',
-            }}>
+            <div key={a.id} className={s.attachmentItem}>
               {a.mime_type.startsWith('image/') ? (
                 <a href={a.url} target="_blank" rel="noopener noreferrer">
-                  <img src={a.url} alt={a.filename} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
+                  <img src={a.url} alt={a.filename} className={s.attachmentImage} />
                 </a>
               ) : (
-                <span style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{getFileIcon(a.mime_type)}</span>
+                <span className={s.attachmentIcon}>{getFileIcon(a.mime_type)}</span>
               )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <a href={a.url} target="_blank" rel="noopener noreferrer" style={{
-                  fontSize: 12, fontWeight: 500, color: 'var(--text)', textDecoration: 'none',
-                  display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>{a.filename}</a>
-                {a.size_bytes > 0 && <span style={{ fontSize: 10, color: 'var(--text-4)' }}>{formatFileSize(a.size_bytes)}</span>}
+              <div className={s.attachmentMeta}>
+                <a href={a.url} target="_blank" rel="noopener noreferrer" className={s.attachmentLink}>{a.filename}</a>
+                {a.size_bytes > 0 && <span className={s.attachmentSize}>{formatFileSize(a.size_bytes)}</span>}
               </div>
               <button
                 type="button"
                 onClick={() => remove(a.id)}
                 title="Remove"
-                style={{
-                  width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'none', border: 'none', color: 'var(--text-4)', fontSize: 14, cursor: 'pointer',
-                  borderRadius: 4,
-                }}
+                className={s.attachmentRemove}
               >&times;</button>
             </div>
           ))}
@@ -623,10 +620,7 @@ function TaskAttachmentsEdit({ taskId }: { taskId: string }) {
         <div
           onDragOver={e => e.preventDefault()}
           onDrop={handleDrop}
-          style={{
-            border: '2px dashed var(--divider)', borderRadius: 8, padding: 16,
-            textAlign: 'center', fontSize: 12, color: 'var(--text-4)',
-          }}
+          className={s.attachmentDropZone}
         >
           Drop files here or click + Add
         </div>
@@ -635,7 +629,7 @@ function TaskAttachmentsEdit({ taskId }: { taskId: string }) {
         <div
           onDragOver={e => e.preventDefault()}
           onDrop={handleDrop}
-          style={{ marginTop: 4, padding: '8px 0', textAlign: 'center', fontSize: 11, color: 'var(--text-4)' }}
+          className={s.attachmentDropMore}
         >
           Drop more files here
         </div>

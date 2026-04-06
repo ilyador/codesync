@@ -1,47 +1,13 @@
 import { useMemo } from 'react';
 import { WorkstreamColumn } from './WorkstreamColumn';
 import type { JobView } from './job-types';
+import type { TaskRecord } from '../lib/api';
+import { compareByPosition, toTaskView, type TaskView, type WorkstreamView } from '../lib/task-view';
 import s from './ArchivePage.module.css';
 
-interface Workstream {
-  id: string;
-  name: string;
-  description?: string;
-  has_code?: boolean;
-  status: string;
-  position: number;
-  pr_url?: string | null;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  type: string;
-  mode: string;
-  effort: string;
-  multiagent?: string;
-  auto_continue: boolean;
-  assignee?: string | null;
-  images?: string[];
-  status?: string;
-  priority?: string;
-  workstream_id?: string | null;
-  position?: number;
-  flow_id?: string | null;
-  chaining?: string;
-}
-
-type ArchiveColumnTask = Omit<Task, 'assignee' | 'workstream_id' | 'position' | 'chaining'> & {
-  assignee: { type: string; name?: string; initials?: string } | null;
-  workstream_id: string | null;
-  position: number;
-  chaining?: 'none' | 'produce' | 'accept' | 'both';
-};
-
 interface ArchivePageProps {
-  workstreams: Workstream[];
-  tasks: Task[];
+  workstreams: WorkstreamView[];
+  tasks: TaskRecord[];
   jobs: JobView[];
   memberMap: Record<string, { name: string; initials: string }>;
   projectId: string | null;
@@ -52,26 +18,11 @@ interface ArchivePageProps {
 const emptySet = new Set<string>();
 const noop = () => {};
 
-function normalizeChaining(value?: string): 'none' | 'produce' | 'accept' | 'both' | undefined {
-  return value === 'none' || value === 'produce' || value === 'accept' || value === 'both'
-    ? value
-    : undefined;
-}
-
 function mapArchiveTask(
-  task: Task,
+  task: TaskRecord,
   memberMap: Record<string, { name: string; initials: string }>,
-): ArchiveColumnTask {
-  const member = task.assignee ? memberMap[task.assignee] : null;
-  return {
-    ...task,
-    assignee: member
-      ? { type: 'user', name: member.name, initials: member.initials }
-      : task.assignee ? { type: 'ai' } : null,
-    workstream_id: task.workstream_id ?? null,
-    position: task.position ?? 0,
-    chaining: normalizeChaining(task.chaining),
-  };
+): TaskView {
+  return toTaskView(task, memberMap);
 }
 
 export function ArchivePage({ workstreams, tasks, jobs, memberMap, projectId, onRestore, onUpdateTask }: ArchivePageProps) {
@@ -91,7 +42,7 @@ export function ArchivePage({ workstreams, tasks, jobs, memberMap, projectId, on
     return tasks
       .filter(t => !t.workstream_id && t.status === 'done')
       .map(t => mapArchiveTask(t, memberMap))
-      .sort((a, b) => a.position - b.position);
+      .sort(compareByPosition);
   }, [tasks, memberMap]);
 
   if (workstreams.length === 0 && completedBacklogTasks.length === 0) {
@@ -128,7 +79,7 @@ export function ArchivePage({ workstreams, tasks, jobs, memberMap, projectId, on
         const wsTasks = tasks
           .filter(t => t.workstream_id === ws.id)
           .map(t => mapArchiveTask(t, memberMap))
-          .sort((a, b) => a.position - b.position);
+          .sort(compareByPosition);
 
         return (
           <div key={ws.id} className={s.columnWrap}>

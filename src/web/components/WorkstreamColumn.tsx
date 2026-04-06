@@ -3,44 +3,14 @@ import { useModal } from '../hooks/modal-context';
 import { TaskCard } from './TaskCard';
 import { ArtifactConnector } from './ArtifactConnector';
 import type { JobView } from './job-types';
+import type { TaskView, WorkstreamView } from '../lib/task-view';
 import s from './WorkstreamColumn.module.css';
 import taskStyles from './TaskCard.module.css';
 
 const UNTOUCHED_STATUSES = new Set(['backlog', 'todo']);
 
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  type: string;
-  mode: string;
-  effort: string;
-  multiagent?: string;
-  auto_continue: boolean;
-  assignee?: { type: string; name?: string; initials?: string } | null;
-  images?: string[];
-  status?: string;
-  priority?: string;
-  chaining?: 'none' | 'produce' | 'accept' | 'both';
-  workstream_id?: string | null;
-  position?: number;
-  flow_id?: string | null;
-}
-
-interface Workstream {
-  id: string;
-  name: string;
-  description?: string;
-  has_code?: boolean;
-  status: string;
-  position: number;
-  pr_url?: string | null;
-  reviewer_id?: string | null;
-  review_output?: string | null;
-}
-
 export interface WorkstreamTaskCardProps {
-  task: Task;
+  task: TaskView;
   job: JobView | null;
   canRunAi: boolean;
   isExpanded: boolean;
@@ -74,8 +44,8 @@ export interface WorkstreamTaskCardProps {
 }
 
 interface WorkstreamColumnProps {
-  workstream: Workstream | null;
-  tasks: Task[];
+  workstream: WorkstreamView | null;
+  tasks: TaskView[];
   taskJobMap: Record<string, JobView>;
   isBacklog: boolean;
   canRunAi: boolean;
@@ -104,7 +74,7 @@ interface WorkstreamColumnProps {
   onAddTask: () => void;
   onRunWorkstream?: () => void;
   onRunTask?: (taskId: string) => void;
-  onEditTask?: (task: Task) => void;
+  onEditTask?: (task: TaskView) => void;
   onDeleteTask?: (taskId: string) => void;
   onUpdateTask?: (taskId: string, data: Record<string, unknown>) => void;
   // Job actions
