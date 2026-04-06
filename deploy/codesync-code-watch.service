@@ -1,0 +1,19 @@
+[Unit]
+Description=CodeSync Auto-Restart Watcher
+After=codesync-server.service codesync-worker.service
+Wants=codesync-server.service codesync-worker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/sixbox/Dev/workstream
+Environment=WATCH_INTERVAL_SECONDS=3
+Environment=WATCH_DEBOUNCE_SECONDS=8
+Environment=MIN_RESTART_GAP_SECONDS=20
+ExecStart=/home/sixbox/Dev/workstream/scripts/systemd-code-watch.sh
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
