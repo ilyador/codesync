@@ -10,7 +10,7 @@ import { useCommentCounts } from './hooks/useCommentCounts';
 import { useWebNotifications } from './hooks/useWebNotifications';
 import { useFlows } from './hooks/useFlows';
 import { useCustomTypes } from './hooks/useCustomTypes';
-import { signUp, signIn, signOut, runTaskApi, replyToJob, approveJob, rejectJob, reworkJob, revertJob, terminateJob, deleteJob, moveToBacklog, continueJob, updateTask, updateWorkstream as apiUpdateWorkstream, updateFlow as apiUpdateFlow, updateFlowSteps as apiUpdateFlowSteps, reviewAndCreatePr } from './lib/api';
+import { signUp, signIn, signOut, runTaskApi, replyToJob, approveJob, rejectJob, reworkJob, revertJob, terminateJob, deleteJob, moveToBacklog, continueJob, updateTask, updateWorkstream as apiUpdateWorkstream, updateFlow as apiUpdateFlow, updateFlowSteps as apiUpdateFlowSteps, reviewAndCreatePr, createWorkstreamPr } from './lib/api';
 import { Routes, Route, useSearchParams } from 'react-router-dom';
 import { OnboardingCheck } from './components/OnboardingCheck';
 import { AuthGate } from './components/AuthGate';
@@ -366,6 +366,7 @@ export default function App() {
         onNewProject={() => setShowAddProject(true)}
         onSignOut={async () => { await signOut(); window.location.reload(); }}
         onManageMembers={() => setShowMembersModal(true)}
+        onUpdateLocalPath={projects.current?.id ? (path) => projects.updateLocalPath(projects.current!.id, path) : undefined}
       />
 
       <Routes>
@@ -545,9 +546,16 @@ export default function App() {
             onCreatePr={async (workstreamId) => {
               try {
                 await reviewAndCreatePr(workstreamId, projects.current?.local_path || '');
-                // Review runs in background -- status updates via SSE
               } catch (err: any) {
                 await modal.alert('Error', err.message || 'Failed to start review');
+              }
+            }}
+            onCreatePrOnly={async (workstreamId) => {
+              try {
+                const result = await createWorkstreamPr(workstreamId, projects.current?.local_path || '');
+                if (result.prUrl) workstreams.reload();
+              } catch (err: any) {
+                await modal.alert('Error', err.message || 'Failed to create PR');
               }
             }}
           />

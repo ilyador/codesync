@@ -271,14 +271,10 @@ gitRouter.post('/api/git/workstream-pr', requireAuth, async (req, res) => {
       timeout: 30000,
     }).trim();
 
-    // Respond first so the client doesn't wait for cleanup
-    res.json({ ok: true, branch, prUrl });
+    // Update workstream with PR URL and status
+    await supabase.from('workstreams').update({ status: 'complete', pr_url: prUrl }).eq('id', workstreamId);
 
-    // Clean up the worktree after responding (best-effort)
-    try {
-      const projectPath = path.dirname(path.dirname(localPath));
-      cleanupWorktree(projectPath, slug);
-    } catch { /* cleanup is best-effort */ }
+    res.json({ ok: true, branch, prUrl });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
