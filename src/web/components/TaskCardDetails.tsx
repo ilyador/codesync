@@ -1,0 +1,280 @@
+import { useEffect, useRef, useState } from 'react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { useArtifacts } from '../hooks/useArtifacts';
+import { useComments } from '../hooks/useComments';
+import { useModal } from '../hooks/modal-context';
+import { ReplyInput } from './ReplyInput';
+import { TaskAttachments, TaskAttachmentsView } from './TaskAttachments';
+import { TaskComments, TaskCommentsView } from './TaskComments';
+import type { JobView } from './job-types';
+import type { TaskView } from '../lib/task-view';
+import type { MentionMember, TaskCardMetaItem } from './task-card-types';
+import s from './TaskCard.module.css';
+
+export function FlowStepDetail({
+  task,
+  metaItems,
+  onEdit,
+  onDelete,
+}: {
+  task: TaskView;
+  metaItems?: TaskCardMetaItem[];
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
+  return (
+    <>
+      {task.description && <div className={s.desc}><Markdown remarkPlugins={[remarkGfm]}>{task.description}</Markdown></div>}
+      {metaItems && metaItems.length > 0 && (
+        <div className={s.meta}>
+          {metaItems.map(item => <span key={item.label}>{item.label}: {item.value}</span>)}
+        </div>
+      )}
+      {(onEdit || onDelete) && (
+        <div className={s.actions}>
+          <div className={s.actionsLeft}>
+            {onEdit && (
+              <button className="btn btnGhost btnSm" onClick={onEdit}>Edit</button>
+            )}
+            {onDelete && (
+              <button className="btn btnGhost btnSm" onClick={onDelete}>Delete</button>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+export function IdleDetail({
+  task,
+  canRunAi,
+  isBacklog,
+  projectId,
+  onRun,
+  onEdit,
+  onDelete,
+  onUpdateTask,
+  metaItems,
+  hideComments,
+  prevTaskId,
+  mentionMembers,
+}: {
+  task: TaskView;
+  canRunAi: boolean;
+  isBacklog?: boolean;
+  projectId?: string;
+  onRun?: (taskId: string) => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onUpdateTask?: (taskId: string, data: Record<string, unknown>) => void;
+  metaItems?: TaskCardMetaItem[];
+  hideComments?: boolean;
+  prevTaskId?: string | null;
+  mentionMembers?: MentionMember[];
+}) {
+  const modal = useModal();
+  const commentsData = useComments(task.id, projectId);
+  const ownArtifacts = useArtifacts(task.id, projectId);
+  const prevArtifacts = useArtifacts(prevTaskId || null, projectId);
+  const [showComplete, setShowComplete] = useState(false);
+  const [completeNote, setCompleteNote] = useState('');
+  const completeInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showComplete) {
+      completeInputRef.current?.focus();
+    }
+  }, [showComplete]);
+
+  const chaining = task.chaining || 'none';
+  const needsAccept = chaining === 'accept' || chaining === 'both';
+  const needsProduce = chaining === 'produce' || chaining === 'both';
+  const acceptBlocked = needsAccept && (!prevArtifacts.loaded || prevArtifacts.artifacts.length === 0);
+  const produceBlocked = needsProduce && (!ownArtifacts.loaded || ownArtifacts.artifacts.length === 0);
+  const completionBlocked = acceptBlocked || produceBlocked;
+  const blockReason = acceptBlocked ? 'Awaiting file from previous task' : produceBlocked ? 'Attach a file before completing' : '';
+
+  return (
+    <>
+      {task.description && <div className={s.desc}><Markdown remarkPlugins={[remarkGfm]}>{task.description}</Markdown></div>}
+      <div className={s.meta}>
+        {metaItems ? (
+          metaItems.map(item => <span key={item.label}>{item.label}: {item.value}</span>)
+        ) : (
+          <>
+            <span>
+              assignee: {task.assignee && task.assignee.type !== 'ai'
+                ? (task.assignee.name || task.assignee.initials)
+                : task.assignee?.name || 'AI'}
+            </span>
+            {task.mode === 'ai' && <span>effort: {task.effort}</span>}
+            {task.multiagent === 'yes' && <span>subagents: on</span>}
+          </>
+        )}
+      </div>
+
+      <TaskAttachmentsView artifactsData={ownArtifacts} legacyImages={task.images} readOnly />
+
+      {completionBlocked && (
+        <div className={s.completionBlockedNotice}>
+          {blockReason}
+        </div>
+      )}
+
+      <div className={s.actions}>
+        <div className={s.actionsLeft}>
+          {task.assignee && task.assignee.type !== 'ai' && ['in_progress', 'todo', 'backlog'].includes(task.status || '') && onUpdateTask && (
+            <button
+              className="btn btnSuccess btnSm"
+              onClick={() => onUpdateTask(task.id, { status: 'done' })}
+              disabled={completionBlocked}
+              title={blockReason || undefined}
+            >
+              Done
+            </button>
+          )}
+          {(!task.assignee || task.assignee.type === 'ai') && canRunAi && onRun && (
+            <button className="btn btnPrimary btnSm" onClick={() => onRun(task.id)}>
+              Run
+            </button>
+          )}
+        </div>
+        <div className={s.actionsRight}>
+          {isBacklog && onUpdateTask && (
+            <button
+              className={`btn btnGhost btnSm ${s.completeAction}`}
+              onClick={() => setShowComplete(v => !v)}
+              disabled={completionBlocked}
+              title={blockReason || 'Mark as complete'}
+            >Complete</button>
+          )}
+          {onEdit && (
+            <button className="btn btnGhost btnSm" onClick={onEdit}>Edit</button>
+          )}
+          {onDelete && (
+            <button
+              className={`btn btnGhost btnSm ${s.deleteAction}`}
+              onClick={async () => {
+                const confirmed = await modal.confirm('Delete task', 'Delete this task?', { label: 'Delete', danger: true });
+                if (confirmed) onDelete();
+              }}
+            >Delete</button>
+          )}
+        </div>
+      </div>
+
+      {showComplete && onUpdateTask && (
+        <div className={s.completeComposer}>
+          <input
+            ref={completeInputRef}
+            className={s.completeInput}
+            value={completeNote}
+            onChange={e => setCompleteNote(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && completeNote.trim()) {
+                void commentsData.addComment(`Completed: ${completeNote.trim()}`);
+                onUpdateTask(task.id, { status: 'done' });
+                setShowComplete(false);
+                setCompleteNote('');
+              }
+              if (e.key === 'Escape') {
+                setShowComplete(false);
+                setCompleteNote('');
+              }
+            }}
+            placeholder="Completion status..."
+          />
+          <button
+            className={`btn btnSuccess btnSm ${s.completeSubmit}`}
+            disabled={!completeNote.trim()}
+            onClick={() => {
+              void commentsData.addComment(`Completed: ${completeNote.trim()}`);
+              onUpdateTask(task.id, { status: 'done' });
+              setShowComplete(false);
+              setCompleteNote('');
+            }}
+          >Submit</button>
+        </div>
+      )}
+
+      {!hideComments && (
+        <TaskCommentsView
+          data={commentsData}
+          mentionMembers={mentionMembers}
+        />
+      )}
+    </>
+  );
+}
+
+export function DoneDetail({
+  task,
+  job,
+  projectId,
+  onUpdateTask,
+  onRework,
+  onMoveToBacklog,
+  hideComments,
+  mentionMembers,
+}: {
+  task: TaskView;
+  job: JobView | null;
+  projectId?: string;
+  onUpdateTask?: (taskId: string, data: Record<string, unknown>) => void;
+  onRework?: (jobId: string, note: string) => void;
+  onMoveToBacklog?: (jobId: string) => void;
+  hideComments?: boolean;
+  mentionMembers?: MentionMember[];
+}) {
+  const [showDoneReject, setShowDoneReject] = useState(false);
+
+  return (
+    <div onClick={(e) => e.stopPropagation()} className={s.doneWrap}>
+      <div className={s.doneSection}>
+        {job && (
+          <>
+            <div className={s.doneHeader}>
+              <span className={s.doneLabel}>&#10003; Completed {job.completedAgo}</span>
+              <button className="btn btnWarning btnSm" onClick={() => setShowDoneReject(v => !v)}>Reject</button>
+            </div>
+            {showDoneReject && (
+              <div className={s.doneRejectPanel}>
+                {onRework && (
+                  <ReplyInput
+                    onReply={(answer) => {
+                      onRework(job.id, answer);
+                      setShowDoneReject(false);
+                    }}
+                    placeholder="What needs to change?"
+                  />
+                )}
+                {onMoveToBacklog && (
+                  <button className="btn btnGhost btnSm" onClick={() => onMoveToBacklog(job.id)}>
+                    Move to backlog
+                  </button>
+                )}
+              </div>
+            )}
+            {job.review?.summary && (
+              <div className={s.doneSummary}>{job.review.summary}</div>
+            )}
+          </>
+        )}
+        {!job && (
+          <div className={s.doneHeader}>
+            <span className={s.doneLabel}>&#10003; Completed</span>
+            {onUpdateTask && (
+              <button className="btn btnGhost btnSm" onClick={() => onUpdateTask(task.id, { status: 'backlog' })}>Unarchive</button>
+            )}
+          </div>
+        )}
+        <TaskAttachments taskId={task.id} projectId={projectId} legacyImages={task.images} readOnly />
+        {!hideComments && (
+          <TaskComments taskId={task.id} projectId={projectId} mentionMembers={mentionMembers} />
+        )}
+      </div>
+    </div>
+  );
+}
