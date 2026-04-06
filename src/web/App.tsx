@@ -577,6 +577,7 @@ export default function App() {
             memberMap={memberMap}
             projectId={projects.current?.id || null}
             onRestore={async (wsId) => { await workstreams.updateWorkstream(wsId, { status: 'active' }); }}
+            onUpdateTask={async (taskId, data) => { await tasks.updateTask(taskId, data); }}
           />
         } />
         <Route path="/flows" element={
