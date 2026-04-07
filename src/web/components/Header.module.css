@@ -377,6 +377,34 @@
   .center { gap: 8px; }
   .actionBtn { padding: 4px 10px; font-size: 12px; gap: 5px; }
   .actionCount { min-width: 17px; height: 17px; font-size: 10px; padding: 0 4px; }
+  .modalOverlay {
+    background: var(--bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    align-items: flex-start;
+    justify-content: flex-start;
+    animation: none;
+  }
+  .modalCard {
+    width: 100%;
+    max-width: none;
+    min-height: 100vh;
+    min-height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    animation: none;
+  }
+  .actionModal {
+    display: flex;
+    flex-direction: column;
+  }
+  .actionList {
+    flex: 1;
+    max-height: none;
+  }
 }
 
 .localPath {
