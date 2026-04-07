@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { SetURLSearchParams } from 'react-router-dom';
-import type { JobRecord, TaskRecord } from '../lib/api';
+import type { TaskRecord } from '../lib/api';
+import type { JobRecord } from '../components/job-types';
 
 interface UseProjectWorkspaceEffectsArgs {
   focusTaskId: string | null;

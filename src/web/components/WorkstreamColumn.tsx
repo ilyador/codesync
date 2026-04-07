@@ -1,68 +1,12 @@
-import React from 'react';
 import { useModal } from '../hooks/modal-context';
 import { useWorkstreamColumnActions } from '../hooks/useWorkstreamColumnActions';
 import { useWorkstreamColumnState } from '../hooks/useWorkstreamColumnState';
 import { useWorkstreamColumnDrag } from '../hooks/useWorkstreamColumnDrag';
-import type { TaskCardProps } from './TaskCard';
 import { WorkstreamColumnHeader } from './WorkstreamColumnHeader';
 import { WorkstreamColumnStatusBanners } from './WorkstreamColumnStatusBanners';
 import { WorkstreamTaskList } from './WorkstreamTaskList';
-import type { JobView } from './job-types';
-import type { TaskView, WorkstreamView } from '../lib/task-view';
+import type { WorkstreamColumnProps } from './workstream-column-types';
 import s from './WorkstreamColumn.module.css';
-
-interface WorkstreamColumnProps {
-  workstream: WorkstreamView | null;
-  tasks: TaskView[];
-  taskJobMap: Record<string, JobView>;
-  isBacklog: boolean;
-  canRunAi: boolean;
-  projectId: string | null;
-  members?: Array<{ id: string; name: string; initials: string }>;
-  mentionedTaskIds: Set<string>;
-  commentCounts?: Record<string, number>;
-  focusTaskId: string | null;
-  focusWsId?: string | null;
-  // Task drag
-  draggedTaskId: string | null;
-  draggedGroupIds?: string[];
-  onDragTaskStart: (taskId: string) => void;
-  onDragGroupStart?: (taskIds: string[]) => void;
-  onDragTaskEnd: () => void;
-  onDropTask: (workstreamId: string | null, dropBeforeTaskId: string | null) => void;
-  // Column drag
-  draggedWsId?: string | null;
-  onColumnDragStart?: (wsId: string) => void;
-  onColumnDrop?: (targetWsId: string) => void;
-  // Column actions
-  onRenameWorkstream?: (id: string, name: string) => void;
-  onDeleteWorkstream?: (id: string) => void;
-  onUpdateWorkstream?: (id: string, data: Record<string, unknown>) => Promise<void>;
-  // Task actions
-  onAddTask: () => void;
-  onRunWorkstream?: () => void;
-  onRunTask?: (taskId: string) => void;
-  onEditTask?: (task: TaskView) => void;
-  onDeleteTask?: (taskId: string) => void;
-  onUpdateTask?: (taskId: string, data: Record<string, unknown>) => void;
-  // Job actions
-  onTerminate?: (jobId: string) => void;
-  onReply?: (jobId: string, answer: string) => void;
-  onApprove?: (jobId: string) => void;
-  onReject?: (jobId: string) => void;
-  onRework?: (jobId: string, note: string) => void;
-  onDeleteJob?: (jobId: string) => void;
-  onMoveToBacklog?: (jobId: string) => void;
-  onContinue?: (jobId: string) => void;
-  onCreatePr?: (options?: { review?: boolean }) => void;
-  onArchive?: () => void;
-  currentUserId?: string;
-  metaItems?: (taskId: string) => { label: string; value: string }[] | undefined;
-  hideComments?: boolean;
-  listHeader?: React.ReactNode;
-  headerExtra?: React.ReactNode;
-  renderTaskCard?: (props: TaskCardProps) => React.ReactNode;
-}
 
 export function WorkstreamColumn({
   workstream,
