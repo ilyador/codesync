@@ -3,6 +3,7 @@ import { useExitAnimation } from '../hooks/useExitAnimation';
 import type { PreviewFile } from './filePreviewContext';
 import { FilePreviewContent } from './FilePreviewContent';
 import { isMdFile, isPreviewable } from './file-preview-utils';
+import { ModalShell } from './ModalShell';
 import s from './FilePreview.module.css';
 
 interface FilePreviewModalProps {
@@ -36,38 +37,36 @@ export function FilePreviewModal({
   const canEdit = isMdFile(file.mime_type, file.filename) && !!file.id;
 
   return (
-    <div className={`${s.overlay} ${closing ? s.overlayClosing : ''}`} onClick={closeWithAnimation}>
-      <div className={`${s.modal} ${closing ? s.modalClosing : ''}`} onClick={event => event.stopPropagation()}>
-        <FilePreviewHeader
-          file={file}
-          canEdit={canEdit}
-          editing={editing}
-          dirty={dirty}
-          saving={saving}
-          onStartEdit={onStartEdit}
-          onSave={onSave}
-          onCancelEdit={onCancelEdit}
-          onClose={closeWithAnimation}
-        />
-        <div className={s.body}>
-          {error && <div className={s.error}>{error}</div>}
-          {isPreviewable(file.mime_type, file.filename) ? (
-            <FilePreviewContent
-              key={contentKey}
-              file={file}
-              editing={editing}
-              onTextChange={onTextChange}
-            />
-          ) : (
-            <div className={s.unsupported}>
-              <div className={s.unsupportedIcon}>&#128196;</div>
-              <div className={s.unsupportedText}>Preview not available for this file type</div>
-              <a href={file.url} download={file.filename} className="btn btnPrimary">Download file</a>
-            </div>
-          )}
-        </div>
+    <ModalShell closing={closing} onClose={closeWithAnimation} className={s.modal}>
+      <FilePreviewHeader
+        file={file}
+        canEdit={canEdit}
+        editing={editing}
+        dirty={dirty}
+        saving={saving}
+        onStartEdit={onStartEdit}
+        onSave={onSave}
+        onCancelEdit={onCancelEdit}
+        onClose={closeWithAnimation}
+      />
+      <div className={s.body}>
+        {error && <div className={s.error}>{error}</div>}
+        {isPreviewable(file.mime_type, file.filename) ? (
+          <FilePreviewContent
+            key={contentKey}
+            file={file}
+            editing={editing}
+            onTextChange={onTextChange}
+          />
+        ) : (
+          <div className={s.unsupported}>
+            <div className={s.unsupportedIcon}>&#128196;</div>
+            <div className={s.unsupportedText}>Preview not available for this file type</div>
+            <a href={file.url} download={file.filename} className="btn btnPrimary">Download file</a>
+          </div>
+        )}
       </div>
-    </div>
+    </ModalShell>
   );
 }
 

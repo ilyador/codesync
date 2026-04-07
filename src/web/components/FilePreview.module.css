@@ -1,51 +1,8 @@
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.15s ease;
-  padding: 24px;
-}
-.overlayClosing {
-  animation: fadeOut 0.14s ease forwards;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes fadeOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
 .modal {
-  width: 100%;
   max-width: min(1200px, 95vw);
   height: calc(100vh - 48px);
-  background: var(--white);
-  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.1);
-  animation: scaleIn 0.15s ease;
-}
-.modalClosing {
-  animation: scaleOut 0.14s cubic-bezier(0.32, 0, 0.2, 1) forwards;
-}
-
-@keyframes scaleIn {
-  from { transform: scale(0.97); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-@keyframes scaleOut {
-  from { transform: translateY(0) scale(1); opacity: 1; }
-  to { transform: translateY(4px) scale(0.985); opacity: 0; }
 }
 
 .header {
@@ -436,25 +393,22 @@
 }
 
 @media (max-width: 768px) {
-  .overlay { padding: 8px; }
-  .modal { height: calc(100dvh - 16px); max-width: 100%; border-radius: 10px; }
-  .previewMarkdown { padding: 16px; }
-  .markdownEditorShell { padding: 12px 12px 56px; }
+  .modal {
+    height: 100vh;
+    height: 100dvh;
+    max-width: 100%;
+  }
+  .previewMarkdown { padding: 12px 12px 48px; }
+  .markdownEditorShell { padding: 0; }
   .markdownEditor { min-height: calc(100dvh - 120px); }
   .markdownEditorContent {
     min-height: calc(100dvh - 200px);
-    padding: 18px 16px 48px;
+    padding: 12px 12px 48px;
   }
-  .previewCode { padding: 16px; }
+  .previewCode { padding: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .overlay,
-  .modal,
-  .overlayClosing,
-  .modalClosing {
-    animation: none;
-  }
   .tab,
   .closeBtn,
   .editBtn {
