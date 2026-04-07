@@ -6,10 +6,10 @@
   position: relative;
 }
 .line {
-  width: 2px;
+  width: 1px;
   height: 10px;
-  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--blue) 46%, var(--text-4)), transparent);
-  opacity: 0.8;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--blue) 24%, var(--divider)), transparent);
+  opacity: 0.55;
 }
 .icon {
   display: flex;
