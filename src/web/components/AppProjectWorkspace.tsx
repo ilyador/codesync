@@ -100,7 +100,9 @@ export function AppProjectWorkspace({
         await projects.createProject(name, undefined, localPath);
       }}
       onCloseMembersModal={onCloseMembersModal}
-      onSaveCustomType={resources.customTypes.addType}
+      onSaveCustomType={async (name, pipeline) => {
+        await resources.customTypes.addType(name, pipeline);
+      }}
       onCreateTask={async (data) => {
         await resources.tasks.createTask(toTaskCreatePayload(currentProject.id, data));
       }}

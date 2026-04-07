@@ -13,11 +13,11 @@ interface HeaderProjectSwitcherProps {
   onManageMembers?: () => void;
 }
 
-const MOBILE_LINKS = [
+const MOBILE_LINKS: ReadonlyArray<{ to: string; label: string; exact?: boolean }> = [
   { to: '/', label: 'Streams', exact: true },
   { to: '/flows', label: 'AI Flows' },
   { to: '/archive', label: 'Archive' },
-] as const;
+];
 
 export function HeaderProjectSwitcher({
   projectName,

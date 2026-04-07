@@ -19,7 +19,7 @@ export function buildProjectWorkspaceHeaderProps({
 }: {
   project: ProjectWorkspaceHeaderProps['project'];
   projects: ProjectWorkspaceHeaderProps['projects'];
-  profile: { id: string; initials: string };
+  profile: ProjectWorkspaceHeaderProps['user'];
   webNotifications: ProjectWorkspaceHeaderProps['webNotifications'];
   notifications: ProjectWorkspaceHeaderProps['notifications'];
   milestone: ProjectWorkspaceHeaderProps['milestone'];
@@ -34,7 +34,7 @@ export function buildProjectWorkspaceHeaderProps({
   return {
     project,
     projects,
-    user: { id: profile.id, initials: profile.initials },
+    user: profile,
     webNotifications,
     notifications,
     milestone,

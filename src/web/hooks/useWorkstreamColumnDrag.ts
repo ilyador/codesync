@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
+import { useTaskDropIndicator } from './useTaskDropIndicator';
 
 interface UseWorkstreamColumnDragArgs {
   tasksRef: React.RefObject<HTMLDivElement | null>;
@@ -32,91 +33,24 @@ export function useWorkstreamColumnDrag({
   classes,
 }: UseWorkstreamColumnDragArgs) {
   const [columnDropSide, setColumnDropSide] = useState<'left' | 'right' | null>(null);
-  const dropIndexRef = useRef<string | null>(null);
   const dragCountRef = useRef(0);
   const colDragCountRef = useRef(0);
   const columnScrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const {
+    clearDropIndicator,
+    dropBeforeTaskIdRef,
+    updateDropIndicator,
+  } = useTaskDropIndicator({
+    tasksRef,
+    draggedTaskId,
+    draggedGroupIds,
+    classes,
+  });
 
   useEffect(() => () => {
     if (columnScrollIntervalRef.current) clearInterval(columnScrollIntervalRef.current);
     document.getElementById('__drag-preview__')?.remove();
   }, []);
-
-  const clearDropIndicator = useCallback(() => {
-    const container = tasksRef.current;
-    if (!container) return;
-    container.querySelectorAll(`.${classes.dropBefore}, .${classes.dropAfter}`).forEach(element => {
-      element.classList.remove(classes.dropBefore, classes.dropAfter);
-    });
-  }, [tasksRef, classes.dropAfter, classes.dropBefore]);
-
-  const updateDropIndicator = useCallback((clientY: number) => {
-    const container = tasksRef.current;
-    if (!container || !draggedTaskId) return;
-    clearDropIndicator();
-
-    const draggedIds = new Set(draggedGroupIds && draggedGroupIds.length > 0 ? draggedGroupIds : [draggedTaskId]);
-    const targets: Array<{ element: HTMLElement; taskId: string; isGroup: boolean }> = [];
-
-    const groupedTaskIds = new Set<string>();
-    const groups = container.querySelectorAll<HTMLElement>(`.${classes.chainGroup}`);
-    groups.forEach(group => {
-      const ids = (group.dataset.groupIds || '').split(',');
-      if (ids.some(id => draggedIds.has(id))) return;
-      ids.forEach(id => groupedTaskIds.add(id));
-      targets.push({ element: group, taskId: ids[0], isGroup: true });
-    });
-
-    const wraps = container.querySelectorAll<HTMLElement>(`.${classes.cardWrap}`);
-    wraps.forEach(wrap => {
-      const taskId = wrap.dataset.taskId || '';
-      if (draggedIds.has(taskId) || groupedTaskIds.has(taskId)) return;
-      targets.push({ element: wrap, taskId, isGroup: false });
-    });
-
-    targets.sort((a, b) => a.element.getBoundingClientRect().top - b.element.getBoundingClientRect().top);
-
-    let dropBeforeTaskId: string | null = null;
-    for (const target of targets) {
-      const rect = target.element.getBoundingClientRect();
-      if (clientY < rect.top + rect.height / 2) {
-        dropBeforeTaskId = target.taskId;
-        break;
-      }
-    }
-
-    dropIndexRef.current = dropBeforeTaskId;
-
-    if (dropBeforeTaskId) {
-      const target = targets.find(item => item.taskId === dropBeforeTaskId);
-      if (!target) return;
-      if (target.isGroup) {
-        const firstWrap = target.element.querySelector<HTMLElement>(`.${classes.cardWrap}`);
-        firstWrap?.classList.add(classes.dropBefore);
-        return;
-      }
-      target.element.classList.add(classes.dropBefore);
-      return;
-    }
-
-    if (targets.length === 0) return;
-    const lastTarget = targets[targets.length - 1];
-    if (lastTarget.isGroup) {
-      const lastWraps = lastTarget.element.querySelectorAll<HTMLElement>(`.${classes.cardWrap}`);
-      lastWraps[lastWraps.length - 1]?.classList.add(classes.dropAfter);
-      return;
-    }
-    lastTarget.element.classList.add(classes.dropAfter);
-  }, [
-    tasksRef,
-    draggedTaskId,
-    draggedGroupIds,
-    clearDropIndicator,
-    classes.chainGroup,
-    classes.cardWrap,
-    classes.dropAfter,
-    classes.dropBefore,
-  ]);
 
   const clearColumnScroll = useCallback(() => {
     if (columnScrollIntervalRef.current) {
@@ -157,7 +91,7 @@ export function useWorkstreamColumnDrag({
         dragCountRef.current = 0;
         clearDropIndicator();
         clearColumnScroll();
-        dropIndexRef.current = null;
+        dropBeforeTaskIdRef.current = null;
       }
     }
     if (draggedWsId && workstreamId) {
@@ -167,7 +101,7 @@ export function useWorkstreamColumnDrag({
         setColumnDropSide(null);
       }
     }
-  }, [draggedTaskId, draggedWsId, workstreamId, clearDropIndicator, clearColumnScroll]);
+  }, [draggedTaskId, draggedWsId, workstreamId, clearDropIndicator, clearColumnScroll, dropBeforeTaskIdRef]);
 
   const handleDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -175,8 +109,8 @@ export function useWorkstreamColumnDrag({
     if (draggedTaskId) {
       clearDropIndicator();
       dragCountRef.current = 0;
-      onDropTask(workstreamId, dropIndexRef.current);
-      dropIndexRef.current = null;
+      onDropTask(workstreamId, dropBeforeTaskIdRef.current);
+      dropBeforeTaskIdRef.current = null;
     }
     if (draggedWsId && workstreamId && onColumnDrop && draggedWsId !== workstreamId) {
       colDragCountRef.current = 0;
@@ -191,6 +125,7 @@ export function useWorkstreamColumnDrag({
     onDropTask,
     clearColumnScroll,
     clearDropIndicator,
+    dropBeforeTaskIdRef,
   ]);
 
   const showDropLeft = !isBacklog && !!draggedWsId && !!workstreamId && draggedWsId !== workstreamId && columnDropSide === 'left';
