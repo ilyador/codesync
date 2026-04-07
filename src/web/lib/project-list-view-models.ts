@@ -43,7 +43,7 @@ export function buildReviewItems(
   const addedWorkstreamIds = new Set<string>();
 
   const addWorkstreamReviewItem = (workstream: WorkstreamRecord) => {
-    if (workstream.status === 'merged' || workstream.status === 'archived') return;
+    if (workstream.status === 'archived') return;
     if (addedWorkstreamIds.has(workstream.id)) return;
     addedWorkstreamIds.add(workstream.id);
     items.push({

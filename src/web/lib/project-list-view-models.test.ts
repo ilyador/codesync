@@ -103,7 +103,7 @@ describe('buildReviewItems', () => {
     expect(items).toEqual([]);
   });
 
-  it('omits merged and archived workstreams from review items', () => {
+  it('keeps merged workstreams in review until they are archived', () => {
     const items = buildReviewItems(
       [
         makeWorkstream({ id: 'merged-ws', status: 'merged', reviewer_id: 'user-1' }),
@@ -115,6 +115,6 @@ describe('buildReviewItems', () => {
       'user-1',
     );
 
-    expect(items).toEqual([]);
+    expect(items.map(item => item.workstreamId)).toEqual(['merged-ws']);
   });
 });
