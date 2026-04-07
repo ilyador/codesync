@@ -55,21 +55,27 @@
 .fileList {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   margin: 2px 0;
-  padding: 6px 8px;
+  padding: 0;
   background: var(--surface-strong);
   border: 1px solid var(--divider);
   border-radius: 12px;
   min-width: 160px;
   box-shadow: var(--shadow-card);
+  overflow: hidden;
+  transition: box-shadow 0.12s, transform 0.12s;
+}
+.fileList:hover {
+  box-shadow: var(--shadow-card), 0 6px 18px color-mix(in srgb, var(--blue) 12%, transparent);
+  transform: translateY(-1px);
 }
 .fileItem {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 4px;
-  border-radius: 8px;
+  padding: 6px 8px;
+  border-radius: 0;
   background: none;
   border: none;
   color: var(--text);
