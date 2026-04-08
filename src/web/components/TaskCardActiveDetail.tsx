@@ -15,7 +15,6 @@ interface TaskCardActiveDetailProps {
   task: TaskView;
   job: JobView;
   projectId?: string;
-  busy?: boolean;
   onTerminate?: (jobId: string) => void;
   onReply?: (jobId: string, answer: string) => void;
   onApprove?: (jobId: string) => void;
@@ -29,7 +28,6 @@ export function TaskCardActiveDetail({
   task,
   job,
   projectId,
-  busy,
   onTerminate,
   onReply,
   onApprove,
@@ -105,7 +103,6 @@ export function TaskCardActiveDetail({
 
       {jobStatus === 'paused' && (
         <>
-          <LiveLogs jobId={job.id} />
           {job.question && <div className={s.question}>{job.question}</div>}
           {onReply && (
             <ReplyInput onReply={(answer) => onReply(job.id, answer)} />
@@ -135,20 +132,19 @@ export function TaskCardActiveDetail({
           )}
           <div className={s.reviewActions}>
             {onApprove && (
-              <button className="btn btnSuccess btnSm" onClick={() => onApprove(job.id)} disabled={busy}>{busy ? 'Approving...' : 'Approve'}</button>
+              <button className="btn btnSuccess btnSm" onClick={() => onApprove(job.id)}>Approve</button>
             )}
             {onRework && (
               <button
                 className="btn btnWarning btnSm"
                 onClick={() => setShowRework(value => !value)}
                 title="Give feedback and re-run the task"
-                disabled={busy}
-              >
+                             >
                 Rework
               </button>
             )}
             {onReject && (
-              <button className="btn btnDanger btnSm" onClick={() => onReject(job.id)} title="Undo all changes and reset the task" disabled={busy}>
+              <button className="btn btnDanger btnSm" onClick={() => onReject(job.id)} title="Undo all changes and reset the task">
                 Reject
               </button>
             )}

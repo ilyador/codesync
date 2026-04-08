@@ -34,7 +34,6 @@ export interface TaskCardProps {
   onDeleteJob?: (jobId: string) => void;
   onMoveToBacklog?: (jobId: string) => void;
   onContinue?: (jobId: string) => void;
-  actionBusy?: boolean;
   onDragStart?: (e?: React.DragEvent) => void;
   onDragEnd?: () => void;
   isDragging?: boolean;
@@ -95,7 +94,6 @@ export function TaskCardView({
   hideComments,
   fileDependency,
   mentionMembers,
-  actionBusy,
   viewMode = 'task',
 }: TaskCardViewProps) {
   const [isCollapsing, setIsCollapsing] = useState(false);
@@ -162,7 +160,6 @@ export function TaskCardView({
           task={task}
           job={job}
           projectId={projectId}
-          busy={actionBusy}
           onTerminate={onTerminate}
           onReply={onReply}
           onApprove={onApprove}

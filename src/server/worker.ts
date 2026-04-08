@@ -538,8 +538,6 @@ async function shutdown() {
   clearInterval(prMergeInterval);
   if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
   cancelAllJobs();
-  // Wait briefly for in-flight callbacks to settle, then flush
-  await new Promise(resolve => setTimeout(resolve, 200));
   await flushLogs();
   process.exit(0);
 }

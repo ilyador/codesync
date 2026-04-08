@@ -14,10 +14,7 @@ language plpgsql
 as $$
 declare
   v_job  public.jobs%rowtype;
-  v_key  text;
-  v_val  text;
 begin
-  -- Lock the job row to prevent concurrent modifications
   select * into v_job
     from public.jobs
     where id = p_job_id
@@ -27,13 +24,11 @@ begin
     return null;
   end if;
 
-  -- Guard: check expected status
   if p_expected_status is not null and v_job.status != p_expected_status then
     return null;
   end if;
 
-  -- Apply job updates dynamically from the JSONB payload
-  -- We use a direct UPDATE with individual field checks to stay type-safe
+  -- Individual field checks keep the update type-safe vs dynamic SQL
   update public.jobs set
     status            = coalesce((p_job_updates->>'status')::text, status),
     completed_at      = case when p_job_updates ? 'completed_at' then (p_job_updates->>'completed_at')::timestamptz else completed_at end,
@@ -45,7 +40,6 @@ begin
     checkpoint_status = case when p_job_updates ? 'checkpoint_status' then (p_job_updates->>'checkpoint_status')::text else checkpoint_status end
   where id = p_job_id;
 
-  -- Update task if requested
   if p_task_id is not null and p_task_updates is not null then
     update public.tasks set
       status       = coalesce((p_task_updates->>'status')::text, status),
@@ -53,7 +47,6 @@ begin
     where id = p_task_id;
   end if;
 
-  -- Return the updated job
-  return to_jsonb(v_job) || p_job_updates;
+  return p_job_updates || jsonb_build_object('id', v_job.id, 'task_id', v_job.task_id);
 end;
 $$;
