@@ -194,8 +194,11 @@ export async function lockTaskExecutionSettings(
       status: 'in_progress',
     })
     .eq('id', taskId)
+    .eq('mode', 'ai')
     .eq('execution_generation', requestedGeneration)
+    .is('assignee', null)
     .is('active_job_id', null)
+    .in('status', [...QUEUEABLE_TASK_STATUSES])
     .select('*')
     .maybeSingle();
   if (error) throw new Error(`Failed to lock task execution settings: ${error.message}`);

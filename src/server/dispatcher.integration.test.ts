@@ -176,7 +176,7 @@ function makeFakeProcess(): ChildProcess {
   proc.stderr = new EventEmitter();
   proc.pid = Math.floor(Math.random() * 10000);
   proc.kill = vi.fn(() => {
-    setTimeout(() => proc.emit('close', null), 10);
+    setTimeout(() => proc.emit('close', null, 'SIGTERM'), 10);
     return true;
   });
 
@@ -192,24 +192,24 @@ function makeFakeProcess(): ChildProcess {
       proc.stdout.emit('data', Buffer.from(event + '\n'));
       const result = JSON.stringify({ type: 'result', duration_ms: 1000 });
       proc.stdout.emit('data', Buffer.from(result + '\n'));
-      proc.emit('close', 0);
+      proc.emit('close', 0, null);
     } else if (spawnBehavior === 'gate-fail') {
       const text = '```json\n{"passed": false, "reason": "Tests are failing"}\n```\n[summary] Gate failed\n';
       const event = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text }] } });
       proc.stdout.emit('data', Buffer.from(event + '\n'));
       const result = JSON.stringify({ type: 'result', duration_ms: 1000 });
       proc.stdout.emit('data', Buffer.from(result + '\n'));
-      proc.emit('close', 0);
+      proc.emit('close', 0, null);
     } else if (spawnBehavior === 'fail') {
       proc.stderr.emit('data', Buffer.from('Something went wrong\n'));
-      proc.emit('close', 1);
+      proc.emit('close', 1, null);
     } else if (spawnBehavior === 'question') {
       const text = 'Should I proceed with the changes?\n[summary] Asked a question\n';
       const event = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text }] } });
       proc.stdout.emit('data', Buffer.from(event + '\n'));
       const result = JSON.stringify({ type: 'result', duration_ms: 500 });
       proc.stdout.emit('data', Buffer.from(result + '\n'));
-      proc.emit('close', 0);
+      proc.emit('close', 0, null);
     } else if (spawnBehavior === 'hang') {
       // Don't emit close — process hangs
     }
@@ -422,7 +422,7 @@ describe('dispatcher integration', () => {
         proc.stdout = new EventEmitter();
         proc.stderr = new EventEmitter();
         proc.pid = spawnCount;
-        proc.kill = vi.fn(() => { setTimeout(() => proc.emit('close', null), 5); return true; });
+        proc.kill = vi.fn(() => { setTimeout(() => proc.emit('close', null, 'SIGTERM'), 5); return true; });
         setTimeout(() => {
           // Gate-fail verdict for all — non-gate steps ignore the verdict anyway
           const text = '```json\n{"passed": false, "reason": "Tests failing"}\n```\n[summary] Step done\n';
@@ -430,7 +430,7 @@ describe('dispatcher integration', () => {
           proc.stdout.emit('data', Buffer.from(event + '\n'));
           const result = JSON.stringify({ type: 'result', duration_ms: 100 });
           proc.stdout.emit('data', Buffer.from(result + '\n'));
-          proc.emit('close', 0);
+          proc.emit('close', 0, null);
         }, 1);
         return proc;
       }));

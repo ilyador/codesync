@@ -152,7 +152,10 @@ export function getProviderDriver(provider: ProviderKind): ProviderDriver {
 
 function providerModelsEndpoint(baseUrl: string | null): string {
   if (!baseUrl) throw new Error('Provider base URL is missing');
-  return `${baseUrl.replace(/\/+$/, '')}/v1/models`;
+  const normalized = baseUrl.replace(/\/+$/, '');
+  if (normalized.endsWith('/v1/models')) return normalized;
+  if (normalized.endsWith('/v1')) return `${normalized}/models`;
+  return `${normalized}/v1/models`;
 }
 
 async function discoverHttpModels(config: ProviderConfigRecord): Promise<string[]> {

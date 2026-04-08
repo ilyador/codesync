@@ -18,7 +18,13 @@ create index if not exists idx_provider_configs_project on public.provider_confi
 alter table public.provider_configs enable row level security;
 
 create policy "provider_configs_select" on public.provider_configs for select using (
-  exists (select 1 from project_members where project_id = provider_configs.project_id and user_id = auth.uid())
+  exists (
+    select 1
+    from project_members
+    where project_id = provider_configs.project_id
+      and user_id = auth.uid()
+      and role = 'admin'
+  )
 );
 create policy "provider_configs_insert" on public.provider_configs for insert with check (
   exists (select 1 from project_members where project_id = provider_configs.project_id and user_id = auth.uid() and role = 'admin')

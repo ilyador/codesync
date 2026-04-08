@@ -31,7 +31,7 @@ jobRevertRouter.post('/api/jobs/:id/revert', requireAuth, async (req, res) => {
 
   const { data: taskData, error: taskError } = await supabase
     .from('tasks')
-    .select('status, completed_at')
+    .select('status, completed_at, active_job_id, execution_generation, execution_settings_locked_at, execution_settings_locked_job_id')
     .eq('id', taskId)
     .single();
   if (taskError) return res.status(isMissingRowError(taskError) ? 404 : 400).json({ error: isMissingRowError(taskError) ? 'Task not found' : taskError.message });
@@ -39,6 +39,10 @@ jobRevertRouter.post('/api/jobs/:id/revert', requireAuth, async (req, res) => {
   const taskRollback = {
     status: task ? stringField(task, 'status') || 'review' : 'review',
     completed_at: task?.completed_at ?? null,
+    active_job_id: task?.active_job_id ?? null,
+    execution_generation: task?.execution_generation ?? 1,
+    execution_settings_locked_at: task?.execution_settings_locked_at ?? null,
+    execution_settings_locked_job_id: task?.execution_settings_locked_job_id ?? null,
   };
 
   try {
@@ -47,7 +51,12 @@ jobRevertRouter.post('/api/jobs/:id/revert', requireAuth, async (req, res) => {
     return res.status(400).json({ error: errorMessage(error, 'Failed to revert checkpoint') });
   }
 
-  const executionReset = await loadExecutionReset(taskId);
+  let executionReset;
+  try {
+    executionReset = await loadExecutionReset(taskId);
+  } catch (error) {
+    return res.status(400).json({ error: errorMessage(error, 'Failed to load task execution reset state') });
+  }
   const { error: taskUpdateErr } = await supabase
     .from('tasks')
     .update({ status: 'todo', completed_at: null, ...executionReset })

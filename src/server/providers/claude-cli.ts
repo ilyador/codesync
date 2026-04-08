@@ -56,6 +56,20 @@ function formatClaudeStreamEvent(event: ClaudeStreamEvent): string | null {
   return null;
 }
 
+function appendClaudeStreamLine(line: string, onLog: (text: string) => void, fullOutput: string): string {
+  if (!line.trim()) return fullOutput;
+  try {
+    const event = JSON.parse(line) as ClaudeStreamEvent;
+    const formatted = formatClaudeStreamEvent(event);
+    if (!formatted) return fullOutput;
+    onLog(`${formatted}\n`);
+    return `${fullOutput}${formatted}\n`;
+  } catch {
+    onLog(`${line}\n`);
+    return `${fullOutput}${line}\n`;
+  }
+}
+
 export const claudeCliDriver: ProviderDriver = {
   run({ jobId, prompt, model, cwd, tools, effort, onLog }) {
     return new Promise((resolve, reject) => {
@@ -78,11 +92,14 @@ export const claudeCliDriver: ProviderDriver = {
       const handle = registerChildProcess(jobId, proc);
       let fullOutput = '';
       let lineBuffer = '';
+      let timedOut = false;
+      let killTimer: ReturnType<typeof setTimeout> | null = null;
 
       const timeout = setTimeout(() => {
+        timedOut = true;
         onLog(`[runner] Claude timed out after ${JOB_TIMEOUT_MS / 60000}m\n`);
         try { proc.kill('SIGTERM'); } catch { /* already dead */ }
-        setTimeout(() => { try { proc.kill('SIGKILL'); } catch { /* already dead */ } }, 5000);
+        killTimer = setTimeout(() => { try { proc.kill('SIGKILL'); } catch { /* already dead */ } }, 5000);
       }, JOB_TIMEOUT_MS);
 
       proc.stdin.on('error', () => {});
@@ -95,17 +112,7 @@ export const claudeCliDriver: ProviderDriver = {
         lineBuffer = lines.pop() || '';
 
         for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const event = JSON.parse(line) as ClaudeStreamEvent;
-            const formatted = formatClaudeStreamEvent(event);
-            if (!formatted) continue;
-            fullOutput += `${formatted}\n`;
-            onLog(`${formatted}\n`);
-          } catch {
-            fullOutput += `${line}\n`;
-            onLog(`${line}\n`);
-          }
+          fullOutput = appendClaudeStreamLine(line, onLog, fullOutput);
         }
       });
 
@@ -115,22 +122,28 @@ export const claudeCliDriver: ProviderDriver = {
         onLog(text);
       });
 
-      proc.on('close', (code) => {
+      proc.on('close', (code, signal) => {
         clearTimeout(timeout);
+        if (killTimer) clearTimeout(killTimer);
         unregisterJobHandle(jobId, handle);
         if (wasJobCanceled(jobId)) {
           reject(new Error('Job canceled'));
           return;
         }
-        if (lineBuffer.trim()) {
-          fullOutput += `${lineBuffer.trim()}\n`;
+        if (timedOut) {
+          reject(new Error('Claude timed out'));
+          return;
         }
-        if (code === 0 || code === null) resolve(fullOutput.trim());
-        else reject(new Error(`claude exited with code ${code}`));
+        if (lineBuffer.trim()) {
+          fullOutput = appendClaudeStreamLine(lineBuffer.trim(), onLog, fullOutput);
+        }
+        if (code === 0 && signal === null) resolve(fullOutput.trim());
+        else reject(new Error(`claude exited with code ${code}${signal ? ` (${signal})` : ''}`));
       });
 
       proc.on('error', (error) => {
         clearTimeout(timeout);
+        if (killTimer) clearTimeout(killTimer);
         unregisterJobHandle(jobId, handle);
         reject(error);
       });

@@ -106,12 +106,14 @@ export function TaskTypeAssignmentSection({
               className={s.input}
               placeholder="e.g. docs, spike, deploy"
               value={customType}
+              disabled={executionSettingsLocked}
               onChange={event => setCustomType(event.target.value)}
               autoFocus
             />
             <select
               className={s.select}
               value={customPipeline}
+              disabled={executionSettingsLocked}
               onChange={event => setCustomPipeline(event.target.value)}
               aria-label="Custom type pipeline"
             >
@@ -124,6 +126,7 @@ export function TaskTypeAssignmentSection({
             <button
               type="button"
               className={s.customTypeCancel}
+              disabled={executionSettingsLocked}
               onClick={() => {
                 setIsCustomType(false);
                 setCustomType('');

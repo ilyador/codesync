@@ -389,8 +389,8 @@ export async function runFlowJob(ctx: FlowJobContext): Promise<void> {
 
   // On resume with a human answer, remove the paused phase so it re-runs
   if (phasesAlreadyCompleted.length > 0 && task.answer) {
-    const lastPhase = phasesAlreadyCompleted[phasesAlreadyCompleted.length - 1]?.phase;
-    if (lastPhase) completedPhaseNames.delete(lastPhase);
+    const lastCompleted = phasesCompleted.pop();
+    if (lastCompleted) completedPhaseNames.delete(lastCompleted.phase);
   }
 
   const steps = flow.steps;
@@ -620,6 +620,7 @@ export async function runFlowJob(ctx: FlowJobContext): Promise<void> {
       summaryPrompt,
       localPath,
       flow.steps[flow.steps.length - 1]?.model || 'claude:sonnet',
+      flow.steps[flow.steps.length - 1]?.provider_config_id ?? null,
       task.effort,
     );
   } catch (err: unknown) {
@@ -881,10 +882,11 @@ async function generateFlowSummary(
   prompt: string,
   cwd: string,
   modelId: string,
+  providerConfigId: string | null,
   effort?: string,
 ): Promise<string> {
   try {
-    const { parsed, config } = await resolveProviderConfig(projectId, modelId);
+    const { parsed, config } = await resolveProviderConfig(projectId, modelId, providerConfigId);
     const driver = getProviderDriver(parsed.provider);
     const output = await driver.run({
       jobId,
@@ -893,7 +895,7 @@ async function generateFlowSummary(
       model: parsed.model,
       cwd,
       tools: [],
-      effort,
+      effort: effort ? toProviderReasoningLevel(parsed.provider, effort as 'low' | 'medium' | 'high' | 'max') : undefined,
       providerConfig: config,
       onLog: () => {},
     });

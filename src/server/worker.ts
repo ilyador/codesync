@@ -299,13 +299,7 @@ async function startJob(job: ClaimedJob): Promise<void> {
   const onReview = runnerTask.auto_continue === true
     ? async (result: RunnerReviewResult) => {
         await writeLog(jobId, 'review', result);
-        // Auto-approve: commit first, then mark done, then queue next
-        try {
-          deleteCheckpoint(localPath, jobId);
-        } catch (e: unknown) {
-          console.warn(`[worker] Checkpoint delete failed for job ${jobId}:`, errorMessage(e));
-        }
-        // Commit changes BEFORE marking done — if commit fails, job stays in review
+        // Auto-approve: commit first, then mark done, then clean up the checkpoint.
         let commitSucceeded = false;
         try {
           await autoCommit(localPath, runnerTask.type || 'feature', runnerTask.title);
@@ -333,8 +327,21 @@ async function startJob(job: ClaimedJob): Promise<void> {
         const { error: taskDoneError } = await supabase.from('tasks').update({ status: 'done', completed_at: now }).eq('id', runnerTask.id);
         if (taskDoneError) {
           console.error(`[worker] Auto-approve task update failed for job ${jobId}:`, taskDoneError.message);
+          return;
         }
         await writeLog(jobId, 'done', {});
+        try {
+          deleteCheckpoint(localPath, jobId);
+          const { error: checkpointStatusError } = await supabase
+            .from('jobs')
+            .update({ checkpoint_status: 'cleaned' })
+            .eq('id', jobId);
+          if (checkpointStatusError) {
+            console.warn(`[worker] Failed to mark checkpoint cleaned for job ${jobId}:`, checkpointStatusError.message);
+          }
+        } catch (e: unknown) {
+          console.warn(`[worker] Checkpoint delete failed for job ${jobId}:`, errorMessage(e));
+        }
         // Queue next task in workstream only if commit succeeded
         if (commitSucceeded && runnerTask.workstream_id) {
           try {

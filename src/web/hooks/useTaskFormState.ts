@@ -89,6 +89,7 @@ export function useTaskFormState({
   }, [assignee, flowId, isEdit, matchingFlowId]);
 
   useEffect(() => {
+    if (executionSettingsLocked) return;
     if (!providerSelectionEnabled) {
       if (providerConfigId) setProviderConfigId('');
       if (providerModel) setProviderModel('');
@@ -133,6 +134,7 @@ export function useTaskFormState({
     selectedProvider,
     subagentSelectionEnabled,
     taskSelectableProviders,
+    executionSettingsLocked,
   ]);
 
   const imagesState = useTaskImages({
@@ -157,12 +159,20 @@ export function useTaskFormState({
         description: description.trim(),
         type: resolvedType,
         mode,
-        effort: reasoningSelectionEnabled ? effort : 'low',
-        multiagent: subagentSelectionEnabled ? multiagent : 'auto',
+        effort: executionSettingsLocked
+          ? (editTask?.effort || 'low')
+          : (reasoningSelectionEnabled ? effort : 'low'),
+        multiagent: executionSettingsLocked
+          ? (editTask?.multiagent || 'auto')
+          : (subagentSelectionEnabled ? multiagent : 'auto'),
         assignee: assignee || null,
         flow_id: flowId || null,
-        provider_config_id: providerSelectionEnabled ? (providerConfigId || null) : null,
-        provider_model: modelSelectionEnabled ? (effectiveProviderModel || null) : null,
+        provider_config_id: executionSettingsLocked
+          ? (editTask?.provider_config_id || null)
+          : (providerSelectionEnabled ? (providerConfigId || null) : null),
+        provider_model: executionSettingsLocked
+          ? (editTask?.provider_model || null)
+          : (modelSelectionEnabled ? (effectiveProviderModel || null) : null),
         auto_continue: autoContinue,
         images: imagesState.images,
         workstream_id: workstreamId || null,
@@ -229,8 +239,8 @@ export function useTaskFormState({
     submitDisabled: loading
       || !title.trim()
       || (isCustomType && !customType.trim())
-      || !!flowCapabilities?.invalidReason
-      || (providerSelectionEnabled && taskSelectableProviders.length === 0),
+      || (!executionSettingsLocked && !!flowCapabilities?.invalidReason)
+      || (!executionSettingsLocked && providerSelectionEnabled && taskSelectableProviders.length === 0),
     submitLabel: loading ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save' : 'Create'),
   };
 }

@@ -31,6 +31,11 @@ begin
 end;
 $$ language plpgsql security definer set search_path = public, extensions;
 
+revoke all on function public.sync_rag_chunks_project_embedding_index(uuid, integer) from public;
+revoke all on function public.sync_rag_chunks_project_embedding_index(uuid, integer) from anon;
+revoke all on function public.sync_rag_chunks_project_embedding_index(uuid, integer) from authenticated;
+grant execute on function public.sync_rag_chunks_project_embedding_index(uuid, integer) to service_role;
+
 create or replace function search_rag_chunks(
   p_project_id uuid,
   p_query_embedding text,
@@ -64,6 +69,11 @@ begin
   ) using query_vector, p_project_id, p_limit;
 end;
 $$ language plpgsql security definer set search_path = public, extensions;
+
+revoke all on function public.search_rag_chunks(uuid, text, integer) from public;
+revoke all on function public.search_rag_chunks(uuid, text, integer) from anon;
+revoke all on function public.search_rag_chunks(uuid, text, integer) from authenticated;
+grant execute on function public.search_rag_chunks(uuid, text, integer) to service_role;
 
 do $$
 declare

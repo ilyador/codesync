@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({
     execution_generation: 1,
     mode: 'ai',
     status: 'todo',
+    assignee: null as string | null,
     execution_settings_locked_at: null as string | null,
     execution_settings_locked_job_id: null as string | null,
   },
@@ -36,6 +37,10 @@ vi.mock('./supabase.js', () => ({
               filters[column] = value;
               return updateChain;
             }),
+            in: vi.fn((column: string, values: unknown[]) => {
+              filters[column] = values;
+              return updateChain;
+            }),
             select: vi.fn(() => ({
               single: vi.fn(async () => {
                 state.taskRow = { ...state.taskRow, ...payload };
@@ -43,7 +48,16 @@ vi.mock('./supabase.js', () => ({
               }),
               maybeSingle: vi.fn(async () => {
                 if (filters.id !== state.taskRow.id) return { data: null, error: null };
+                if (filters.mode != null && filters.mode !== state.taskRow.mode) {
+                  return { data: null, error: null };
+                }
                 if (filters.execution_generation != null && filters.execution_generation !== state.taskRow.execution_generation) {
+                  return { data: null, error: null };
+                }
+                if (Array.isArray(filters.status) && !filters.status.includes(state.taskRow.status)) {
+                  return { data: null, error: null };
+                }
+                if ('assignee' in filters && state.taskRow.assignee !== filters.assignee) {
                   return { data: null, error: null };
                 }
                 if ('active_job_id' in filters && state.taskRow.active_job_id !== filters.active_job_id) {
@@ -74,6 +88,7 @@ describe('task execution lock ownership', () => {
       execution_generation: 1,
       mode: 'ai',
       status: 'todo',
+      assignee: null,
       execution_settings_locked_at: null,
       execution_settings_locked_job_id: null,
     };
@@ -99,6 +114,7 @@ describe('task execution lock ownership', () => {
       execution_generation: 1,
       mode: 'ai',
       status: 'paused',
+      assignee: null,
       execution_settings_locked_at: '2026-04-08T10:00:00.000Z',
       execution_settings_locked_job_id: null,
     };
@@ -111,5 +127,18 @@ describe('task execution lock ownership', () => {
     await expect(ensureTaskExecutionJobOwnership('task-1', 'job-1')).rejects.toThrow(
       'This task was reset after the job started. Start a new run instead of continuing the old job.',
     );
+  });
+
+  it('does not lock tasks that are no longer queueable', async () => {
+    state.taskRow = {
+      ...state.taskRow,
+      status: 'review',
+    };
+
+    const locked = await lockTaskExecutionSettings('task-1', 'job-1', 1);
+
+    expect(locked).toBeNull();
+    expect(state.taskRow.active_job_id).toBeNull();
+    expect(state.taskRow.status).toBe('review');
   });
 });

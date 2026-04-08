@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { TaskForm } from './TaskForm';
 import type { Flow, ProviderConfig } from '../lib/api';
+import type { EditTaskData } from './task-form-types';
 import { useTaskFormState } from '../hooks/useTaskFormState';
 
 vi.mock('../lib/api', async () => {
@@ -79,6 +80,34 @@ function renderTaskForm(flows: Flow[], providers: ProviderConfig[] = []) {
       onClose={() => {}}
     />,
   );
+}
+
+function renderEditTaskForm({
+  flows,
+  providers = [],
+  editTask,
+  onSubmit = vi.fn().mockResolvedValue(undefined),
+}: {
+  flows: Flow[];
+  providers?: ProviderConfig[];
+  editTask: EditTaskData;
+  onSubmit?: ReturnType<typeof vi.fn>;
+}) {
+  return {
+    onSubmit,
+    ...render(
+      <TaskForm
+        workstreams={[]}
+        members={[{ id: 'user-1', name: 'Pat Doe', initials: 'PD' }]}
+        flows={flows}
+        providers={providers}
+        customTypes={[]}
+        editTask={editTask}
+        onSubmit={onSubmit}
+        onClose={() => {}}
+      />
+    ),
+  };
 }
 
 function TaskFormStateHarness({ flows }: { flows: Flow[] }) {
@@ -327,5 +356,98 @@ describe('TaskForm flow selection', () => {
       expect(screen.queryByText('Use subagents')).toBeNull();
       expect(screen.getByText('The resolved provider/model for this flow does not expose task-level reasoning.')).toBeTruthy();
     });
+  });
+
+  it('preserves locked execution settings when editing a task', async () => {
+    const user = userEvent.setup();
+    const lockedFlow = makeFlow('flow-locked', 'Locked Flow', ['feature'], {
+      provider_binding: 'flow_locked',
+      flow_steps: [
+        {
+          id: 'step-1',
+          name: 'Implement',
+          position: 1,
+          instructions: '',
+          model: 'claude:sonnet',
+          provider_config_id: 'provider-claude',
+          tools: ['Read'],
+          context_sources: ['task_description'],
+          is_gate: false,
+          on_fail_jump_to: null,
+          max_retries: 0,
+          on_max_retries: 'pause',
+          include_agents_md: true,
+        },
+      ],
+    });
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    renderEditTaskForm({
+      flows: [lockedFlow],
+      providers: [makeProvider('provider-claude', 'claude', 'Claude CLI')],
+      editTask: {
+        id: 'task-1',
+        title: 'Locked task',
+        description: 'Original',
+        type: 'feature',
+        mode: 'ai',
+        effort: 'high',
+        multiagent: 'yes',
+        assignee: null,
+        flow_id: 'flow-locked',
+        provider_config_id: 'provider-claude',
+        provider_model: 'sonnet',
+        execution_settings_locked_at: '2026-04-08T10:00:00.000Z',
+        auto_continue: true,
+        images: [],
+        priority: 'backlog',
+        chaining: 'none',
+      },
+      onSubmit,
+    });
+
+    await user.clear(screen.getByPlaceholderText('Task title'));
+    await user.type(screen.getByPlaceholderText('Task title'), 'Locked task updated');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'Locked task updated',
+        effort: 'high',
+        multiagent: 'yes',
+        provider_config_id: 'provider-claude',
+        provider_model: 'sonnet',
+      }));
+    });
+  });
+
+  it('disables custom-type controls when execution settings are locked', () => {
+    const selectableFlow = makeFlow('flow-feature', 'Feature Flow', ['feature']);
+
+    renderEditTaskForm({
+      flows: [selectableFlow],
+      editTask: {
+        id: 'task-1',
+        title: 'Locked custom task',
+        description: '',
+        type: 'deploy',
+        mode: 'ai',
+        effort: 'max',
+        multiagent: 'auto',
+        assignee: null,
+        flow_id: 'flow-feature',
+        provider_config_id: null,
+        provider_model: null,
+        execution_settings_locked_at: '2026-04-08T10:00:00.000Z',
+        auto_continue: true,
+        images: [],
+        priority: 'backlog',
+        chaining: 'none',
+      },
+    });
+
+    expect((screen.getByPlaceholderText('e.g. docs, spike, deploy') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Custom type pipeline') as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '×' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

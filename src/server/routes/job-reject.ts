@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { requireAuth } from '../auth-middleware.js';
 import { revertToCheckpoint } from '../checkpoint.js';
 import {
+  asRecord,
+  isMissingRowError,
   requireAuthorizedLocalPath,
   requireJobAccess,
   routeParam,
@@ -45,7 +47,28 @@ jobRejectRouter.post('/api/jobs/:id/reject', requireAuth, async (req, res) => {
     }
   }
 
-  const executionReset = await loadTaskExecutionUnlockUpdate(taskId);
+  const { data: taskData, error: taskError } = await supabase
+    .from('tasks')
+    .select('status, followup_notes, completed_at, active_job_id, execution_generation, execution_settings_locked_at, execution_settings_locked_job_id')
+    .eq('id', taskId)
+    .single();
+  if (taskError) return res.status(isMissingRowError(taskError) ? 404 : 400).json({ error: isMissingRowError(taskError) ? 'Task not found' : taskError.message });
+  const task = asRecord(taskData);
+  const taskRollback = {
+    status: task ? stringField(task, 'status') || 'review' : 'review',
+    followup_notes: task?.followup_notes ?? null,
+    completed_at: task?.completed_at ?? null,
+    active_job_id: task?.active_job_id ?? null,
+    execution_generation: task?.execution_generation ?? 1,
+    execution_settings_locked_at: task?.execution_settings_locked_at ?? null,
+    execution_settings_locked_job_id: task?.execution_settings_locked_job_id ?? null,
+  };
+  let executionReset;
+  try {
+    executionReset = await loadTaskExecutionUnlockUpdate(taskId);
+  } catch (error) {
+    return res.status(400).json({ error: errorMessage(error, 'Failed to load task execution reset state') });
+  }
   const { error: taskUpdateErr } = await supabase
     .from('tasks')
     .update({ status: 'todo', followup_notes: null, completed_at: null, ...executionReset })
@@ -53,7 +76,7 @@ jobRejectRouter.post('/api/jobs/:id/reject', requireAuth, async (req, res) => {
   if (taskUpdateErr) return res.status(400).json({ error: taskUpdateErr.message });
   const { error: jobDeleteErr } = await supabase.from('jobs').delete().eq('id', jobId);
   if (jobDeleteErr) {
-    const { error: rollbackErr } = await supabase.from('tasks').update({ status: 'review' }).eq('id', taskId);
+    const { error: rollbackErr } = await supabase.from('tasks').update(taskRollback).eq('id', taskId);
     if (rollbackErr) console.error(`[reject] Failed to roll back task ${taskId}:`, rollbackErr.message);
     return res.status(400).json({ error: jobDeleteErr.message });
   }

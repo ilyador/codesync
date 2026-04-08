@@ -81,9 +81,16 @@ export async function cancelJobHandles(jobId: string): Promise<void> {
   const handles = activeHandles.get(jobId);
   if (!handles || handles.size === 0) return;
   canceledJobs.add(jobId);
-  await Promise.all([...handles].map(handle => Promise.resolve(handle.cancel())));
-  activeHandles.delete(jobId);
-  canceledJobs.delete(jobId);
+  try {
+    const results = await Promise.allSettled([...handles].map(handle => Promise.resolve(handle.cancel())));
+    const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+    if (failures.length > 0) {
+      throw new AggregateError(failures.map(failure => failure.reason), `Failed to cancel ${failures.length} job handle(s)`);
+    }
+  } finally {
+    activeHandles.delete(jobId);
+    canceledJobs.delete(jobId);
+  }
 }
 
 export function cancelAllJobHandles(): void {

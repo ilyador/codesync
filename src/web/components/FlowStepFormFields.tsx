@@ -130,7 +130,12 @@ export function FlowStepFormFields({
                     onUpdate({ provider_config_id: null });
                     return;
                   }
-                  const fallbackModel = (provider.models[0] || provider.model_suggestions[0] || parsedModel.model || defaultModelForProvider(provider.provider)).trim();
+                  const fallbackModel = (
+                    provider.models[0]
+                    || provider.model_suggestions[0]
+                    || (provider.provider === parsedModel.provider ? parsedModel.model : '')
+                    || defaultModelForProvider(provider.provider)
+                  ).trim();
                   onUpdate({
                     provider_config_id: provider.id,
                     model: formatModelId(provider.provider, fallbackModel),

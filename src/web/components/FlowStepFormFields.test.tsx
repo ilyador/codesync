@@ -104,4 +104,36 @@ describe('FlowStepFormFields', () => {
       expect(onUpdate).toHaveBeenCalledWith({ provider_config_id: 'provider-1' });
     });
   });
+
+  it('does not carry a model name across provider families when switching configs', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+
+    render(
+      <FlowStepFormFields
+        step={makeStep({ model: 'claude:sonnet', provider_config_id: 'provider-claude' })}
+        providerBinding="flow_locked"
+        providers={[
+          makeProvider('provider-claude', 'claude', { label: 'Claude CLI', models: ['sonnet'] }),
+          makeProvider('provider-codex', 'codex', { label: 'Codex CLI', models: [], model_suggestions: [] }),
+        ]}
+        index={0}
+        allSteps={[makeStep({ model: 'claude:sonnet', provider_config_id: 'provider-claude' })]}
+        isNew={false}
+        onUpdate={onUpdate}
+        onToggleTool={vi.fn()}
+        onToggleContext={vi.fn()}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.selectOptions(screen.getAllByRole('combobox')[0], 'provider-codex');
+
+    expect(onUpdate).toHaveBeenCalledWith({
+      provider_config_id: 'provider-codex',
+      model: 'codex:gpt-5.4',
+    });
+  });
 });
