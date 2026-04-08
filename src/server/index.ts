@@ -12,6 +12,7 @@ import { documentsRouter } from './routes/documents.js';
 import { flowsRouter } from './routes/flows.js';
 import { jobEventsRouter } from './routes/job-events.js';
 import { onboardingRouter } from './routes/onboarding.js';
+import { providersRouter } from './routes/providers.js';
 import { projectsRouter } from './routes/projects.js';
 import { jobsRouter } from './routes/jobs.js';
 import { notificationsRouter } from './routes/notifications.js';
@@ -40,6 +41,7 @@ app.use(authRouter);
 
 // Data (projects, tasks, workstreams, jobs, comments, notifications, SSE changes)
 app.use(projectsRouter);
+app.use(providersRouter);
 app.use(flowsRouter);
 app.use(workstreamsRouter);
 app.use(tasksRouter);

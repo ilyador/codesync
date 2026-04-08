@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../auth-middleware.js';
 import { requireJobAccess, routeParam, stringField } from '../authz.js';
 import { supabase } from '../supabase.js';
+import { loadTaskExecutionUnlockUpdate } from '../task-execution.js';
 
 export const jobBacklogRouter = Router();
 
@@ -14,7 +15,11 @@ jobBacklogRouter.post('/api/jobs/:id/backlog', requireAuth, async (req, res) => 
 
   const taskId = stringField(job, 'task_id');
   if (!taskId) return res.status(404).json({ error: 'Task not found' });
-  const { error: taskUpdateErr } = await supabase.from('tasks').update({ status: 'backlog', completed_at: null }).eq('id', taskId);
+  const executionReset = await loadTaskExecutionUnlockUpdate(taskId);
+  const { error: taskUpdateErr } = await supabase
+    .from('tasks')
+    .update({ status: 'backlog', completed_at: null, ...executionReset })
+    .eq('id', taskId);
   if (taskUpdateErr) return res.status(400).json({ error: taskUpdateErr.message });
   const { error: jobDeleteErr } = await supabase.from('jobs').delete().eq('id', jobId);
   if (jobDeleteErr) return res.status(400).json({ error: jobDeleteErr.message });

@@ -1,8 +1,11 @@
+import { normalizeFlowProviderBinding, type FlowProviderBinding } from '../shared/flow-provider-binding.js';
+
 export interface FlowStepConfig {
   position: number;
   name: string;
   instructions: string;
   model: string;
+  provider_config_id: string | null;
   tools: string[];
   context_sources: string[];
   is_gate: boolean;
@@ -15,6 +18,7 @@ export interface FlowStepConfig {
 export interface FlowConfig {
   flow_name: string;
   agents_md: string | null;
+  provider_binding: FlowProviderBinding;
   steps: FlowStepConfig[];
 }
 
@@ -40,6 +44,10 @@ function onMaxRetries(value: unknown): FlowStepConfig['on_max_retries'] {
 
 export function buildFlowSnapshot(flow: unknown): FlowConfig {
   const flowRecord = record(flow);
+  const providerBinding = normalizeFlowProviderBinding(
+    typeof flowRecord.provider_binding === 'string' ? flowRecord.provider_binding : null,
+  );
+  const fallbackModel = providerBinding === 'task_selected' ? 'task:balanced' : 'claude:sonnet';
   const rawSteps = Array.isArray(flowRecord.flow_steps) ? flowRecord.flow_steps : [];
   const steps = rawSteps
     .map(step => record(step))
@@ -48,7 +56,8 @@ export function buildFlowSnapshot(flow: unknown): FlowConfig {
       position: numberValue(step.position, 0),
       name: stringValue(step.name, 'step'),
       instructions: stringValue(step.instructions, ''),
-      model: stringValue(step.model, 'opus'),
+      model: stringValue(step.model, fallbackModel),
+      provider_config_id: typeof step.provider_config_id === 'string' ? step.provider_config_id : null,
       tools: stringArray(step.tools, []),
       context_sources: stringArray(step.context_sources, ['task_description', 'previous_step']),
       is_gate: step.is_gate === true,
@@ -61,6 +70,7 @@ export function buildFlowSnapshot(flow: unknown): FlowConfig {
   return {
     flow_name: stringValue(flowRecord.name, 'Unnamed flow'),
     agents_md: typeof flowRecord.agents_md === 'string' ? flowRecord.agents_md : null,
+    provider_binding: providerBinding,
     steps,
   };
 }

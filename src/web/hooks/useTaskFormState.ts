@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { BUILT_IN_TYPES } from '../lib/constants';
-import type { Flow } from '../lib/api';
+import type { Flow, ProviderConfig } from '../lib/api';
 import { getFlowIdForType, getPreferredFlowId, type CustomTypeOption } from '../components/task-form-shared';
 import type { EditTaskData, TaskFormData } from '../components/task-form-types';
 import { useTaskImages } from './useTaskImages';
+import { defaultModelForProvider, supportsTaskSelectionProvider } from '../lib/model-id';
+import { deriveFlowExecutionCapabilities } from '../../shared/flow-execution-capabilities';
 
 interface UseTaskFormStateArgs {
   flows: Flow[];
+  providers: ProviderConfig[];
   customTypes: CustomTypeOption[];
   defaultWorkstreamId?: string | null;
   editTask?: EditTaskData;
@@ -17,7 +20,8 @@ interface UseTaskFormStateArgs {
 
 export function useTaskFormState({
   flows,
-  customTypes,
+  providers = [],
+  customTypes = [],
   defaultWorkstreamId,
   editTask,
   onSaveCustomType,
@@ -46,6 +50,8 @@ export function useTaskFormState({
   const [workstreamId, setWorkstreamId] = useState(editTask?.workstream_id || defaultWorkstreamId || '');
   const [assignee, setAssignee] = useState(editTask?.assignee || '');
   const [flowId, setFlowId] = useState(isEdit ? (editTask?.flow_id ?? '') : getPreferredFlowId(flows, 'feature'));
+  const [providerConfigId, setProviderConfigId] = useState(editTask?.provider_config_id || '');
+  const [providerModel, setProviderModel] = useState(editTask?.provider_model || '');
   const [multiagent, setMultiagent] = useState(editTask?.multiagent || 'auto');
   const [autoContinue, setAutoContinue] = useState(editTask?.auto_continue ?? true);
   const [priority, setPriority] = useState(editTask?.priority || 'backlog');
@@ -54,11 +60,80 @@ export function useTaskFormState({
   const [error, setError] = useState('');
 
   const matchingFlowId = getFlowIdForType(flows, type);
+  const selectedFlow = flows.find(flow => flow.id === flowId) || null;
+  const taskSelectableProviders = providers
+    .filter(provider => supportsTaskSelectionProvider(provider.provider) && (provider.is_enabled || provider.id === providerConfigId))
+    .sort((left, right) => {
+      const order = ['claude', 'codex'];
+      return order.indexOf(left.provider) - order.indexOf(right.provider);
+    });
+  const selectedProvider = taskSelectableProviders.find(provider => provider.id === providerConfigId)
+    || providers.find(provider => provider.id === providerConfigId)
+    || null;
+  const selectedFlowSupportsTaskSelection = mode === 'ai' && !assignee && !!selectedFlow;
+  const flowCapabilities = selectedFlowSupportsTaskSelection && selectedFlow
+    ? deriveFlowExecutionCapabilities(selectedFlow, selectedProvider?.provider ?? null, providerModel.trim() || null)
+    : null;
+  const providerSelectionEnabled = !!flowCapabilities?.providerSelectable;
+  const modelSelectionEnabled = !!flowCapabilities?.modelSelectable;
+  const reasoningSelectionEnabled = !!flowCapabilities?.reasoningSelectable;
+  const subagentSelectionEnabled = !!flowCapabilities?.subagentsSelectable;
+  const effectiveProviderModel = modelSelectionEnabled && selectedProvider
+    ? (providerModel.trim() || defaultModelForProvider(selectedProvider.provider))
+    : '';
+  const executionSettingsLocked = !!editTask?.execution_settings_locked_at;
 
   useEffect(() => {
     if (isEdit || assignee || flowId || !matchingFlowId) return;
     setFlowId(matchingFlowId);
   }, [assignee, flowId, isEdit, matchingFlowId]);
+
+  useEffect(() => {
+    if (!providerSelectionEnabled) {
+      if (providerConfigId) setProviderConfigId('');
+      if (providerModel) setProviderModel('');
+      if (effort !== 'low') setEffort('low');
+      if (multiagent !== 'auto') setMultiagent('auto');
+      return;
+    }
+
+    const fallbackProvider = taskSelectableProviders[0] || null;
+    if ((!providerConfigId || !selectedProvider) && fallbackProvider) {
+      setProviderConfigId(fallbackProvider.id);
+      if (modelSelectionEnabled && !providerModel.trim()) {
+        setProviderModel(defaultModelForProvider(fallbackProvider.provider));
+      }
+      return;
+    }
+
+    if (!modelSelectionEnabled && providerModel) {
+      setProviderModel('');
+      return;
+    }
+
+    if (selectedProvider && modelSelectionEnabled && !providerModel.trim()) {
+      setProviderModel(defaultModelForProvider(selectedProvider.provider));
+      return;
+    }
+
+    if (!reasoningSelectionEnabled && effort !== 'low') {
+      setEffort('low');
+    }
+    if (!subagentSelectionEnabled && multiagent !== 'auto') {
+      setMultiagent('auto');
+    }
+  }, [
+    effort,
+    modelSelectionEnabled,
+    multiagent,
+    providerConfigId,
+    providerModel,
+    providerSelectionEnabled,
+    reasoningSelectionEnabled,
+    selectedProvider,
+    subagentSelectionEnabled,
+    taskSelectableProviders,
+  ]);
 
   const imagesState = useTaskImages({
     initialImages: editTask?.images,
@@ -82,10 +157,12 @@ export function useTaskFormState({
         description: description.trim(),
         type: resolvedType,
         mode,
-        effort: mode === 'human' ? 'low' : effort,
-        multiagent: mode === 'human' ? 'auto' : multiagent,
+        effort: reasoningSelectionEnabled ? effort : 'low',
+        multiagent: subagentSelectionEnabled ? multiagent : 'auto',
         assignee: assignee || null,
         flow_id: flowId || null,
+        provider_config_id: providerSelectionEnabled ? (providerConfigId || null) : null,
+        provider_model: modelSelectionEnabled ? (effectiveProviderModel || null) : null,
         auto_continue: autoContinue,
         images: imagesState.images,
         workstream_id: workstreamId || null,
@@ -118,6 +195,19 @@ export function useTaskFormState({
     setAssignee,
     flowId,
     setFlowId,
+    providerConfigId,
+    setProviderConfigId,
+    providerModel,
+    setProviderModel,
+    selectedFlow,
+    selectedProvider,
+    taskSelectableProviders,
+    flowCapabilities,
+    providerSelectionEnabled,
+    modelSelectionEnabled,
+    reasoningSelectionEnabled,
+    subagentSelectionEnabled,
+    executionSettingsLocked,
     effort,
     setEffort,
     workstreamId,
@@ -136,7 +226,11 @@ export function useTaskFormState({
     error,
     handleSubmit,
     imagesState,
-    submitDisabled: loading || !title.trim() || (isCustomType && !customType.trim()),
+    submitDisabled: loading
+      || !title.trim()
+      || (isCustomType && !customType.trim())
+      || !!flowCapabilities?.invalidReason
+      || (providerSelectionEnabled && taskSelectableProviders.length === 0),
     submitLabel: loading ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save' : 'Create'),
   };
 }

@@ -3,6 +3,7 @@ import { useCustomTypes } from './useCustomTypes';
 import { useFlows } from './useFlows';
 import { useJobs } from './useJobs';
 import { useMembers } from './useMembers';
+import { useProviders } from './useProviders';
 import { useTasks } from './useTasks';
 import { useWorkstreams } from './useWorkstreams';
 
@@ -12,6 +13,7 @@ export function useCurrentProjectResources(projectId: string | null) {
   const workstreams = useWorkstreams(projectId);
   const members = useMembers(projectId);
   const aiFlows = useFlows(projectId);
+  const providers = useProviders(projectId);
   const customTypes = useCustomTypes(projectId);
   const commentCounts = useCommentCounts(projectId);
 
@@ -20,6 +22,7 @@ export function useCurrentProjectResources(projectId: string | null) {
     && workstreams.ready
     && members.ready
     && aiFlows.ready
+    && providers.ready
     && customTypes.ready
     && commentCounts.ready;
 
@@ -29,6 +32,7 @@ export function useCurrentProjectResources(projectId: string | null) {
     workstreams,
     members,
     aiFlows,
+    providers,
     customTypes,
     commentCounts,
     ready,

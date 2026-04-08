@@ -1,6 +1,6 @@
 import { TaskForm } from './TaskForm';
 import type { EditTaskData, TaskFormData } from './task-form-types';
-import type { CustomTaskType, Flow, MemberRecord, WorkstreamRecord } from '../lib/api';
+import type { CustomTaskType, Flow, MemberRecord, ProviderConfig, WorkstreamRecord } from '../lib/api';
 
 interface ProjectTaskDialogsProps {
   projectId: string;
@@ -8,6 +8,7 @@ interface ProjectTaskDialogsProps {
   workstreams: WorkstreamRecord[];
   members: MemberRecord[];
   flows: Flow[];
+  providers: ProviderConfig[];
   customTypes: CustomTaskType[];
   showCreate: boolean;
   defaultWorkstreamId: string | null;
@@ -25,6 +26,7 @@ export function ProjectTaskDialogs({
   workstreams,
   members,
   flows,
+  providers,
   customTypes,
   showCreate,
   defaultWorkstreamId,
@@ -49,6 +51,7 @@ export function ProjectTaskDialogs({
           defaultWorkstreamId={defaultWorkstreamId}
           members={memberOptions}
           flows={flows}
+          providers={providers}
           customTypes={customTypeOptions}
           onSaveCustomType={onSaveCustomType}
           onSubmit={onCreateTask}
@@ -63,6 +66,7 @@ export function ProjectTaskDialogs({
           workstreams={workstreamOptions}
           members={memberOptions}
           flows={flows}
+          providers={providers}
           customTypes={customTypeOptions}
           onSaveCustomType={onSaveCustomType}
           editTask={editingTask}

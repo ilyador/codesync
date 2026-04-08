@@ -1,0 +1,136 @@
+.page {
+  padding: 24px 32px 32px;
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.section {
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: var(--shadow-card);
+}
+
+.heading {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.subheading {
+  font-size: 18px;
+  font-weight: 650;
+  margin-bottom: 10px;
+}
+
+.muted {
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.input,
+.select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--text);
+  font: inherit;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.card {
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  background: var(--bg);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.statusOnline {
+  background: color-mix(in srgb, var(--green, #059669) 15%, var(--surface));
+  color: #047857;
+}
+
+.statusOffline {
+  background: color-mix(in srgb, var(--red, #dc2626) 12%, var(--surface));
+  color: #b91c1c;
+}
+
+.models {
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.divider {
+  height: 1px;
+  background: var(--divider);
+}

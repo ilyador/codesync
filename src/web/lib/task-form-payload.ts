@@ -10,6 +10,8 @@ export function toTaskMutationPayload(data: TaskFormData) {
     multiagent: data.multiagent,
     assignee: data.assignee,
     flow_id: data.flow_id,
+    provider_config_id: data.provider_config_id,
+    provider_model: data.provider_model,
     auto_continue: data.auto_continue,
     images: data.images,
     workstream_id: data.workstream_id,

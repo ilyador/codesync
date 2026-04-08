@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 import {
   approveJob,
   continueJob,
@@ -26,7 +26,7 @@ export function useJobLifecycleActions({
 }: UseJobLifecycleActionsParams) {
   const busyRef = useRef(false);
 
-  async function guarded<T>(fn: () => Promise<T>, errorLabel: string): Promise<T | undefined> {
+  const guarded = useCallback(async <T>(fn: () => Promise<T>, errorLabel: string): Promise<T | undefined> => {
     if (busyRef.current) return;
     busyRef.current = true;
     try {
@@ -36,7 +36,7 @@ export function useJobLifecycleActions({
     } finally {
       busyRef.current = false;
     }
-  }
+  }, [modal]);
 
   const terminate = useCallback(async (jobId: string) => {
     if (!(await modal.confirm('Terminate job', 'Terminate this running job?', { label: 'Terminate', danger: true }))) {
@@ -46,7 +46,7 @@ export function useJobLifecycleActions({
       await terminateJob(jobId);
       await reloadTaskState();
     }, 'Failed to terminate');
-  }, [modal, reloadTaskState]);
+  }, [guarded, modal, reloadTaskState]);
 
   const reply = useCallback(async (jobId: string, answer: string) => {
     if (!localPath) {
@@ -57,21 +57,21 @@ export function useJobLifecycleActions({
       await replyToJob(jobId, answer, localPath);
       await reloadTaskState();
     }, 'Failed to send reply');
-  }, [localPath, modal, reloadTaskState]);
+  }, [guarded, localPath, modal, reloadTaskState]);
 
   const approve = useCallback(async (jobId: string) => {
     await guarded(async () => {
       await approveJob(jobId);
       await reloadTaskState();
     }, 'Failed to approve');
-  }, [modal, reloadTaskState]);
+  }, [guarded, reloadTaskState]);
 
   const reject = useCallback(async (jobId: string) => {
     await guarded(async () => {
       await rejectJob(jobId);
       await reloadTaskState();
     }, 'Failed to reject');
-  }, [modal, reloadTaskState]);
+  }, [guarded, reloadTaskState]);
 
   const rework = useCallback(async (jobId: string, note: string) => {
     const context = await requireExecutionContext({ projectId, localPath, modal });
@@ -80,28 +80,28 @@ export function useJobLifecycleActions({
       await reworkJob(jobId, note, context.projectId, context.localPath);
       await reloadTaskState();
     }, 'Failed to rework');
-  }, [localPath, modal, projectId, reloadTaskState]);
+  }, [guarded, localPath, modal, projectId, reloadTaskState]);
 
   const dismissJob = useCallback(async (jobId: string) => {
     await guarded(async () => {
       await deleteJob(jobId);
       await jobs.reload();
     }, 'Failed to dismiss job');
-  }, [jobs, modal]);
+  }, [guarded, jobs]);
 
   const sendToBacklog = useCallback(async (jobId: string) => {
     await guarded(async () => {
       await moveToBacklog(jobId);
       await reloadTaskState();
     }, 'Failed to move to backlog');
-  }, [modal, reloadTaskState]);
+  }, [guarded, reloadTaskState]);
 
   const continueExecution = useCallback(async (jobId: string) => {
     await guarded(async () => {
       await continueJob(jobId);
       await reloadTaskState();
     }, 'Failed to continue job');
-  }, [modal, reloadTaskState]);
+  }, [guarded, reloadTaskState]);
 
   return {
     terminate,

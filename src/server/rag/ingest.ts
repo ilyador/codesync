@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { isMissingRowError } from '../authz-shared.js';
+import type { ProviderConfigRecord } from '../providers/types.js';
 import { supabase } from '../supabase.js';
-import { embed } from './embeddings.js';
+import { embed, resetProjectEmbeddingDimensions } from './embeddings.js';
 import { chunkText, extractTextFromDocx, extractTextFromPdf } from './chunker.js';
 
 const EMBED_BATCH_SIZE = 32;
@@ -24,14 +25,20 @@ async function extractText(fileType: string, content: string | Buffer): Promise<
   return typeof content === 'string' ? content : content.toString('utf-8');
 }
 
-async function insertChunks(docId: string, projectId: string, textContent: string, fileType: string): Promise<number> {
+async function insertChunks(
+  docId: string,
+  projectId: string,
+  textContent: string,
+  fileType: string,
+  providerOverride: ProviderConfigRecord | null = null,
+): Promise<number> {
   const chunks = chunkText(textContent, fileType, CHUNK_SIZE, CHUNK_OVERLAP);
   if (chunks.length === 0) throw new Error('Document produced no text chunks');
 
   const allEmbeddings: number[][] = [];
   for (let i = 0; i < chunks.length; i += EMBED_BATCH_SIZE) {
     const batch = chunks.slice(i, i + EMBED_BATCH_SIZE);
-    const embeddings = await embed(batch.map(c => c.content));
+    const embeddings = await embed(projectId, batch.map(c => c.content), { providerOverride });
     allEmbeddings.push(...embeddings);
   }
 
@@ -92,4 +99,43 @@ export async function ingestDocument(
     if (errorUpdateErr) throw new Error(`Document ingestion failed and status update failed: ${msg}; ${errorUpdateErr.message}`);
     return { id: doc.id, status: 'error', chunkCount: 0 };
   }
+}
+
+export async function reindexProjectDocuments(
+  projectId: string,
+  providerOverride: ProviderConfigRecord | null = null,
+): Promise<{ reindexed: number }> {
+  const { data: documents, error: documentsError } = await supabase
+    .from('rag_documents')
+    .select('id, content, file_type')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: true });
+  if (documentsError) throw new Error(`Failed to load documents: ${documentsError.message}`);
+
+  await resetProjectEmbeddingDimensions(projectId);
+  const { error: deleteError } = await supabase.from('rag_chunks').delete().eq('project_id', projectId);
+  if (deleteError) throw new Error(`Failed to clear existing chunks: ${deleteError.message}`);
+
+  let reindexed = 0;
+  for (const document of documents || []) {
+    const content = typeof document.content === 'string' ? document.content : '';
+    const fileType = typeof document.file_type === 'string' ? document.file_type : 'txt';
+    if (!content) continue;
+
+    try {
+      const chunkCount = await insertChunks(document.id, projectId, content, fileType, providerOverride);
+      const { error: updateError } = await supabase
+        .from('rag_documents')
+        .update({ status: 'ready', error: null, chunk_count: chunkCount })
+        .eq('id', document.id);
+      if (updateError) throw updateError;
+      reindexed++;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Re-index failed';
+      await supabase.from('rag_documents').update({ status: 'error', error: message }).eq('id', document.id);
+      throw new Error(message);
+    }
+  }
+
+  return { reindexed };
 }

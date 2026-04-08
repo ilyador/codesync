@@ -2,14 +2,19 @@ import 'dotenv/config';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { homedir } from 'os';
-import { runJob, runFlowJob, loadTaskTypeConfig, cancelJob, cancelAllJobs, cleanupOrphanedJobs } from './runner.js';
-import type { FlowConfig } from './runner.js';
+import { runFlowJob, cancelJob, cancelAllJobs, cleanupOrphanedJobs } from './runner.js';
+import type { PhaseRunRecord, RunnerReviewResult, RunnerTask } from './runner.js';
+import type { FlowConfig } from './flow-config.js';
 import { supabase } from './supabase.js';
 import { createCheckpoint, revertToCheckpoint, deleteCheckpoint } from './checkpoint.js';
 import { queueNextWorkstreamTask } from './auto-continue.js';
 import { ensureWorktree } from './worktree.js';
 import { autoCommit, slugify } from './git-utils.js';
 import { search as ragSearch } from './rag/service.js';
+import {
+  isAiRunnableTask,
+  lockTaskExecutionSettings,
+} from './task-execution.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -19,15 +24,20 @@ type ClaimedJob = Record<string, unknown> & {
   project_id: string;
   local_path: string | null;
   answer?: string | null;
+  requested_generation?: number | null;
   flow_snapshot?: FlowConfig | null;
   phases_completed?: unknown;
 };
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 // ---------------------------------------------------------------------------
 // DB logging with batching for high-throughput log events
 // ---------------------------------------------------------------------------
 
-const logBuffer: Array<{ job_id: string; event: string; data: Record<string, any> }> = [];
+const logBuffer: Array<{ job_id: string; event: string; data: Record<string, unknown> }> = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let flushing = false;
 const FLUSH_INTERVAL = 100; // ms
@@ -59,7 +69,7 @@ function scheduleFlush() {
   }, FLUSH_INTERVAL);
 }
 
-async function writeLog(jobId: string, event: string, data: Record<string, any> = {}): Promise<void> {
+async function writeLog(jobId: string, event: string, data: Record<string, unknown> = {}): Promise<void> {
   // Critical events (done, failed, review, paused) flush immediately
   if (event === 'done' || event === 'failed' || event === 'review' || event === 'paused') {
     // Flush any buffered logs first to maintain ordering
@@ -84,7 +94,7 @@ async function writeLog(jobId: string, event: string, data: Record<string, any> 
 // Callbacks that the runner uses — fire-and-forget so we never block the runner
 // ---------------------------------------------------------------------------
 
-function makeDbCallbacks(jobId: string, task?: any) {
+function makeDbCallbacks(jobId: string, task?: RunnerTask) {
   return {
     onLog: (text: string) => {
       writeLog(jobId, 'log', { text }).then().catch((err) => {
@@ -96,7 +106,7 @@ function makeDbCallbacks(jobId: string, task?: any) {
         console.error(`[worker] writeLog error (phase_start): ${err.message}`);
       });
     },
-    onPhaseComplete: (phase: string, output: any) => {
+    onPhaseComplete: (phase: string, output: PhaseRunRecord) => {
       writeLog(jobId, 'phase_complete', { phase, output }).then().catch((err) => {
         console.error(`[worker] writeLog error (phase_complete): ${err.message}`);
       });
@@ -124,7 +134,7 @@ function makeDbCallbacks(jobId: string, task?: any) {
 // Failure notification helper
 // ---------------------------------------------------------------------------
 
-async function notifyTaskFailure(task: any, errorMsg: string): Promise<void> {
+async function notifyTaskFailure(task: RunnerTask, errorMsg: string): Promise<void> {
   const userId = task.assignee || task.created_by;
   if (!userId) return;
   try {
@@ -187,7 +197,19 @@ async function startJob(job: ClaimedJob): Promise<void> {
     await supabase.from('jobs').update({ status: 'failed', completed_at: new Date().toISOString(), question: 'Job failed: task not found' }).eq('id', jobId);
     return;
   }
+  const phasesAlreadyCompleted = (Array.isArray(job.phases_completed) ? job.phases_completed : []) as PhaseRunRecord[];
+  const isResume = phasesAlreadyCompleted.length > 0;
 
+  if (!isResume && !isAiRunnableTask(task)) {
+    const discardMsg = 'Queued job was discarded because the task is no longer configured for AI execution.';
+    await writeLog(jobId, 'failed', { error: discardMsg });
+    await supabase.from('jobs').update({
+      status: 'failed',
+      completed_at: new Date().toISOString(),
+      question: discardMsg,
+    }).eq('id', jobId);
+    return;
+  }
   // Resolve worktree path if task belongs to a workstream
   if (task.workstream_id) {
     try {
@@ -202,22 +224,50 @@ async function startJob(job: ClaimedJob): Promise<void> {
         await supabase.from('jobs').update({ local_path: localPath }).eq('id', jobId);
         await writeLog(jobId, 'log', { text: `[worktree] Using worktree at ${localPath}` });
       }
-    } catch (err: any) {
-      console.error(`[worker] Worktree setup failed, using project root:`, err.message);
-      await writeLog(jobId, 'log', { text: `[worktree] Setup failed, using project root: ${err.message}` });
+    } catch (err: unknown) {
+      console.error('[worker] Worktree setup failed, using project root:', errorMessage(err));
+      await writeLog(jobId, 'log', { text: `[worktree] Setup failed, using project root: ${errorMessage(err)}` });
     }
   }
 
-  // Update task status
-  await supabase.from('tasks').update({ status: 'in_progress' }).eq('id', task.id);
+  const requestedGeneration = typeof job.requested_generation === 'number' && Number.isInteger(job.requested_generation)
+    ? job.requested_generation
+    : null;
+  if (requestedGeneration == null) {
+    const failMsg = 'Job failed: requested_generation is missing. Requeue the task to regenerate its execution plan.';
+    await writeLog(jobId, 'failed', { error: failMsg });
+    await supabase.from('jobs').update({
+      status: 'failed',
+      completed_at: new Date().toISOString(),
+      question: failMsg,
+    }).eq('id', jobId);
+    return;
+  }
 
-  // Determine execution path: flow-based (new) or type-based (legacy)
-  const flowSnapshot: FlowConfig | null = job.flow_snapshot || null;
-  const taskType = flowSnapshot ? null : loadTaskTypeConfig(localPath, task.type);
-
-  // Determine fresh start vs resume
-  const phasesAlreadyCompleted = Array.isArray(job.phases_completed) ? job.phases_completed : [];
-  const isResume = phasesAlreadyCompleted.length > 0;
+  const lockedTask = await lockTaskExecutionSettings(job.task_id, jobId, requestedGeneration);
+  if (!lockedTask) {
+    const discardMsg = 'Queued job was discarded because its execution settings are stale. Requeue the task to run the latest plan.';
+    await writeLog(jobId, 'failed', { error: discardMsg });
+    await supabase.from('jobs').update({
+      status: 'failed',
+      completed_at: new Date().toISOString(),
+      question: discardMsg,
+    }).eq('id', jobId);
+    return;
+  }
+  const runnerTask = lockedTask as RunnerTask;
+  const flowSnapshot = job.flow_snapshot || null;
+  if (!flowSnapshot || !Array.isArray(flowSnapshot.steps) || flowSnapshot.steps.length === 0) {
+    const failMsg = 'Job failed: execution snapshot is missing. Requeue the task to regenerate its flow plan.';
+    await writeLog(jobId, 'failed', { error: failMsg });
+    await supabase.from('jobs').update({
+      status: 'failed',
+      completed_at: new Date().toISOString(),
+      question: failMsg,
+    }).eq('id', jobId);
+    await supabase.from('tasks').update({ status: 'paused' }).eq('id', runnerTask.id);
+    return;
+  }
 
   // Create checkpoint for fresh starts only
   if (!isResume) {
@@ -228,37 +278,41 @@ async function startJob(job: ClaimedJob): Promise<void> {
         checkpoint_status: 'active',
       }).eq('id', jobId);
       await writeLog(jobId, 'log', { text: '[checkpoint] Saved working directory state' });
-    } catch (err: any) {
-      if (task.auto_continue) {
+    } catch (err: unknown) {
+      if (runnerTask.auto_continue) {
         // Fatal for auto-continue: no checkpoint = no safety net
-        const failMsg = `Checkpoint failed: ${err.message}. Cannot run auto-continue without a safety net.`;
+        const failMsg = `Checkpoint failed: ${errorMessage(err)}. Cannot run auto-continue without a safety net.`;
         await writeLog(jobId, 'failed', { error: failMsg });
         await supabase.from('jobs').update({
           status: 'failed',
           completed_at: new Date().toISOString(),
           question: failMsg,
         }).eq('id', jobId);
-        await supabase.from('tasks').update({ status: 'paused' }).eq('id', task.id);
+        await supabase.from('tasks').update({ status: 'paused' }).eq('id', runnerTask.id);
         return;
       }
-      await writeLog(jobId, 'log', { text: `[checkpoint] Warning: ${err.message}. Manual revert will not be available.` });
+      await writeLog(jobId, 'log', { text: `[checkpoint] Warning: ${errorMessage(err)}. Manual revert will not be available.` });
     }
   }
 
   // Build onReview callback
-  const onReview = task.auto_continue === true
-    ? async (result: any) => {
+  const onReview = runnerTask.auto_continue === true
+    ? async (result: RunnerReviewResult) => {
         await writeLog(jobId, 'review', result);
         // Auto-approve: commit first, then mark done, then queue next
-        try { deleteCheckpoint(localPath, jobId); } catch (e: any) { console.warn(`[worker] Checkpoint delete failed for job ${jobId}:`, e.message); }
+        try {
+          deleteCheckpoint(localPath, jobId);
+        } catch (e: unknown) {
+          console.warn(`[worker] Checkpoint delete failed for job ${jobId}:`, errorMessage(e));
+        }
         // Commit changes BEFORE marking done — if commit fails, job stays in review
         let commitSucceeded = false;
         try {
-          await autoCommit(localPath, task.type, task.title);
+          await autoCommit(localPath, runnerTask.type || 'feature', runnerTask.title);
           commitSucceeded = true;
-        } catch (err: any) {
-          console.error('[worker] Auto-commit failed:', err.message);
-          await writeLog(jobId, 'log', { text: `[auto-approve] Commit failed: ${err.message}. Job left in review for manual handling.` });
+        } catch (err: unknown) {
+          console.error('[worker] Auto-commit failed:', errorMessage(err));
+          await writeLog(jobId, 'log', { text: `[auto-approve] Commit failed: ${errorMessage(err)}. Job left in review for manual handling.` });
           return;
         }
         const now = new Date().toISOString();
@@ -276,53 +330,52 @@ async function startJob(job: ClaimedJob): Promise<void> {
           await writeLog(jobId, 'log', { text: '[auto-approve] Skipped because job is no longer in review' });
           return;
         }
-        const { error: taskDoneError } = await supabase.from('tasks').update({ status: 'done', completed_at: now }).eq('id', task.id);
+        const { error: taskDoneError } = await supabase.from('tasks').update({ status: 'done', completed_at: now }).eq('id', runnerTask.id);
         if (taskDoneError) {
           console.error(`[worker] Auto-approve task update failed for job ${jobId}:`, taskDoneError.message);
         }
         await writeLog(jobId, 'done', {});
         // Queue next task in workstream only if commit succeeded
-        if (commitSucceeded && task.workstream_id) {
+        if (commitSucceeded && runnerTask.workstream_id) {
           try {
             await queueNextWorkstreamTask({
-              completedTaskId: task.id,
+              completedTaskId: runnerTask.id,
               projectId: job.project_id,
               localPath,
-              workstreamId: task.workstream_id,
-              completedPosition: task.position,
+              workstreamId: runnerTask.workstream_id,
+              completedPosition: runnerTask.position,
             });
-          } catch (err: any) {
-            console.error('[worker] auto-continue error:', err.message);
-            await writeLog(jobId, 'log', { text: `[auto-continue] Failed to queue next task: ${err.message}` });
-            if (task) notifyTaskFailure(task, `Auto-continue failed: ${err.message}`).catch(() => {});
+          } catch (err: unknown) {
+            console.error('[worker] auto-continue error:', errorMessage(err));
+            await writeLog(jobId, 'log', { text: `[auto-continue] Failed to queue next task: ${errorMessage(err)}` });
+            notifyTaskFailure(runnerTask, `Auto-continue failed: ${errorMessage(err)}`).catch(() => {});
           }
         }
       }
-    : async (result: any) => {
+    : async (result: RunnerReviewResult) => {
         await writeLog(jobId, 'review', result);
       };
 
-  const callbacks = makeDbCallbacks(jobId, task);
+  const callbacks = makeDbCallbacks(jobId, runnerTask);
 
   try {
-    const taskWithAnswer = isResume ? { ...task, answer: job.answer } : task;
+    const taskWithAnswer: RunnerTask = isResume ? { ...runnerTask, answer: job.answer } : runnerTask;
 
-    // RAG injection: search if any flow step uses 'rag' context source, or legacy doc-search type
-    const needsRag = flowSnapshot?.steps?.some((s: any) => s.context_sources?.includes('rag'))
-      || task.type === 'doc-search';
+    // Search project documents only when the materialized flow snapshot asks for RAG context.
+    const needsRag = flowSnapshot.steps.some(step => step.context_sources.includes('rag'));
     if (needsRag) {
       try {
-        const ragResults = await ragSearch(job.project_id, task.description || task.title);
+        const ragResults = await ragSearch(job.project_id, runnerTask.description || runnerTask.title);
         taskWithAnswer._ragResults = ragResults;
         await writeLog(jobId, 'log', { text: `[rag] Found ${ragResults.length} relevant document chunks` });
-      } catch (err: any) {
-        await writeLog(jobId, 'log', { text: `[rag] Search failed: ${err.message}` });
+      } catch (err: unknown) {
+        await writeLog(jobId, 'log', { text: `[rag] Search failed: ${errorMessage(err)}` });
       }
     }
 
     const sharedCtx = {
       jobId,
-      taskId: task.id,
+      taskId: runnerTask.id,
       projectId: job.project_id,
       localPath,
       phasesAlreadyCompleted,
@@ -331,34 +384,23 @@ async function startJob(job: ClaimedJob): Promise<void> {
       onReview,
     };
 
-    if (flowSnapshot) {
-      // New flow-based execution
-      await runFlowJob({
-        ...sharedCtx,
-        task: taskWithAnswer,
-        flow: flowSnapshot,
-      });
-    } else {
-      // Legacy type-based execution
-      await runJob({
-        ...sharedCtx,
-        task: taskWithAnswer,
-        taskType: taskType!,
-      });
-    }
-  } catch (err: any) {
-    // This catch only fires if runJob() itself throws an unhandled error
-    // (e.g., a bug in the runner code). Phase failures are handled inside
-    // runJob() which updates both job and task status directly.
-    console.error(`[worker] Unexpected runner crash for job ${jobId}:`, err.message);
-    await writeLog(jobId, 'failed', { error: `Runner crashed: ${err.message}` });
+    await runFlowJob({
+      ...sharedCtx,
+      task: taskWithAnswer,
+      flow: flowSnapshot,
+    });
+  } catch (err: unknown) {
+    // This catch only fires if the flow runner itself throws an unhandled error.
+    // Step failures are handled inside runFlowJob().
+    console.error(`[worker] Unexpected runner crash for job ${jobId}:`, errorMessage(err));
+    await writeLog(jobId, 'failed', { error: `Runner crashed: ${errorMessage(err)}` });
     await supabase.from('jobs').update({
       status: 'failed',
       completed_at: new Date().toISOString(),
-      question: `Unexpected error: ${err.message}`,
+      question: `Unexpected error: ${errorMessage(err)}`,
     }).eq('id', jobId);
-    await supabase.from('tasks').update({ status: 'paused' }).eq('id', task.id);
-    await notifyTaskFailure(task, err.message);
+    await supabase.from('tasks').update({ status: 'paused' }).eq('id', runnerTask.id);
+    await notifyTaskFailure(runnerTask, errorMessage(err));
   }
 }
 
@@ -381,8 +423,8 @@ const pollInterval = setInterval(async () => {
     startJob(job)
       .catch((err) => console.error(`[worker] startJob error: ${err.message}`))
       .finally(() => { busyJobId = null; });
-  } catch (err: any) {
-    console.error('[worker] Poll error:', err.message);
+  } catch (err: unknown) {
+    console.error('[worker] Poll error:', errorMessage(err));
   }
 }, 1000);
 
@@ -407,8 +449,8 @@ const cancelInterval = setInterval(async () => {
         if (job.local_path) {
           try {
             revertToCheckpoint(job.local_path, job.id);
-          } catch (e: any) {
-            console.warn(`[worker] Checkpoint revert failed for canceled job ${job.id}:`, e.message);
+          } catch (e: unknown) {
+            console.warn(`[worker] Checkpoint revert failed for canceled job ${job.id}:`, errorMessage(e));
           }
         }
 
@@ -419,12 +461,12 @@ const cancelInterval = setInterval(async () => {
         }).eq('id', job.id);
         await supabase.from('tasks').update({ status: 'canceled' }).eq('id', job.task_id);
         await writeLog(job.id, 'failed', { error: 'Job canceled by user' });
-      } catch (err: any) {
-        console.error(`[worker] Cancel error for job ${job.id}:`, err.message);
+      } catch (err: unknown) {
+        console.error(`[worker] Cancel error for job ${job.id}:`, errorMessage(err));
       }
     }
-  } catch (err: any) {
-    console.error('[worker] Cancellation poll error:', err.message);
+  } catch (err: unknown) {
+    console.error('[worker] Cancellation poll error:', errorMessage(err));
   }
 }, 1000);
 
@@ -456,8 +498,8 @@ const cancelInterval = setInterval(async () => {
       }
       console.log(`[worker] Cleaned up ${stuck.length} stuck canceling job(s)`);
     }
-  } catch (err: any) {
-    console.error('[worker] Cleanup failed:', err.message);
+  } catch (err: unknown) {
+    console.error('[worker] Cleanup failed:', errorMessage(err));
   }
 })();
 
@@ -510,8 +552,8 @@ const prMergeInterval = setInterval(async () => {
                 console.log(`[worker] Cleaned up worktree for workstream ${ws.name}`);
               }
             }
-          } catch (err: any) {
-            console.log(`[worker] Worktree cleanup failed for ${ws.id}: ${err.message}`);
+          } catch (err: unknown) {
+            console.log(`[worker] Worktree cleanup failed for ${ws.id}: ${errorMessage(err)}`);
           }
           console.log(`[worker] PR merged for workstream ${ws.id}`);
         } else if (pr.state === 'CLOSED') {
@@ -522,8 +564,8 @@ const prMergeInterval = setInterval(async () => {
         // gh CLI error for this PR -- skip silently
       }
     }
-  } catch (err: any) {
-    console.error('[worker] PR poll error:', err.message);
+  } catch (err: unknown) {
+    console.error('[worker] PR poll error:', errorMessage(err));
   }
 }, 60000);
 

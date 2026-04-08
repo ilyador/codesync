@@ -10,7 +10,7 @@ export async function findNextWorkstreamTask(params: {
   const { projectId, workstreamId, completedPosition } = params;
   const { data: nextTask, error } = await supabase
     .from('tasks')
-    .select('id, project_id, type, mode, title, assignee, created_by, flow_id')
+    .select('id, project_id, execution_generation, flow_id, status, type, mode, title, assignee, created_by')
     .eq('workstream_id', workstreamId)
     .eq('project_id', projectId)
     .in('status', ['backlog', 'todo'])

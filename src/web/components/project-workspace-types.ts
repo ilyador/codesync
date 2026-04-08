@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { CustomTaskType, Flow, FlowStep, MemberRecord, NotificationRecord, TaskRecord, WorkstreamRecord } from '../lib/api';
+import type { CustomTaskType, EmbeddingProviderUpdateResponse, Flow, FlowStep, MemberRecord, NotificationRecord, ProviderConfig, ProviderUpdateResponse, TaskRecord, WorkstreamRecord } from '../lib/api';
 import type { ProjectWorkspaceHeaderProps } from './ProjectWorkspaceHeader';
 import type { ProjectWorkspaceModalsProps } from './ProjectWorkspaceModals';
 import type { ProjectWorkspaceRoutesProps } from './ProjectWorkspaceRoutes';
@@ -44,6 +44,10 @@ export interface CurrentProjectWorkspaceProps {
   members: MemberRecord[];
   flows: Flow[];
   setFlows: Dispatch<SetStateAction<Flow[]>>;
+  providers: ProviderConfig[];
+  embeddingProviderConfigId: string | null;
+  embeddingDimensions: number | null;
+  detectedLocalProviders: Array<{ provider: ProviderConfig['provider']; label: string; base_url: string }>;
   customTypes: CustomTaskType[];
   jobs: JobView[];
   memberMap: Record<string, { name: string; initials: string }>;
@@ -92,9 +96,24 @@ export interface CurrentProjectWorkspaceProps {
   onContinue: (jobId: string) => void;
   onCreatePr: (workstreamId: string, options?: { review?: boolean }) => void;
   onRestoreArchiveWorkstream: (workstreamId: string) => Promise<void>;
-  onSaveFlow: (flowId: string, updates: { name?: string; description?: string; agents_md?: string; default_types?: string[]; position?: number }) => Promise<void>;
+  onSaveFlow: (flowId: string, updates: { name?: string; description?: string; agents_md?: string; default_types?: string[]; position?: number; provider_binding?: Flow['provider_binding'] }) => Promise<void>;
   onSaveFlowSteps: (flowId: string, steps: Array<Omit<FlowStep, 'id'>>) => Promise<void>;
-  onCreateFlow: (data: { project_id: string; name: string; description?: string; steps?: Array<Omit<FlowStep, 'id'>> }) => Promise<Flow>;
+  onCreateFlow: (data: { project_id: string; name: string; description?: string; provider_binding?: Flow['provider_binding']; steps?: Array<Omit<FlowStep, 'id'>> }) => Promise<Flow>;
   onDeleteFlow: (flowId: string) => Promise<void>;
   onSwapFlows: (draggedId: string, targetId: string) => void;
+  onCreateProvider: (data: {
+    provider: ProviderConfig['provider'];
+    label?: string;
+    base_url?: string;
+    api_key?: string;
+    is_enabled?: boolean;
+    supports_embeddings?: boolean;
+    embedding_model?: string;
+  }) => Promise<void>;
+  onUpdateProvider: (providerId: string, data: Record<string, unknown>, opts?: { reindexDocuments?: boolean }) => Promise<ProviderUpdateResponse>;
+  onDeleteProvider: (providerId: string) => Promise<void>;
+  onTestProvider: (providerId: string) => Promise<{ ok: boolean; status: 'online' | 'offline'; message: string; models: string[]; embedding_dimensions?: number | null }>;
+  onRefreshProviderModels: (providerId: string) => Promise<string[]>;
+  onUpdateEmbeddingProvider: (embeddingProviderConfigId: string | null, opts?: { reindexDocuments?: boolean }) => Promise<EmbeddingProviderUpdateResponse>;
+  onReindexDocuments: () => Promise<{ reindexed: number }>;
 }

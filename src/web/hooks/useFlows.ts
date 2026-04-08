@@ -43,7 +43,7 @@ export function useFlows(projectId: string | null) {
     return unsub;
   }, [projectId, load, setFlows]);
 
-  const createFlow = useCallback(async (data: { project_id: string; name: string; description?: string; steps?: FlowStepInput[] }): Promise<Flow> => {
+  const createFlow = useCallback(async (data: { project_id: string; name: string; description?: string; provider_binding?: Flow['provider_binding']; steps?: FlowStepInput[] }): Promise<Flow> => {
     const created = await apiCreate(data);
     await load();
     return created;

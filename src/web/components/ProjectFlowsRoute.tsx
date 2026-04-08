@@ -3,12 +3,13 @@ import type { ProjectWorkspaceRoutesProps } from './ProjectWorkspaceRoutes';
 
 type ProjectFlowsRouteProps = Pick<
   ProjectWorkspaceRoutesProps,
-  'flows' | 'setFlows' | 'project' | 'onSaveFlow' | 'onSaveFlowSteps' | 'onCreateFlow' | 'onDeleteFlow' | 'onSwapFlows'
+  'flows' | 'setFlows' | 'providers' | 'project' | 'onSaveFlow' | 'onSaveFlowSteps' | 'onCreateFlow' | 'onDeleteFlow' | 'onSwapFlows'
 >;
 
 export function ProjectFlowsRoute({
   flows,
   setFlows,
+  providers,
   project,
   onSaveFlow,
   onSaveFlowSteps,
@@ -20,6 +21,7 @@ export function ProjectFlowsRoute({
     <FlowEditor
       flows={flows}
       setFlows={setFlows}
+      providers={providers}
       projectId={project.id}
       onSave={onSaveFlow}
       onSaveSteps={onSaveFlowSteps}

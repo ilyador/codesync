@@ -26,7 +26,7 @@ export function useFlowStepEditor({
   const modal = useModal();
   const sorted = sortedSteps(flow);
   const [steps, setSteps] = useState<FlowStep[]>(() =>
-    isNew ? [...sorted, makeBlankStep(sorted.length + 1)] : sorted
+    isNew ? [...sorted, makeBlankStep(sorted.length + 1, flow.provider_binding)] : sorted
   );
   const activeIndex = isNew ? steps.length - 1 : stepIndex;
   const step = steps[activeIndex];

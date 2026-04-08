@@ -45,6 +45,9 @@ import { supabase } from './supabase.js';
 // Helpers
 // ---------------------------------------------------------------------------
 
+type UploadCall = [string, unknown, { contentType?: string }];
+type TableCall = [string, ...unknown[]];
+
 function makeTempDir(): string {
   const dir = join(tmpdir(), `workstream-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(dir, { recursive: true });
@@ -195,20 +198,20 @@ describe('scanAndUploadArtifacts', () => {
     expect(uploadMock).toHaveBeenCalledTimes(2);
 
     // Verify storage paths include project_id/task_id/filename
-    const uploadCalls = uploadMock.mock.calls;
-    const paths = uploadCalls.map((c: any[]) => c[0]);
+    const uploadCalls = uploadMock.mock.calls as UploadCall[];
+    const paths = uploadCalls.map(call => call[0]);
     expect(paths).toContain('proj-123/task-001/report.md');
     expect(paths).toContain('proj-123/task-001/data.json');
 
     // Verify correct MIME types
-    const reportCall = uploadCalls.find((c: any[]) => c[0].includes('report.md'));
+    const reportCall = uploadCalls.find(call => call[0].includes('report.md'));
     expect(reportCall[2]).toEqual(expect.objectContaining({ contentType: 'text/markdown' }));
-    const jsonCall = uploadCalls.find((c: any[]) => c[0].includes('data.json'));
+    const jsonCall = uploadCalls.find(call => call[0].includes('data.json'));
     expect(jsonCall[2]).toEqual(expect.objectContaining({ contentType: 'application/json' }));
 
     // Verify DB insert was called for each file
     const fromMock = supabase.from as ReturnType<typeof vi.fn>;
-    const artifactInsertCalls = fromMock.mock.calls.filter((c: any[]) => c[0] === 'task_artifacts');
+    const artifactInsertCalls = (fromMock.mock.calls as TableCall[]).filter(call => call[0] === 'task_artifacts');
     expect(artifactInsertCalls.length).toBeGreaterThanOrEqual(2);
 
     // Verify logs
@@ -231,15 +234,15 @@ describe('scanAndUploadArtifacts', () => {
 
     const storageMock = supabase.storage.from as ReturnType<typeof vi.fn>;
     const uploadMock = storageMock.mock.results[0]?.value.upload as ReturnType<typeof vi.fn>;
-    const uploadCalls = uploadMock.mock.calls;
+    const uploadCalls = uploadMock.mock.calls as UploadCall[];
 
-    const pngCall = uploadCalls.find((c: any[]) => c[0].includes('image.png'));
+    const pngCall = uploadCalls.find(call => call[0].includes('image.png'));
     expect(pngCall[2]).toEqual(expect.objectContaining({ contentType: 'image/png' }));
 
-    const pdfCall = uploadCalls.find((c: any[]) => c[0].includes('doc.pdf'));
+    const pdfCall = uploadCalls.find(call => call[0].includes('doc.pdf'));
     expect(pdfCall[2]).toEqual(expect.objectContaining({ contentType: 'application/pdf' }));
 
-    const htmlCall = uploadCalls.find((c: any[]) => c[0].includes('style.html'));
+    const htmlCall = uploadCalls.find(call => call[0].includes('style.html'));
     expect(htmlCall[2]).toEqual(expect.objectContaining({ contentType: 'text/html' }));
   });
 
@@ -325,12 +328,12 @@ describe('artifact production without code changes', () => {
     const uploadMock = storageMock.mock.results[0]?.value.upload as ReturnType<typeof vi.fn>;
     expect(uploadMock).toHaveBeenCalledTimes(2);
 
-    const paths = uploadMock.mock.calls.map((c: any[]) => c[0]);
+    const paths = (uploadMock.mock.calls as UploadCall[]).map(call => call[0]);
     expect(paths).toContain('proj-123/task-001/design-doc.md');
     expect(paths).toContain('proj-123/task-001/diagram.svg');
 
     // Verify MIME types
-    const svgCall = uploadMock.mock.calls.find((c: any[]) => c[0].includes('diagram.svg'));
+    const svgCall = (uploadMock.mock.calls as UploadCall[]).find(call => call[0].includes('diagram.svg'));
     expect(svgCall[2]).toEqual(expect.objectContaining({ contentType: 'image/svg+xml' }));
 
     // Verify logs confirm capture
@@ -388,12 +391,13 @@ describe('artifact production without code changes', () => {
     await scanAndUploadArtifacts(tempDir, 'task-042', 'job-099', 'document', () => {});
 
     const fromMock = supabase.from as ReturnType<typeof vi.fn>;
-    const artifactCalls = fromMock.mock.calls.filter((c: any[]) => c[0] === 'task_artifacts');
+    const fromCalls = fromMock.mock.calls as TableCall[];
+    const artifactCalls = fromCalls.filter(call => call[0] === 'task_artifacts');
     expect(artifactCalls).toHaveLength(1);
 
     // Get the insert mock and verify the payload
     const insertMock = fromMock.mock.results.find(
-      (_r: any, i: number) => fromMock.mock.calls[i][0] === 'task_artifacts',
+      (_result, index) => fromCalls[index]?.[0] === 'task_artifacts',
     )?.value.insert as ReturnType<typeof vi.fn>;
     expect(insertMock).toHaveBeenCalledTimes(1);
 

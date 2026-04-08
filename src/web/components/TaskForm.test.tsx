@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { TaskForm } from './TaskForm';
-import type { Flow } from '../lib/api';
+import type { Flow, ProviderConfig } from '../lib/api';
 import { useTaskFormState } from '../hooks/useTaskFormState';
 
 vi.mock('../lib/api', async () => {
@@ -25,7 +25,12 @@ vi.mock('../hooks/useSlashCommands', () => ({
   }),
 }));
 
-function makeFlow(id: string, name: string, defaultTypes: string[]): Flow {
+function makeFlow(
+  id: string,
+  name: string,
+  defaultTypes: string[],
+  options: Partial<Flow> = {},
+): Flow {
   return {
     id,
     project_id: 'project-1',
@@ -35,18 +40,40 @@ function makeFlow(id: string, name: string, defaultTypes: string[]): Flow {
     is_builtin: false,
     agents_md: null,
     default_types: defaultTypes,
+    provider_binding: 'task_selected',
     position: 1,
     created_at: '2026-04-06T00:00:00.000Z',
     flow_steps: [],
+    ...options,
   };
 }
 
-function renderTaskForm(flows: Flow[]) {
+function makeProvider(id: string, provider: ProviderConfig['provider'], label: string): ProviderConfig {
+  return {
+    id,
+    project_id: 'project-1',
+    provider,
+    label,
+    base_url: null,
+    is_enabled: true,
+    supports_embeddings: false,
+    embedding_model: null,
+    model_suggestions: provider === 'claude' ? ['sonnet', 'opus'] : ['gpt-5.4', 'gpt-5.4-mini'],
+    models: provider === 'claude' ? ['sonnet', 'opus'] : ['gpt-5.4', 'gpt-5.4-mini'],
+    status: 'online',
+    status_message: 'ok',
+    has_api_key: false,
+    embedding_dimensions: null,
+  };
+}
+
+function renderTaskForm(flows: Flow[], providers: ProviderConfig[] = []) {
   return render(
     <TaskForm
       workstreams={[]}
       members={[{ id: 'user-1', name: 'Pat Doe', initials: 'PD' }]}
       flows={flows}
+      providers={providers}
       customTypes={[]}
       onSubmit={vi.fn().mockResolvedValue(undefined)}
       onClose={() => {}}
@@ -57,6 +84,7 @@ function renderTaskForm(flows: Flow[]) {
 function TaskFormStateHarness({ flows }: { flows: Flow[] }) {
   const { flowId, setFlowId } = useTaskFormState({
     flows,
+    providers: [],
     customTypes: [],
     onSubmit: vi.fn().mockResolvedValue(undefined),
     onClose: () => {},
@@ -171,6 +199,133 @@ describe('TaskForm flow selection', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('flow-id').textContent).toBe('flow-bug');
+    });
+  });
+
+  it('hides task-level model selection when the flow uses per-step model profiles', async () => {
+    const profileFlow = makeFlow('flow-feature', 'Feature Flow', ['feature'], {
+      flow_steps: [
+        {
+          id: 'step-1',
+          name: 'Implement',
+          position: 1,
+          instructions: '',
+          model: 'task:strong',
+          tools: ['Read'],
+          context_sources: ['task_description'],
+          is_gate: false,
+          on_fail_jump_to: null,
+          max_retries: 0,
+          on_max_retries: 'pause',
+          include_agents_md: true,
+        },
+        {
+          id: 'step-2',
+          name: 'Review',
+          position: 2,
+          instructions: '',
+          model: 'task:balanced',
+          tools: ['Read'],
+          context_sources: ['task_description'],
+          is_gate: false,
+          on_fail_jump_to: null,
+          max_retries: 0,
+          on_max_retries: 'pause',
+          include_agents_md: true,
+        },
+      ],
+    });
+
+    renderTaskForm([profileFlow], [makeProvider('provider-claude', 'claude', 'Claude CLI')]);
+
+    expect(screen.getByText('This flow uses per-step model profiles, so task-level model selection is unavailable.')).toBeTruthy();
+    expect(screen.queryByLabelText('Model')).toBeNull();
+  });
+
+  it('shows task-level model selection when every step uses task:selected', async () => {
+    const selectableFlow = makeFlow('flow-feature', 'Feature Flow', ['feature'], {
+      flow_steps: [
+        {
+          id: 'step-1',
+          name: 'Implement',
+          position: 1,
+          instructions: '',
+          model: 'task:selected',
+          tools: ['Read'],
+          context_sources: ['task_description'],
+          is_gate: false,
+          on_fail_jump_to: null,
+          max_retries: 0,
+          on_max_retries: 'pause',
+          include_agents_md: true,
+        },
+      ],
+    });
+
+    renderTaskForm([selectableFlow], [makeProvider('provider-claude', 'claude', 'Claude CLI')]);
+
+    expect(await screen.findByDisplayValue('sonnet')).toBeTruthy();
+  });
+
+  it('infers provider, model, reasoning, and subagents from flow-locked flows', async () => {
+    const lockedFlow = makeFlow('flow-feature', 'Feature Flow', ['feature'], {
+      provider_binding: 'flow_locked',
+      flow_steps: [
+        {
+          id: 'step-1',
+          name: 'Implement',
+          position: 1,
+          instructions: '',
+          model: 'claude:sonnet',
+          tools: ['Read'],
+          context_sources: ['task_description'],
+          is_gate: false,
+          on_fail_jump_to: null,
+          max_retries: 0,
+          on_max_retries: 'pause',
+          include_agents_md: true,
+        },
+      ],
+    });
+
+    renderTaskForm([lockedFlow], [makeProvider('provider-claude', 'claude', 'Claude CLI')]);
+
+    expect(screen.queryByLabelText('Provider')).toBeNull();
+    expect(screen.queryByLabelText('Model')).toBeNull();
+    expect(screen.queryByText('Reasoning')).toBeNull();
+    expect(screen.queryByText('Use subagents')).toBeNull();
+    expect(screen.getByText('Provider and model are locked by this flow.')).toBeTruthy();
+  });
+
+  it('hides reasoning and subagent controls when the chosen model does not support them', async () => {
+    const selectableFlow = makeFlow('flow-feature', 'Feature Flow', ['feature'], {
+      flow_steps: [
+        {
+          id: 'step-1',
+          name: 'Implement',
+          position: 1,
+          instructions: '',
+          model: 'task:selected',
+          tools: ['Read'],
+          context_sources: ['task_description'],
+          is_gate: false,
+          on_fail_jump_to: null,
+          max_retries: 0,
+          on_max_retries: 'pause',
+          include_agents_md: true,
+        },
+      ],
+    });
+
+    renderTaskForm([selectableFlow], [makeProvider('provider-codex', 'codex', 'Codex CLI')]);
+
+    const modelInput = await screen.findByDisplayValue('gpt-5.4');
+    fireEvent.change(modelInput, { target: { value: 'custom-experimental-model' } });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Reasoning')).toBeNull();
+      expect(screen.queryByText('Use subagents')).toBeNull();
+      expect(screen.getByText('The resolved provider/model for this flow does not expose task-level reasoning.')).toBeTruthy();
     });
   });
 });

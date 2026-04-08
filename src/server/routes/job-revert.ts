@@ -10,6 +10,7 @@ import {
   stringField,
 } from '../authz.js';
 import { supabase } from '../supabase.js';
+import { loadTaskExecutionUnlockUpdate as loadExecutionReset } from '../task-execution.js';
 import { errorMessage } from './execution-helpers.js';
 
 export const jobRevertRouter = Router();
@@ -46,7 +47,11 @@ jobRevertRouter.post('/api/jobs/:id/revert', requireAuth, async (req, res) => {
     return res.status(400).json({ error: errorMessage(error, 'Failed to revert checkpoint') });
   }
 
-  const { error: taskUpdateErr } = await supabase.from('tasks').update({ status: 'todo', completed_at: null }).eq('id', taskId);
+  const executionReset = await loadExecutionReset(taskId);
+  const { error: taskUpdateErr } = await supabase
+    .from('tasks')
+    .update({ status: 'todo', completed_at: null, ...executionReset })
+    .eq('id', taskId);
   if (taskUpdateErr) return res.status(400).json({ error: taskUpdateErr.message });
   const { error: jobUpdateErr } = await supabase.from('jobs').update({ checkpoint_status: 'reverted' }).eq('id', jobId);
   if (jobUpdateErr) {

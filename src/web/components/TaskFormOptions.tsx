@@ -1,4 +1,5 @@
-import type { Flow } from '../lib/api';
+import type { Flow, ProviderConfig } from '../lib/api';
+import type { FlowExecutionCapabilities } from '../../shared/flow-execution-capabilities';
 import {
   type CustomTypeOption,
   type MemberOption,
@@ -19,6 +20,17 @@ interface TaskFormOptionsProps {
   isCustomType: boolean;
   assignee: string;
   flowId: string;
+  providerConfigId: string;
+  providerModel: string;
+  selectedFlow: Flow | null;
+  selectedProvider: ProviderConfig | null;
+  taskSelectableProviders: ProviderConfig[];
+  flowCapabilities: FlowExecutionCapabilities | null;
+  providerSelectionEnabled: boolean;
+  modelSelectionEnabled: boolean;
+  reasoningSelectionEnabled: boolean;
+  subagentSelectionEnabled: boolean;
+  executionSettingsLocked: boolean;
   effort: string;
   workstreamId: string;
   priority: string;
@@ -31,6 +43,8 @@ interface TaskFormOptionsProps {
   setIsCustomType: (value: boolean) => void;
   setAssignee: (value: string) => void;
   setFlowId: (value: string) => void;
+  setProviderConfigId: (value: string) => void;
+  setProviderModel: (value: string) => void;
   setMode: (value: string) => void;
   setEffort: (value: string) => void;
   setWorkstreamId: (value: string) => void;
@@ -51,6 +65,17 @@ export function TaskFormOptions({
   isCustomType,
   assignee,
   flowId,
+  providerConfigId,
+  providerModel,
+  selectedFlow,
+  selectedProvider,
+  taskSelectableProviders,
+  flowCapabilities,
+  providerSelectionEnabled,
+  modelSelectionEnabled,
+  reasoningSelectionEnabled,
+  subagentSelectionEnabled,
+  executionSettingsLocked,
   effort,
   workstreamId,
   priority,
@@ -63,6 +88,8 @@ export function TaskFormOptions({
   setIsCustomType,
   setAssignee,
   setFlowId,
+  setProviderConfigId,
+  setProviderModel,
   setMode,
   setEffort,
   setWorkstreamId,
@@ -83,6 +110,16 @@ export function TaskFormOptions({
         isCustomType={isCustomType}
         assignee={assignee}
         flowId={flowId}
+        providerConfigId={providerConfigId}
+        providerModel={providerModel}
+        selectedFlow={selectedFlow}
+        selectedProvider={selectedProvider}
+        taskSelectableProviders={taskSelectableProviders}
+        flowCapabilities={flowCapabilities}
+        providerSelectionEnabled={providerSelectionEnabled}
+        modelSelectionEnabled={modelSelectionEnabled}
+        reasoningSelectionEnabled={reasoningSelectionEnabled}
+        executionSettingsLocked={executionSettingsLocked}
         effort={effort}
         setType={setType}
         setCustomType={setCustomType}
@@ -90,6 +127,8 @@ export function TaskFormOptions({
         setIsCustomType={setIsCustomType}
         setAssignee={setAssignee}
         setFlowId={setFlowId}
+        setProviderConfigId={setProviderConfigId}
+        setProviderModel={setProviderModel}
         setMode={setMode}
         setEffort={setEffort}
         setAutoContinue={setAutoContinue}
@@ -105,6 +144,10 @@ export function TaskFormOptions({
 
       <TaskExecutionSection
         assignee={assignee}
+        flowCapabilities={flowCapabilities}
+        providerSelectionEnabled={providerSelectionEnabled}
+        subagentSelectionEnabled={subagentSelectionEnabled}
+        executionSettingsLocked={executionSettingsLocked}
         multiagent={multiagent}
         autoContinue={autoContinue}
         chaining={chaining}

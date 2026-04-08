@@ -1,15 +1,20 @@
-import type { FlowStep } from '../lib/api';
+import { useEffect } from 'react';
+import type { FlowStep, ProviderConfig } from '../lib/api';
 import { MdField } from './MdField';
 import {
   ALL_CONTEXT_SOURCES,
   ALL_TOOLS,
-  MODEL_OPTIONS,
   ON_MAX_RETRIES_OPTIONS,
 } from '../lib/constants';
+import { defaultModelForProvider, formatModelId, isApiProvider, parseModelId } from '../lib/model-id';
+import { isTaskSelectedFlow, type FlowProviderBinding } from '../../shared/flow-provider-binding';
+import { inferTaskModelProfile, TASK_MODEL_PROFILE_OPTIONS } from '../../shared/flow-step-model';
 import s from './FlowEditor.module.css';
 
 interface FlowStepFormFieldsProps {
   step: FlowStep;
+  providerBinding: FlowProviderBinding;
+  providers: ProviderConfig[];
   index: number;
   allSteps: FlowStep[];
   isNew: boolean;
@@ -23,6 +28,8 @@ interface FlowStepFormFieldsProps {
 
 export function FlowStepFormFields({
   step,
+  providerBinding,
+  providers,
   index,
   allSteps,
   isNew,
@@ -33,6 +40,44 @@ export function FlowStepFormFields({
   onDelete,
   onClose,
 }: FlowStepFormFieldsProps) {
+  const taskSelectedFlow = isTaskSelectedFlow(providerBinding);
+  const parsedModel = parseModelId(step.model);
+  const availableProviders = providers.filter(provider =>
+    provider.is_enabled
+    || provider.id === step.provider_config_id
+    || (!step.provider_config_id && provider.provider === parsedModel.provider)
+  );
+  const matchingProviders = availableProviders.filter(provider => provider.provider === parsedModel.provider);
+  const inferredProvider = matchingProviders.length === 1 ? matchingProviders[0] : null;
+  const selectedProvider = step.provider_config_id
+    ? availableProviders.find(provider => provider.id === step.provider_config_id) || providers.find(provider => provider.id === step.provider_config_id)
+    : inferredProvider;
+  const selectedProviderId = taskSelectedFlow ? '' : (step.provider_config_id || inferredProvider?.id || '');
+  const modelOptions = selectedProvider
+    ? (selectedProvider.models.length > 0 ? selectedProvider.models : selectedProvider.model_suggestions)
+    : [];
+  const modelListId = `flow-step-model-${step.id}`;
+  const taskProfile = inferTaskModelProfile(step.model) || 'balanced';
+  const needsExplicitProviderSelection = !taskSelectedFlow && !step.provider_config_id && matchingProviders.length > 1;
+
+  useEffect(() => {
+    if (taskSelectedFlow) {
+      if (step.provider_config_id) {
+        onUpdate({ provider_config_id: null });
+      }
+      return;
+    }
+    if (!step.provider_config_id && inferredProvider) {
+      onUpdate({ provider_config_id: inferredProvider.id });
+    }
+  }, [inferredProvider, onUpdate, step.provider_config_id, taskSelectedFlow]);
+
+  function providerOptionLabel(provider: ProviderConfig): string {
+    return provider.label === provider.provider
+      ? `${provider.label} (${provider.provider})`
+      : `${provider.label} · ${provider.provider}`;
+  }
+
   return (
     <form onSubmit={event => event.preventDefault()} className={s.modalForm}>
       <input
@@ -52,21 +97,96 @@ export function FlowStepFormFields({
         />
       </div>
 
-      <div className={s.field}>
-        <label className={s.label}>Model</label>
-        <div className={s.segmented}>
-          {MODEL_OPTIONS.map(model => (
-            <button
-              key={model}
-              type="button"
-              className={`${s.segmentedBtn} ${step.model === model ? s.segmentedActive : ''}`}
-              onClick={() => onUpdate({ model })}
-            >
-              {model.charAt(0).toUpperCase() + model.slice(1)}
-            </button>
-          ))}
+      {taskSelectedFlow ? (
+        <div className={s.field}>
+          <label className={s.label}>Model Profile</label>
+          <select
+            className={s.select}
+            value={taskProfile}
+            onChange={event => onUpdate({ model: `task:${event.target.value}` })}
+          >
+            {TASK_MODEL_PROFILE_OPTIONS.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <div className={s.stepCount}>
+            `Task model` exposes a task-level model picker. Profile options keep the flow provider-agnostic but assign per-step strength.
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className={s.field}>
+          <label className={s.label}>Model</label>
+          <div className={s.gateRow}>
+            <div className={s.field}>
+              <label className={s.label}>Provider Config</label>
+              <select
+                className={s.select}
+                value={selectedProviderId}
+                onChange={event => {
+                  const provider = providers.find(candidate => candidate.id === event.target.value) || null;
+                  if (!provider) {
+                    onUpdate({ provider_config_id: null });
+                    return;
+                  }
+                  const fallbackModel = (provider.models[0] || provider.model_suggestions[0] || parsedModel.model || defaultModelForProvider(provider.provider)).trim();
+                  onUpdate({
+                    provider_config_id: provider.id,
+                    model: formatModelId(provider.provider, fallbackModel),
+                  });
+                }}
+              >
+                {!selectedProviderId && (
+                  <option value="">Select provider config</option>
+                )}
+                <optgroup label="CLI">
+                  {availableProviders.filter(provider => provider.provider === 'claude' || provider.provider === 'codex').map(provider => (
+                    <option key={provider.id} value={provider.id}>{providerOptionLabel(provider)}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="OpenAI-Compatible">
+                  {availableProviders.filter(provider => provider.provider !== 'claude' && provider.provider !== 'codex').map(provider => (
+                    <option key={provider.id} value={provider.id}>{providerOptionLabel(provider)}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+            <div className={s.field}>
+              <label className={s.label}>Model Name</label>
+              <input
+                className={s.textInput}
+                list={modelListId}
+                value={parsedModel.model}
+                onChange={event => onUpdate({
+                  model: formatModelId(selectedProvider?.provider || parsedModel.provider, event.target.value),
+                })}
+                placeholder="sonnet / llama3 / gpt-5..."
+              />
+              <datalist id={modelListId}>
+                {modelOptions.map(model => (
+                  <option key={model} value={model} />
+                ))}
+              </datalist>
+            </div>
+          </div>
+          {needsExplicitProviderSelection && (
+            <div className={s.stepCount}>
+              This project has multiple {parsedModel.provider} provider configs. Pick the exact config this step should use.
+            </div>
+          )}
+          {!selectedProvider && (
+            <div className={s.stepCount}>
+              No configured provider matches this step yet. Select a provider config or add one in Provider Settings.
+            </div>
+          )}
+          {selectedProvider && isApiProvider(selectedProvider.provider) && step.tools.length > 0 && (
+            <div className={s.stepCount}>
+              Tool-use runs in non-streaming mode for API-backed providers.
+            </div>
+          )}
+        </div>
+      )}
 
       <div className={s.field}>
         <label className={s.label}>Tools</label>

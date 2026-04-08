@@ -5,7 +5,7 @@ import s from './FlowEditor.module.css';
 interface FlowHeaderExtraProps {
   flow: Flow;
   allFlows: Flow[];
-  onSave: (flowId: string, updates: { default_types?: string[] }) => Promise<void>;
+  onSave: (flowId: string, updates: { default_types?: string[]; provider_binding?: Flow['provider_binding'] }) => Promise<void>;
   taskTypes?: string[];
 }
 
@@ -15,6 +15,17 @@ export function FlowHeaderExtra({ flow, allFlows, onSave, taskTypes }: FlowHeade
 
   return (
     <>
+      <select
+        className={s.typeSelect}
+        value={flow.provider_binding}
+        onChange={event => {
+          void onSave(flow.id, { provider_binding: event.target.value as Flow['provider_binding'] });
+        }}
+        title="How this flow resolves providers and models"
+      >
+        <option value="task_selected">Task-selected provider</option>
+        <option value="flow_locked">Locked providers</option>
+      </select>
       <select
         className={s.typeSelect}
         value=""

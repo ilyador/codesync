@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { Flow } from '../lib/api';
+import type { Flow, ProviderConfig } from '../lib/api';
 import { WorkstreamColumn } from './WorkstreamColumn';
 import { TaskCardView } from './TaskCard';
 import { FlowHeaderExtra } from './FlowHeaderExtra';
@@ -12,9 +12,10 @@ import s from './FlowEditor.module.css';
 interface FlowEditorProps {
   flows: Flow[];
   setFlows: React.Dispatch<React.SetStateAction<Flow[]>>;
-  onSave: (flowId: string, updates: { name?: string; description?: string; agents_md?: string; default_types?: string[]; position?: number }) => Promise<void>;
+  providers: ProviderConfig[];
+  onSave: (flowId: string, updates: { name?: string; description?: string; agents_md?: string; default_types?: string[]; position?: number; provider_binding?: Flow['provider_binding'] }) => Promise<void>;
   onSaveSteps: (flowId: string, steps: FlowStepInput[]) => Promise<void>;
-  onCreateFlow: (data: { project_id: string; name: string; description?: string; steps?: FlowStepInput[] }) => Promise<Flow>;
+  onCreateFlow: (data: { project_id: string; name: string; description?: string; provider_binding?: Flow['provider_binding']; steps?: FlowStepInput[] }) => Promise<Flow>;
   onDeleteFlow: (flowId: string) => Promise<void>;
   onSwapColumns: (draggedId: string, targetId: string) => void;
   projectId: string;
@@ -23,7 +24,7 @@ interface FlowEditorProps {
 
 const EMPTY_JOB_MAP = {};
 const EMPTY_SET = new Set<string>();
-export function FlowEditor({ flows, setFlows, onSave, onSaveSteps, onCreateFlow, onDeleteFlow, onSwapColumns, projectId, taskTypes }: FlowEditorProps) {
+export function FlowEditor({ flows, setFlows, providers, onSave, onSaveSteps, onCreateFlow, onDeleteFlow, onSwapColumns, projectId, taskTypes }: FlowEditorProps) {
   const {
     creating,
     drag,
@@ -108,6 +109,7 @@ export function FlowEditor({ flows, setFlows, onSave, onSaveSteps, onCreateFlow,
       {modalTarget && modalFlow && (
         <FlowStepModal
           flow={modalFlow}
+          providers={providers}
           stepIndex={modalTarget.stepIndex}
           onSaveSteps={onSaveSteps}
           onClose={closeStepModal}

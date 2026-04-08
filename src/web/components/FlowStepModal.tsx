@@ -1,4 +1,4 @@
-import type { Flow } from '../lib/api';
+import type { Flow, ProviderConfig } from '../lib/api';
 import type { FlowStepInput } from '../lib/flow-editor';
 import { useExitAnimation } from '../hooks/useExitAnimation';
 import { useFlowStepEditor } from '../hooks/useFlowStepEditor';
@@ -8,12 +8,13 @@ import s from './FlowEditor.module.css';
 
 interface FlowStepModalProps {
   flow: Flow;
+  providers: ProviderConfig[];
   stepIndex: number;
   onSaveSteps: (flowId: string, steps: FlowStepInput[]) => Promise<void>;
   onClose: () => void;
 }
 
-export function FlowStepModal({ flow, stepIndex, onSaveSteps, onClose }: FlowStepModalProps) {
+export function FlowStepModal({ flow, providers, stepIndex, onSaveSteps, onClose }: FlowStepModalProps) {
   const { closing, closeWithAnimation } = useExitAnimation(onClose);
   const {
     isNew,
@@ -43,6 +44,8 @@ export function FlowStepModal({ flow, stepIndex, onSaveSteps, onClose }: FlowSte
         </h2>
         <FlowStepFormFields
           step={step}
+          providerBinding={flow.provider_binding}
+          providers={providers}
           index={activeIndex}
           allSteps={steps}
           isNew={isNew}

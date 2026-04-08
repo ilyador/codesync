@@ -1,4 +1,4 @@
-import type { Flow } from '../lib/api';
+import type { Flow, ProviderConfig } from '../lib/api';
 import { TaskDescriptionField } from './TaskDescriptionField';
 import { TaskImagesSection } from './TaskImagesSection';
 import { TaskAttachmentsEditor } from './TaskAttachmentsEditor';
@@ -14,6 +14,7 @@ interface Props {
   workstreams: WorkstreamOption[];
   members: MemberOption[];
   flows?: Flow[];
+  providers?: ProviderConfig[];
   customTypes?: CustomTypeOption[];
   onSaveCustomType?: (name: string, pipeline: string) => Promise<void>;
   localPath?: string;
@@ -24,7 +25,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function TaskForm({ workstreams, members, flows = [], customTypes = [], onSaveCustomType, localPath, projectId, defaultWorkstreamId, editTask, onSubmit, onClose }: Props) {
+export function TaskForm({ workstreams, members, flows = [], providers = [], customTypes = [], onSaveCustomType, localPath, projectId, defaultWorkstreamId, editTask, onSubmit, onClose }: Props) {
   const { closing, closeWithAnimation } = useExitAnimation(onClose);
   const {
     isEdit,
@@ -44,6 +45,19 @@ export function TaskForm({ workstreams, members, flows = [], customTypes = [], o
     setAssignee,
     flowId,
     setFlowId,
+    providerConfigId,
+    setProviderConfigId,
+    providerModel,
+    setProviderModel,
+    selectedFlow,
+    selectedProvider,
+    taskSelectableProviders,
+    flowCapabilities,
+    providerSelectionEnabled,
+    modelSelectionEnabled,
+    reasoningSelectionEnabled,
+    subagentSelectionEnabled,
+    executionSettingsLocked,
     effort,
     setEffort,
     workstreamId,
@@ -65,6 +79,7 @@ export function TaskForm({ workstreams, members, flows = [], customTypes = [], o
     submitLabel,
   } = useTaskFormState({
     flows,
+    providers,
     customTypes,
     defaultWorkstreamId,
     editTask,
@@ -122,6 +137,17 @@ export function TaskForm({ workstreams, members, flows = [], customTypes = [], o
             isCustomType={isCustomType}
             assignee={assignee}
             flowId={flowId}
+            providerConfigId={providerConfigId}
+            providerModel={providerModel}
+            selectedFlow={selectedFlow}
+            selectedProvider={selectedProvider}
+            taskSelectableProviders={taskSelectableProviders}
+            flowCapabilities={flowCapabilities}
+            providerSelectionEnabled={providerSelectionEnabled}
+            modelSelectionEnabled={modelSelectionEnabled}
+            reasoningSelectionEnabled={reasoningSelectionEnabled}
+            subagentSelectionEnabled={subagentSelectionEnabled}
+            executionSettingsLocked={executionSettingsLocked}
             effort={effort}
             workstreamId={workstreamId}
             priority={priority}
@@ -134,6 +160,8 @@ export function TaskForm({ workstreams, members, flows = [], customTypes = [], o
             setIsCustomType={setIsCustomType}
             setAssignee={setAssignee}
             setFlowId={setFlowId}
+            setProviderConfigId={setProviderConfigId}
+            setProviderModel={setProviderModel}
             setMode={setMode}
             setEffort={setEffort}
             setWorkstreamId={setWorkstreamId}

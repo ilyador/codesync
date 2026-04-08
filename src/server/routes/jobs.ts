@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../auth-middleware.js';
 import { requireJobAccess, requireProjectMember, routeParam, stringField } from '../authz.js';
 import { supabase } from '../supabase.js';
+import { loadTaskExecutionUnlockUpdate } from '../task-execution.js';
 
 export const jobsRouter = Router();
 
@@ -29,7 +30,11 @@ jobsRouter.delete('/api/jobs/:id', requireAuth, async (req, res) => {
 
   const taskId = stringField(job, 'task_id');
   if (job.status === 'failed' && taskId) {
-    const { error: taskUpdateError } = await supabase.from('tasks').update({ status: 'backlog', completed_at: null }).eq('id', taskId);
+    const executionReset = await loadTaskExecutionUnlockUpdate(taskId);
+    const { error: taskUpdateError } = await supabase
+      .from('tasks')
+      .update({ status: 'backlog', completed_at: null, ...executionReset })
+      .eq('id', taskId);
     if (taskUpdateError) return res.status(400).json({ error: taskUpdateError.message });
   }
 

@@ -75,6 +75,9 @@ export interface TaskRecord {
   completed_at: string | null;
   created_by: string | null;
   flow_id: string | null;
+  provider_config_id: string | null;
+  provider_model: string | null;
+  execution_settings_locked_at: string | null;
   chaining?: string;
 }
 
@@ -294,6 +297,8 @@ export async function createTask(data: {
   multiagent?: string;
   assignee?: string | null;
   flow_id?: string | null;
+  provider_config_id?: string | null;
+  provider_model?: string | null;
   auto_continue?: boolean;
   images?: string[];
   workstream_id?: string | null;
@@ -511,6 +516,7 @@ export interface FlowStep {
   position: number;
   instructions: string;
   model: string;
+  provider_config_id?: string | null;
   tools: string[];
   context_sources: string[];
   is_gate: boolean;
@@ -529,6 +535,7 @@ export interface Flow {
   is_builtin: boolean;
   agents_md: string | null;
   default_types: string[];
+  provider_binding: 'task_selected' | 'flow_locked';
   position: number;
   flow_steps: FlowStep[];
   created_at: string;
@@ -538,7 +545,7 @@ export async function getFlows(projectId: string): Promise<Flow[]> {
   return apiFetch(`/api/flows?project_id=${projectId}`);
 }
 
-export async function createFlow(data: { project_id: string; name: string; description?: string; icon?: string; agents_md?: string; steps?: Array<Omit<FlowStep, 'id'>> }): Promise<Flow> {
+export async function createFlow(data: { project_id: string; name: string; description?: string; icon?: string; agents_md?: string; provider_binding?: Flow['provider_binding']; steps?: Array<Omit<FlowStep, 'id'>> }): Promise<Flow> {
   return apiFetch('/api/flows', { method: 'POST', body: JSON.stringify(data) });
 }
 
@@ -552,6 +559,136 @@ export async function deleteFlow(id: string) {
 
 export async function updateFlowSteps(flowId: string, steps: Array<Omit<FlowStep, 'id'>>) {
   return apiFetch(`/api/flows/${flowId}/steps`, { method: 'PUT', body: JSON.stringify({ steps }) });
+}
+
+// --- Providers ---
+export interface ProviderConfig {
+  id: string;
+  project_id: string;
+  provider: 'claude' | 'codex' | 'lmstudio' | 'ollama' | 'custom';
+  label: string;
+  base_url: string | null;
+  is_enabled: boolean;
+  supports_embeddings: boolean;
+  embedding_model: string | null;
+  model_suggestions: string[];
+  models: string[];
+  status: 'online' | 'offline';
+  status_message: string;
+  has_api_key: boolean;
+  embedding_dimensions: number | null;
+}
+
+export interface ProviderListResponse {
+  providers: ProviderConfig[];
+  embedding_provider_config_id: string | null;
+  embedding_dimensions: number | null;
+  detected_local_providers: Array<{
+    provider: ProviderConfig['provider'];
+    label: string;
+    base_url: string;
+  }>;
+}
+
+export interface ProviderTestResponse {
+  ok: boolean;
+  status: 'online' | 'offline';
+  message: string;
+  models: string[];
+  embedding_dimensions?: number | null;
+}
+
+export interface EmbeddingProviderUpdateResponse {
+  embedding_provider_config_id: string | null;
+  requested_embedding_provider_config_id?: string | null;
+  embedding_dimensions: number | null;
+  detected_embedding_dimensions: number | null;
+  requires_reindex: boolean;
+  updated: boolean;
+  reindexed: number | null;
+}
+
+export interface ProviderUpdateEmbeddingResponse extends EmbeddingProviderUpdateResponse {
+  provider: ProviderConfig;
+}
+
+export type ProviderUpdateResponse = ProviderConfig | ProviderUpdateEmbeddingResponse;
+
+export function isProviderUpdateEmbeddingResponse(value: ProviderUpdateResponse): value is ProviderUpdateEmbeddingResponse {
+  return typeof value === 'object'
+    && value !== null
+    && 'updated' in value
+    && 'requires_reindex' in value;
+}
+
+export async function getProviders(projectId: string): Promise<ProviderListResponse> {
+  return apiFetch(`/api/providers?project_id=${projectId}`);
+}
+
+export async function createProvider(projectId: string, data: {
+  provider: ProviderConfig['provider'];
+  label?: string;
+  base_url?: string;
+  api_key?: string;
+  is_enabled?: boolean;
+  supports_embeddings?: boolean;
+  embedding_model?: string;
+}): Promise<ProviderConfig> {
+  return apiFetch('/api/providers', {
+    method: 'POST',
+    body: JSON.stringify({ project_id: projectId, ...data }),
+  });
+}
+
+export async function updateProvider(
+  projectId: string,
+  providerId: string,
+  data: Record<string, unknown>,
+  opts: { reindexDocuments?: boolean } = {},
+): Promise<ProviderUpdateResponse> {
+  return apiFetch(`/api/providers/${providerId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      project_id: projectId,
+      ...data,
+      reindex_documents: opts.reindexDocuments === true,
+    }),
+  });
+}
+
+export async function deleteProvider(projectId: string, providerId: string) {
+  return apiFetch(`/api/providers/${providerId}?project_id=${encodeURIComponent(projectId)}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function testProvider(projectId: string, providerId: string): Promise<ProviderTestResponse> {
+  return apiFetch(`/api/providers/${providerId}/test`, {
+    method: 'POST',
+    body: JSON.stringify({ project_id: projectId }),
+  });
+}
+
+export async function getProviderModels(projectId: string, providerId: string): Promise<{ models: string[] }> {
+  return apiFetch(`/api/providers/${providerId}/models?project_id=${encodeURIComponent(projectId)}`);
+}
+
+export async function updateEmbeddingProvider(
+  projectId: string,
+  embeddingProviderConfigId: string | null,
+  opts: { reindexDocuments?: boolean } = {},
+): Promise<EmbeddingProviderUpdateResponse> {
+  return apiFetch(`/api/projects/${projectId}/embedding-provider`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      embedding_provider_config_id: embeddingProviderConfigId,
+      reindex_documents: opts.reindexDocuments === true,
+    }),
+  });
+}
+
+export async function reindexProjectDocuments(projectId: string): Promise<{ reindexed: number }> {
+  return apiFetch(`/api/projects/${projectId}/reindex-documents`, { method: 'POST' });
 }
 
 // --- Skills ---

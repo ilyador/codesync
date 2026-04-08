@@ -23,7 +23,7 @@ function stringValue(record: Record<string, unknown>, key: string): string {
 
 export async function search(projectId: string, query: string, limit?: number): Promise<SearchResult[]> {
   const k = limit ?? TOP_K;
-  const [queryEmbedding] = await embed(query);
+  const [queryEmbedding] = await embed(projectId, query);
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
 
   const { data, error } = await supabase.rpc('search_rag_chunks', {

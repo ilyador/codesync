@@ -35,6 +35,7 @@ export function validateTaskShape(updates: DbRecord): string | null {
     || validateStringField(updates, 'description', 'description')
     || validateStringField(updates, 'type', 'type', false)
     || validateStringField(updates, 'followup_notes', 'followup_notes')
+    || validateStringField(updates, 'provider_model', 'provider_model')
     || validateEnumField(updates, 'status', TASK_STATUSES, 'status')
     || validateEnumField(updates, 'mode', TASK_MODES, 'mode')
     || validateEnumField(updates, 'effort', TASK_EFFORTS, 'effort')
@@ -79,6 +80,7 @@ async function validateProjectReference(
 export async function validateTaskReferences(body: DbRecord, projectId: string): Promise<string | null> {
   const normalizeError = normalizeNullableString(body, 'workstream_id', 'workstream_id')
     || normalizeNullableString(body, 'flow_id', 'flow_id')
+    || normalizeNullableString(body, 'provider_config_id', 'provider_config_id')
     || normalizeNullableString(body, 'assignee', 'assignee');
   if (normalizeError) return normalizeError;
 
@@ -87,6 +89,9 @@ export async function validateTaskReferences(body: DbRecord, projectId: string):
 
   const flowError = await validateProjectReference('flows', body.flow_id, projectId, 'flow_id');
   if (flowError) return flowError;
+
+  const providerError = await validateProjectReference('provider_configs', body.provider_config_id, projectId, 'provider_config_id');
+  if (providerError) return providerError;
 
   const assignee = body.assignee;
   if (assignee != null && assignee !== '') {

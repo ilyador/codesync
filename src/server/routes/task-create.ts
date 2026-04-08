@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../auth-middleware.js';
 import { getUserId, isMissingRowError, requireProjectMember } from '../authz.js';
 import { supabase } from '../supabase.js';
+import { normalizeTaskExecutionSettings } from '../task-execution.js';
 import { validateTaskReferences, validateTaskScalars, validateTaskShape } from './task-validation.js';
 
 export const taskCreateRouter = Router();
@@ -18,6 +19,16 @@ taskCreateRouter.post('/api/tasks', requireAuth, async (req, res) => {
   if (shapeError) return res.status(400).json({ error: shapeError });
   const referenceError = await validateTaskReferences(taskInput, project_id);
   if (referenceError) return res.status(400).json({ error: referenceError });
+  try {
+    const execution = await normalizeTaskExecutionSettings({
+      projectId: project_id,
+      updates: taskInput,
+      isCreate: true,
+    });
+    Object.assign(taskInput, execution.updates);
+  } catch (error) {
+    return res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid task execution settings' });
+  }
 
   let posQuery = supabase
     .from('tasks')
@@ -49,6 +60,8 @@ taskCreateRouter.post('/api/tasks', requireAuth, async (req, res) => {
       images: taskInput.images || [],
       workstream_id: taskInput.workstream_id || null,
       flow_id: taskInput.flow_id || null,
+      provider_config_id: taskInput.provider_config_id || null,
+      provider_model: taskInput.provider_model || null,
       priority: taskInput.priority || 'backlog',
       chaining: taskInput.chaining || 'none',
       position: (maxTask?.position || 0) + 1,

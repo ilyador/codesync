@@ -9,7 +9,6 @@ import {
   buildPrimaryJobViews,
   buildReviewItems,
   buildTaskTitleMap,
-  buildTaskTypeMap,
   buildTodoItems,
   buildTypeFlowMap,
   buildWorkstreamNameMap,
@@ -36,11 +35,10 @@ export function useProjectViewModels({
 }: UseProjectViewModelsArgs) {
   const mentionedTaskIds = useMemo(() => buildMentionedTaskIds(notifications), [notifications]);
   const taskTitleMap = useMemo(() => buildTaskTitleMap(tasks), [tasks]);
-  const taskTypeMap = useMemo(() => buildTaskTypeMap(tasks), [tasks]);
   const memberMap = useMemo(() => buildMemberMap(members), [members]);
   const flowMap = useMemo(() => buildFlowMap(flows), [flows]);
   const typeFlowMap = useMemo(() => buildTypeFlowMap(flows), [flows]);
-  const jobViews: JobView[] = useMemo(() => buildJobViews(jobs, taskTitleMap, taskTypeMap), [jobs, taskTitleMap, taskTypeMap]);
+  const jobViews: JobView[] = useMemo(() => buildJobViews(jobs, taskTitleMap), [jobs, taskTitleMap]);
   const primaryJobViews = useMemo(() => buildPrimaryJobViews(jobViews), [jobViews]);
   const wsNameMap = useMemo(() => buildWorkstreamNameMap(workstreams), [workstreams]);
   const todoItems = useMemo(() => buildTodoItems(tasks, wsNameMap, currentUserId), [tasks, wsNameMap, currentUserId]);

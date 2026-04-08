@@ -8,6 +8,7 @@ import {
   stringField,
 } from '../authz.js';
 import { supabase } from '../supabase.js';
+import { loadTaskExecutionUnlockUpdate } from '../task-execution.js';
 import { errorMessage } from './execution-helpers.js';
 
 export const jobRejectRouter = Router();
@@ -44,7 +45,11 @@ jobRejectRouter.post('/api/jobs/:id/reject', requireAuth, async (req, res) => {
     }
   }
 
-  const { error: taskUpdateErr } = await supabase.from('tasks').update({ status: 'todo', followup_notes: null, completed_at: null }).eq('id', taskId);
+  const executionReset = await loadTaskExecutionUnlockUpdate(taskId);
+  const { error: taskUpdateErr } = await supabase
+    .from('tasks')
+    .update({ status: 'todo', followup_notes: null, completed_at: null, ...executionReset })
+    .eq('id', taskId);
   if (taskUpdateErr) return res.status(400).json({ error: taskUpdateErr.message });
   const { error: jobDeleteErr } = await supabase.from('jobs').delete().eq('id', jobId);
   if (jobDeleteErr) {

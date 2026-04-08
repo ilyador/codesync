@@ -1,0 +1,17 @@
+export {
+  defaultModelForProvider,
+  formatModelId,
+  isApiProvider,
+  isCliProvider,
+  isLocalApiProvider,
+  normalizeProviderKind,
+  parseModelId,
+  resolveModelCapabilities,
+  supportsTaskSelectionProvider,
+  toProviderReasoningLevel,
+  type ModelCapabilities,
+  type ParsedModelId,
+  type ProviderKind,
+  type ProviderReasoningLevel,
+  type ReasoningLevel,
+} from '../../shared/provider-model.js';

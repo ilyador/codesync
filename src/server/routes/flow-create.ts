@@ -1,22 +1,30 @@
 import { Router } from 'express';
 import { requireAuth } from '../auth-middleware.js';
 import { isMissingRowError, requireProjectMember } from '../authz.js';
-import { normalizeFlowStep, withSortedFlowSteps } from '../flow-steps.js';
+import { normalizeFlowStep, resolveFlowStepProviderConfigs, withSortedFlowSteps } from '../flow-steps.js';
 import { broadcast } from '../realtime.js';
 import { supabase } from '../supabase.js';
-import { validateOptionalString, validateStepPayload } from './flow-validation.js';
+import { normalizeFlowProviderBinding } from '../../shared/flow-provider-binding.js';
+import { validateFlowProviderBinding, validateOptionalString, validateStepPayload, validateStepsForBinding } from './flow-validation.js';
 
 export const flowCreateRouter = Router();
 
 flowCreateRouter.post('/api/flows', requireAuth, async (req, res) => {
-  const { project_id, name, description, icon, agents_md, steps } = req.body;
+  const { project_id, name, description, icon, agents_md, steps, provider_binding } = req.body;
   if (typeof project_id !== 'string' || !project_id || typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'project_id and name required' });
   if (!await requireProjectMember(req, res, project_id)) return;
   const bodyError = validateOptionalString(description, 'description')
     || validateOptionalString(icon, 'icon')
     || validateOptionalString(agents_md, 'agents_md')
+    || validateFlowProviderBinding(provider_binding)
     || validateStepPayload(steps);
   if (bodyError) return res.status(400).json({ error: bodyError });
+
+  const normalizedBinding = normalizeFlowProviderBinding(typeof provider_binding === 'string' ? provider_binding : 'task_selected');
+  const stepBindingError = Array.isArray(steps)
+    ? validateStepsForBinding(normalizedBinding, steps as Array<Record<string, unknown>>)
+    : null;
+  if (stepBindingError) return res.status(400).json({ error: stepBindingError });
 
   const { data: maxFlow, error: maxFlowError } = await supabase
     .from('flows')
@@ -29,13 +37,31 @@ flowCreateRouter.post('/api/flows', requireAuth, async (req, res) => {
 
   const { data: flow, error } = await supabase
     .from('flows')
-    .insert({ project_id, name: name.trim(), description: description || '', icon: icon || 'bot', agents_md: agents_md || null, position: (maxFlow?.position ?? -1) + 1 })
+    .insert({
+      project_id,
+      name: name.trim(),
+      description: description || '',
+      icon: icon || 'bot',
+      agents_md: agents_md || null,
+      provider_binding: normalizedBinding,
+      position: (maxFlow?.position ?? -1) + 1,
+    })
     .select()
     .single();
   if (error) return res.status(400).json({ error: error.message });
 
   if (Array.isArray(steps) && steps.length > 0) {
-    const stepRows = steps.map((step, i: number) => ({ ...normalizeFlowStep(step, i), flow_id: flow.id }));
+    const normalizedSteps = steps.map((step, i: number) => normalizeFlowStep(step, i));
+    let resolvedSteps;
+    try {
+      resolvedSteps = await resolveFlowStepProviderConfigs(project_id, normalizedBinding, normalizedSteps);
+    } catch (error) {
+      const { error: cleanupError } = await supabase.from('flows').delete().eq('id', flow.id);
+      if (cleanupError) console.error(`[flows] Failed to clean up invalid flow ${flow.id}:`, cleanupError.message);
+      const message = error instanceof Error ? error.message : 'Failed to resolve flow step providers';
+      return res.status(400).json({ error: message });
+    }
+    const stepRows = resolvedSteps.map(step => ({ ...step, flow_id: flow.id }));
     if (stepRows.some(step => !step.name)) {
       const { error: cleanupError } = await supabase.from('flows').delete().eq('id', flow.id);
       if (cleanupError) console.error(`[flows] Failed to clean up invalid flow ${flow.id}:`, cleanupError.message);

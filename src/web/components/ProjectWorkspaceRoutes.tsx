@@ -1,9 +1,10 @@
 import { Route, Routes } from 'react-router-dom';
-import type { Flow, FlowStep, TaskRecord, WorkstreamRecord } from '../lib/api';
+import type { EmbeddingProviderUpdateResponse, Flow, FlowStep, ProviderConfig, ProviderUpdateResponse, TaskRecord, WorkstreamRecord } from '../lib/api';
 import type { JobView } from './job-types';
 import { ProjectArchiveRoute } from './ProjectArchiveRoute';
 import { ProjectBoardRoute } from './ProjectBoardRoute';
 import { ProjectFlowsRoute } from './ProjectFlowsRoute';
+import { ProjectProvidersRoute } from './ProjectProvidersRoute';
 
 export interface ProjectWorkspaceRoutesProps {
   project: {
@@ -16,6 +17,10 @@ export interface ProjectWorkspaceRoutesProps {
   allWorkstreams: WorkstreamRecord[];
   flows: Flow[];
   setFlows: React.Dispatch<React.SetStateAction<Flow[]>>;
+  providers: ProviderConfig[];
+  embeddingProviderConfigId: string | null;
+  embeddingDimensions: number | null;
+  detectedLocalProviders: Array<{ provider: ProviderConfig['provider']; label: string; base_url: string }>;
   memberMap: Record<string, { name: string; initials: string }>;
   flowMap: Record<string, string>;
   typeFlowMap: Record<string, string>;
@@ -45,11 +50,26 @@ export interface ProjectWorkspaceRoutesProps {
   onContinue: (jobId: string) => void;
   onCreatePr: (workstreamId: string, options?: { review?: boolean }) => void;
   onRestoreArchiveWorkstream: (workstreamId: string) => Promise<void>;
-  onSaveFlow: (flowId: string, updates: { name?: string; description?: string; agents_md?: string; default_types?: string[]; position?: number }) => Promise<void>;
+  onSaveFlow: (flowId: string, updates: { name?: string; description?: string; agents_md?: string; default_types?: string[]; position?: number; provider_binding?: Flow['provider_binding'] }) => Promise<void>;
   onSaveFlowSteps: (flowId: string, steps: Array<Omit<FlowStep, 'id'>>) => Promise<void>;
-  onCreateFlow: (data: { project_id: string; name: string; description?: string; steps?: Array<Omit<FlowStep, 'id'>> }) => Promise<Flow>;
+  onCreateFlow: (data: { project_id: string; name: string; description?: string; provider_binding?: Flow['provider_binding']; steps?: Array<Omit<FlowStep, 'id'>> }) => Promise<Flow>;
   onDeleteFlow: (flowId: string) => Promise<void>;
   onSwapFlows: (draggedId: string, targetId: string) => void;
+  onCreateProvider: (data: {
+    provider: ProviderConfig['provider'];
+    label?: string;
+    base_url?: string;
+    api_key?: string;
+    is_enabled?: boolean;
+    supports_embeddings?: boolean;
+    embedding_model?: string;
+  }) => Promise<void>;
+  onUpdateProvider: (providerId: string, data: Record<string, unknown>, opts?: { reindexDocuments?: boolean }) => Promise<ProviderUpdateResponse>;
+  onDeleteProvider: (providerId: string) => Promise<void>;
+  onTestProvider: (providerId: string) => Promise<{ ok: boolean; status: 'online' | 'offline'; message: string; models: string[]; embedding_dimensions?: number | null }>;
+  onRefreshProviderModels: (providerId: string) => Promise<string[]>;
+  onUpdateEmbeddingProvider: (embeddingProviderConfigId: string | null, opts?: { reindexDocuments?: boolean }) => Promise<EmbeddingProviderUpdateResponse>;
+  onReindexDocuments: () => Promise<{ reindexed: number }>;
 }
 
 export function ProjectWorkspaceRoutes({
@@ -60,6 +80,10 @@ export function ProjectWorkspaceRoutes({
   allWorkstreams,
   flows,
   setFlows,
+  providers,
+  embeddingProviderConfigId,
+  embeddingDimensions,
+  detectedLocalProviders,
   memberMap,
   flowMap,
   typeFlowMap,
@@ -94,6 +118,13 @@ export function ProjectWorkspaceRoutes({
   onCreateFlow,
   onDeleteFlow,
   onSwapFlows,
+  onCreateProvider,
+  onUpdateProvider,
+  onDeleteProvider,
+  onTestProvider,
+  onRefreshProviderModels,
+  onUpdateEmbeddingProvider,
+  onReindexDocuments,
 }: ProjectWorkspaceRoutesProps) {
   return (
     <Routes>
@@ -157,11 +188,30 @@ export function ProjectWorkspaceRoutes({
             flows={flows}
             setFlows={setFlows}
             project={project}
+            providers={providers}
             onSaveFlow={onSaveFlow}
             onSaveFlowSteps={onSaveFlowSteps}
             onCreateFlow={onCreateFlow}
             onDeleteFlow={onDeleteFlow}
             onSwapFlows={onSwapFlows}
+          />
+        )}
+      />
+      <Route
+        path="/providers"
+        element={(
+          <ProjectProvidersRoute
+            providers={providers}
+            embeddingProviderConfigId={embeddingProviderConfigId}
+            embeddingDimensions={embeddingDimensions}
+            detectedLocalProviders={detectedLocalProviders}
+            onCreateProvider={onCreateProvider}
+            onUpdateProvider={onUpdateProvider}
+            onDeleteProvider={onDeleteProvider}
+            onTestProvider={onTestProvider}
+            onRefreshProviderModels={onRefreshProviderModels}
+            onUpdateEmbeddingProvider={onUpdateEmbeddingProvider}
+            onReindexDocuments={onReindexDocuments}
           />
         )}
       />

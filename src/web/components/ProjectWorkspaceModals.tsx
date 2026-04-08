@@ -1,4 +1,4 @@
-import type { CustomTaskType, Flow, MemberRecord, WorkstreamRecord } from '../lib/api';
+import type { CustomTaskType, Flow, MemberRecord, ProviderConfig, WorkstreamRecord } from '../lib/api';
 import { ProjectTaskDialogs } from './ProjectTaskDialogs';
 import type { EditTaskData, TaskFormData } from './task-form-types';
 import { AddProjectModal } from './AddProjectModal';
@@ -13,6 +13,7 @@ export interface ProjectWorkspaceModalsProps {
   activeWorkstreams: WorkstreamRecord[];
   members: MemberRecord[];
   flows: Flow[];
+  providers: ProviderConfig[];
   customTypes: CustomTaskType[];
   showTaskForm: boolean;
   taskFormWorkstream: string | null;
@@ -35,6 +36,7 @@ export function ProjectWorkspaceModals({
   activeWorkstreams,
   members,
   flows,
+  providers,
   customTypes,
   showTaskForm,
   taskFormWorkstream,
@@ -58,6 +60,7 @@ export function ProjectWorkspaceModals({
         workstreams={activeWorkstreams}
         members={members}
         flows={flows}
+        providers={providers}
         customTypes={customTypes}
         showCreate={showTaskForm}
         defaultWorkstreamId={taskFormWorkstream}

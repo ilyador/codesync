@@ -7,6 +7,8 @@ export interface TaskFormData {
   multiagent: string;
   assignee: string | null;
   flow_id: string | null;
+  provider_config_id: string | null;
+  provider_model: string | null;
   auto_continue: boolean;
   images: string[];
   workstream_id: string | null;
@@ -24,6 +26,9 @@ export interface EditTaskData {
   multiagent?: string;
   assignee?: string | null;
   flow_id?: string | null;
+  provider_config_id?: string | null;
+  provider_model?: string | null;
+  execution_settings_locked_at?: string | null;
   auto_continue?: boolean;
   images?: string[];
   workstream_id?: string | null;

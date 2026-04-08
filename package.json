@@ -17,10 +17,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.52",
     "@mdxeditor/editor": "^3.54.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@supabase/supabase-js": "^2.101.1",
     "@types/multer": "^2.1.0",
+    "ai": "^6.0.153",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "googleapis": "^171.4.0",

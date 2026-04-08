@@ -1,5 +1,9 @@
 import { asRecord, stringField } from './authz.js';
 import { DEFAULT_FLOWS, type FlowStepRow } from './default-flows.js';
+import { type FlowProviderBinding, normalizeFlowProviderBinding } from '../shared/flow-provider-binding.js';
+import { parseModelId, type ProviderKind } from './providers/model-id.js';
+import { getProjectProviderConfigs } from './providers/registry.js';
+import type { ProviderConfigRecord } from './providers/types.js';
 import { supabase } from './supabase.js';
 
 function stringArray(value: unknown, fallback: string[] = []): string[] {
@@ -12,7 +16,8 @@ export function normalizeFlowStep(step: unknown, index: number): FlowStepRow {
     name: typeof record.name === 'string' ? record.name.trim() : '',
     position: typeof record.position === 'number' ? record.position : index + 1,
     instructions: typeof record.instructions === 'string' ? record.instructions : '',
-    model: typeof record.model === 'string' ? record.model : 'opus',
+    model: typeof record.model === 'string' ? record.model : 'claude:sonnet',
+    provider_config_id: typeof record.provider_config_id === 'string' ? record.provider_config_id : null,
     tools: stringArray(record.tools),
     context_sources: stringArray(record.context_sources, ['task_description', 'previous_step']),
     is_gate: record.is_gate === true,
@@ -21,6 +26,67 @@ export function normalizeFlowStep(step: unknown, index: number): FlowStepRow {
     on_max_retries: typeof record.on_max_retries === 'string' ? record.on_max_retries : 'pause',
     include_agents_md: record.include_agents_md !== false,
   };
+}
+
+function stepLabel(step: FlowStepRow, index: number): string {
+  return step.name || `Step ${index + 1}`;
+}
+
+function configsByProvider(configs: ProviderConfigRecord[]): Map<ProviderKind, ProviderConfigRecord[]> {
+  const grouped = new Map<ProviderKind, ProviderConfigRecord[]>();
+  for (const config of configs) {
+    const current = grouped.get(config.provider) || [];
+    current.push(config);
+    grouped.set(config.provider, current);
+  }
+  return grouped;
+}
+
+export async function resolveFlowStepProviderConfigs(
+  projectId: string,
+  providerBinding: FlowProviderBinding | string | null | undefined,
+  steps: readonly FlowStepRow[],
+): Promise<FlowStepRow[]> {
+  if (normalizeFlowProviderBinding(providerBinding) !== 'flow_locked') {
+    return steps.map(step => ({ ...step, provider_config_id: null }));
+  }
+
+  const configs = await getProjectProviderConfigs(projectId);
+  const byId = new Map(configs.map(config => [config.id, config]));
+  const byProvider = configsByProvider(configs);
+
+  return steps.map((step, index) => {
+    const parsed = parseModelId(typeof step.model === 'string' ? step.model : '');
+    const explicitConfigId = typeof step.provider_config_id === 'string' && step.provider_config_id.length > 0
+      ? step.provider_config_id
+      : null;
+
+    if (explicitConfigId) {
+      const explicitConfig = byId.get(explicitConfigId);
+      if (!explicitConfig) {
+        throw new Error(`${stepLabel(step, index)} references a provider config that no longer exists`);
+      }
+      if (explicitConfig.provider !== parsed.provider) {
+        throw new Error(`${stepLabel(step, index)} uses model '${parsed.raw}' but is linked to provider '${explicitConfig.label}'`);
+      }
+      return {
+        ...step,
+        provider_config_id: explicitConfig.id,
+      };
+    }
+
+    const matches = byProvider.get(parsed.provider) || [];
+    if (matches.length === 0) {
+      throw new Error(`${stepLabel(step, index)} uses provider '${parsed.provider}', but that provider is not configured for this project`);
+    }
+    if (matches.length > 1) {
+      throw new Error(`${stepLabel(step, index)} uses provider '${parsed.provider}', but multiple configs match. Select a specific provider config for this step.`);
+    }
+    return {
+      ...step,
+      provider_config_id: matches[0].id,
+    };
+  });
 }
 
 export function numericPosition(value: unknown): number {
@@ -51,7 +117,14 @@ export async function createDefaultFlows(projectId: string): Promise<void> {
 
     const { data: flow, error } = await supabase
       .from('flows')
-      .insert({ project_id: projectId, name: def.name, description: def.description, is_builtin: true, default_types: def.default_types })
+      .insert({
+        project_id: projectId,
+        name: def.name,
+        description: def.description,
+        is_builtin: true,
+        default_types: def.default_types,
+        provider_binding: def.provider_binding,
+      })
       .select()
       .single();
     if (error) throw new Error(`Failed to seed flow ${def.name}: ${error.message}`);
@@ -60,8 +133,9 @@ export async function createDefaultFlows(projectId: string): Promise<void> {
     const flowId = flowRecord ? stringField(flowRecord, 'id') : null;
     if (!flowId) throw new Error(`Failed to seed flow ${def.name}: missing flow id`);
 
+    const preparedSteps = await resolveFlowStepProviderConfigs(projectId, def.provider_binding, def.steps);
     const { error: stepsError } = await supabase.from('flow_steps').insert(
-      def.steps.map(s => ({ ...s, flow_id: flowId }))
+      preparedSteps.map(s => ({ ...s, flow_id: flowId }))
     );
     if (stepsError) {
       const { error: cleanupError } = await supabase.from('flows').delete().eq('id', flowId);

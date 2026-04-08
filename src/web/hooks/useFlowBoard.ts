@@ -33,7 +33,7 @@ export function useFlowBoard({
   const flowTasksMap = useMemo(() => {
     const map: Record<string, ReturnType<typeof stepToTask>[]> = {};
     for (const flow of flows) {
-      map[flow.id] = sortedSteps(flow).map((step, index) => stepToTask(step, index));
+      map[flow.id] = sortedSteps(flow).map((step, index) => stepToTask(step, index, flow));
     }
     return map;
   }, [flows]);
@@ -50,7 +50,7 @@ export function useFlowBoard({
     const map = new Map<string, TaskCardMetaItem[]>();
     for (const flow of flows) {
       for (const step of sortedSteps(flow)) {
-        map.set(step.id, getStepMetaItems(step));
+        map.set(step.id, getStepMetaItems(step, flow));
       }
     }
     return map;
@@ -99,7 +99,7 @@ export function useFlowBoard({
   const handleNewFlow = useCallback(async () => {
     setCreating(true);
     try {
-      await onCreateFlow({ project_id: projectId, name: 'New Flow', description: '', steps: [] });
+      await onCreateFlow({ project_id: projectId, name: 'New Flow', description: '', provider_binding: 'task_selected', steps: [] });
     } catch (err) {
       await modal.alert('Error', getErrorMessage(err, 'Failed to create flow'));
     } finally {

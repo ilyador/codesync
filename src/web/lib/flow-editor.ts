@@ -1,6 +1,8 @@
 import type { Flow, FlowStep } from './api';
 import type { TaskView, WorkstreamView } from './task-view';
 import type { TaskCardMetaItem } from '../components/task-card-types';
+import { isTaskSelectedFlow } from '../../shared/flow-provider-binding';
+import { describeTaskStepModel } from '../../shared/flow-step-model';
 
 export type FlowStepInput = Omit<FlowStep, 'id'>;
 
@@ -8,13 +10,14 @@ export function getErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback;
 }
 
-export function makeBlankStep(position: number): FlowStep {
+export function makeBlankStep(position: number, providerBinding: Flow['provider_binding'] = 'flow_locked'): FlowStep {
   return {
     id: `new-${Date.now()}-${position}`,
     name: '',
     position,
     instructions: '',
-    model: 'sonnet',
+    model: isTaskSelectedFlow(providerBinding) ? 'task:balanced' : 'claude:sonnet',
+    provider_config_id: null,
     tools: ['Read', 'Edit', 'Write', 'Bash', 'Grep', 'Glob'],
     context_sources: ['claude_md', 'task_description'],
     is_gate: false,
@@ -31,6 +34,7 @@ export function stepsPayload(steps: FlowStep[]): FlowStepInput[] {
     position: index + 1,
     instructions: step.instructions,
     model: step.model,
+    provider_config_id: step.provider_config_id ?? null,
     tools: step.tools,
     context_sources: step.context_sources,
     is_gate: step.is_gate,
@@ -52,12 +56,12 @@ export function sortedSteps(flow: Flow): FlowStep[] {
     }));
 }
 
-export function stepToTask(step: FlowStep, index: number): TaskView {
+export function stepToTask(step: FlowStep, index: number, flow: Pick<Flow, 'provider_binding'>): TaskView {
   return {
     id: step.id,
     title: step.name || `Step ${index + 1}`,
     description: step.instructions || undefined,
-    type: step.model,
+    type: isTaskSelectedFlow(flow.provider_binding) ? describeTaskStepModel(step.model) : step.model,
     mode: 'ai',
     effort: '',
     auto_continue: true,
@@ -76,9 +80,11 @@ export function flowToWorkstream(flow: Flow): WorkstreamView {
   };
 }
 
-export function getStepMetaItems(step: FlowStep): TaskCardMetaItem[] {
+export function getStepMetaItems(step: FlowStep, flow: Pick<Flow, 'provider_binding'>): TaskCardMetaItem[] {
   return [
-    { label: 'model', value: step.model },
+    isTaskSelectedFlow(flow.provider_binding)
+      ? { label: 'profile', value: describeTaskStepModel(step.model) }
+      : { label: 'model', value: step.model },
     { label: 'tools', value: step.tools.join(', ') },
     ...(step.is_gate ? [{ label: 'gate', value: `max ${step.max_retries} retries, then ${step.on_max_retries}` }] : []),
   ];

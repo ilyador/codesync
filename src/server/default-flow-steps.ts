@@ -3,7 +3,7 @@ import type { FlowStepRow } from './default-flows.js';
 export const VERIFY_STEP: FlowStepRow = {
   name: 'verify',
   position: 2,
-  model: 'sonnet',
+  model: 'task:balanced',
   tools: ['Bash', 'Read'],
   context_sources: ['task_description'],
   is_gate: true,
@@ -43,7 +43,7 @@ This will pause the job so the user can decide. Do NOT include a verdict block w
 export const REVIEW_STEP: FlowStepRow = {
   name: 'review',
   position: 3,
-  model: 'sonnet',
+  model: 'task:balanced',
   tools: ['Read', 'Grep'],
   context_sources: ['task_description', 'architecture_md', 'review_criteria', 'git_diff'],
   is_gate: true,

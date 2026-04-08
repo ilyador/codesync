@@ -75,6 +75,10 @@ export function AppProjectWorkspace({
       members={resources.members.members}
       flows={resources.aiFlows.flows}
       setFlows={resources.aiFlows.setFlows}
+      providers={resources.providers.providers}
+      embeddingProviderConfigId={resources.providers.embeddingProviderConfigId}
+      embeddingDimensions={resources.providers.embeddingDimensions}
+      detectedLocalProviders={resources.providers.detectedLocalProviders}
       customTypes={resources.customTypes.types}
       jobs={viewModels.jobViews}
       memberMap={viewModels.memberMap}
@@ -144,6 +148,13 @@ export function AppProjectWorkspace({
       onCreateFlow={resources.aiFlows.createFlow}
       onDeleteFlow={resources.aiFlows.deleteFlow}
       onSwapFlows={ordering.handleSwapFlows}
+      onCreateProvider={resources.providers.createProvider}
+      onUpdateProvider={resources.providers.updateProvider}
+      onDeleteProvider={resources.providers.deleteProvider}
+      onTestProvider={resources.providers.testProvider}
+      onRefreshProviderModels={resources.providers.refreshProviderModels}
+      onUpdateEmbeddingProvider={resources.providers.updateEmbeddingProvider}
+      onReindexDocuments={resources.providers.reindexDocuments}
     />
   );
 }

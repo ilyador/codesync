@@ -3,6 +3,7 @@ import { requireAuth } from '../auth-middleware.js';
 import { asRecord, getUserId, normalizeRegisteredLocalPath, stringField } from '../authz.js';
 import { persistSupabaseConfig } from '../env-config.js';
 import { createDefaultFlows } from '../flow-steps.js';
+import { ensureDefaultProviderConfigs } from '../providers/registry.js';
 import { supabase } from '../supabase.js';
 
 export const projectCreateRouter = Router();
@@ -50,6 +51,12 @@ projectCreateRouter.post('/api/projects', requireAuth, async (req, res) => {
     const { error: cleanupError } = await supabase.from('projects').delete().eq('id', projectId);
     if (cleanupError) console.error(`[projects] Failed to clean up project ${projectId}:`, cleanupError.message);
     return res.status(400).json({ error: memberError.message });
+  }
+
+  try {
+    await ensureDefaultProviderConfigs(projectId);
+  } catch (error) {
+    console.warn('Failed to seed default providers:', error instanceof Error ? error.message : error);
   }
 
   try {

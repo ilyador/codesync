@@ -8,11 +8,62 @@ import type { ChildProcess } from 'child_process';
 
 const jobRows: Record<string, Record<string, unknown>> = {};
 const taskRows: Record<string, Record<string, unknown>> = {};
-const logInserts: Array<{ job_id: string; event: string; data: any }> = [];
+const projectRows: Record<string, Record<string, unknown>> = {};
+const providerConfigRows: Record<string, Record<string, unknown>> = {};
+const logInserts: Array<{ job_id: string; event: string; data: unknown }> = [];
+
+type RowRecord = Record<string, unknown>;
+type QueryResult = { data: RowRecord[]; error: null };
+type QuerySingleResult = { data: RowRecord | null; error: null };
+type PromiseResolver<T> = ((value: T) => unknown) | null | undefined;
+type PromiseRejector = ((reason: unknown) => unknown) | null | undefined;
+
+interface UpdateChain extends PromiseLike<QueryResult> {
+  eq: ReturnType<typeof vi.fn>;
+  select: ReturnType<typeof vi.fn>;
+  then<TResult1 = QueryResult, TResult2 = never>(
+    onfulfilled?: PromiseResolver<QueryResult | TResult1>,
+    onrejected?: PromiseRejector,
+  ): PromiseLike<TResult1 | TResult2>;
+}
+
+interface TableChain extends PromiseLike<QueryResult> {
+  select: ReturnType<typeof vi.fn>;
+  eq: ReturnType<typeof vi.fn>;
+  order: ReturnType<typeof vi.fn>;
+  single: ReturnType<typeof vi.fn>;
+  maybeSingle: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
+  insert: ReturnType<typeof vi.fn>;
+  upsert: ReturnType<typeof vi.fn>;
+  then<TResult1 = QueryResult, TResult2 = never>(
+    onfulfilled?: PromiseResolver<QueryResult | TResult1>,
+    onrejected?: PromiseRejector,
+  ): PromiseLike<TResult1 | TResult2>;
+}
+
+type FakeStdin = EventEmitter & {
+  write: ReturnType<typeof vi.fn>;
+  end: ReturnType<typeof vi.fn>;
+};
+
+type FakeChildProcess = ChildProcess & EventEmitter & {
+  stdin: FakeStdin;
+  stdout: EventEmitter;
+  stderr: EventEmitter;
+  pid: number;
+  kill: ReturnType<typeof vi.fn>;
+};
+
+function asRecord(value: unknown): RowRecord {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as RowRecord : {};
+}
 
 function resetState() {
   for (const k of Object.keys(jobRows)) delete jobRows[k];
   for (const k of Object.keys(taskRows)) delete taskRows[k];
+  for (const k of Object.keys(projectRows)) delete projectRows[k];
+  for (const k of Object.keys(providerConfigRows)) delete providerConfigRows[k];
   logInserts.length = 0;
 }
 
@@ -21,46 +72,79 @@ function resetState() {
 // ---------------------------------------------------------------------------
 
 function makeChain(table: string) {
-  let filters: Record<string, unknown> = {};
-  const chain: any = {
+  const filters: Record<string, unknown> = {};
+  let orderBy: { col: string; ascending: boolean } | null = null;
+
+  const rowsForTable = () => {
+    if (table === 'jobs') return Object.values(jobRows);
+    if (table === 'tasks') return Object.values(taskRows);
+    if (table === 'projects') return Object.values(projectRows);
+    if (table === 'provider_configs') return Object.values(providerConfigRows);
+    return [];
+  };
+
+  const filteredRows = () => {
+    const rows = rowsForTable().filter(row => (
+      Object.entries(filters).every(([key, value]) => row[key] === value)
+    ));
+    if (orderBy) {
+      rows.sort((a, b) => {
+        const left = String(a[orderBy!.col] ?? '');
+        const right = String(b[orderBy!.col] ?? '');
+        return orderBy!.ascending ? left.localeCompare(right) : right.localeCompare(left);
+      });
+    }
+    return rows;
+  };
+
+  const chain = {} as TableChain;
+  Object.assign(chain, {
     select: vi.fn(() => chain),
     eq: vi.fn((col: string, val: unknown) => { filters[col] = val; return chain; }),
-    single: vi.fn(async () => {
-      const store = table === 'jobs' ? jobRows : table === 'tasks' ? taskRows : {};
-      const id = filters['id'] as string;
-      return { data: store[id] ?? null, error: null };
+    order: vi.fn((col: string, opts?: { ascending?: boolean }) => {
+      orderBy = { col, ascending: opts?.ascending !== false };
+      return chain;
     }),
+    single: vi.fn(async (): Promise<QuerySingleResult> => ({ data: filteredRows()[0] ?? null, error: null })),
+    maybeSingle: vi.fn(async (): Promise<QuerySingleResult> => ({ data: filteredRows()[0] ?? null, error: null })),
     update: vi.fn((payload: Record<string, unknown>) => {
-      const innerChain: any = {
+      const innerChain = {} as UpdateChain;
+      Object.assign(innerChain, {
         eq: vi.fn((col: string, val: unknown) => { filters[col] = val; return innerChain; }),
         select: vi.fn(() => innerChain),
-        then: undefined as any,
-      };
+      });
       // Make it thenable so `await` works on both `update(...).eq(...)` and `update(...).eq(...).select(...)`
-      const resolve = async () => {
-        const store = table === 'jobs' ? jobRows : table === 'tasks' ? taskRows : {};
-        const id = filters['id'] as string;
-        const row = store[id];
-        if (!row) return { data: [], error: null };
-        // Check status filter (used by updateRunningJob)
-        if (filters['status'] && row.status !== filters['status']) {
-          return { data: [], error: null };
+      const resolve = async (): Promise<QueryResult> => {
+        const rows = filteredRows();
+        if (rows.length === 0) return { data: [], error: null };
+        const updatedIds: Array<{ id: unknown }> = [];
+        for (const row of rows) {
+          if (filters['status'] && row.status !== filters['status']) continue;
+          Object.assign(row, payload);
+          updatedIds.push({ id: row.id });
         }
-        Object.assign(row, payload);
-        return { data: [{ id }], error: null };
+        return { data: updatedIds, error: null };
       };
-      innerChain.then = (fn: any, rej?: any) => resolve().then(fn, rej);
+      innerChain.then = (onfulfilled, onrejected) => resolve().then(onfulfilled, onrejected);
       return innerChain;
     }),
-    insert: vi.fn(async (rows: any) => {
+    insert: vi.fn(async (rows: unknown) => {
       const arr = Array.isArray(rows) ? rows : [rows];
       logInserts.push(...arr);
+      if (table === 'provider_configs') {
+        for (const row of arr) {
+          const record = asRecord(row);
+          const id = `${record.project_id}:${record.provider}`;
+          providerConfigRows[id] = { id, ...record };
+        }
+      }
       return { data: arr, error: null };
     }),
-    upsert: vi.fn(async (row: any) => {
+    upsert: vi.fn(async (row: unknown) => {
       return { data: row, error: null };
     }),
-  };
+    then: (onfulfilled, onrejected) => Promise.resolve({ data: filteredRows(), error: null }).then(onfulfilled, onrejected),
+  });
   return chain;
 }
 
@@ -83,8 +167,8 @@ let spawnBehavior: 'succeed' | 'fail' | 'gate-pass' | 'gate-fail' | 'hang' | 'qu
 let spawnDelay = 0;
 
 function makeFakeProcess(): ChildProcess {
-  const proc = new EventEmitter() as any;
-  const stdin = new EventEmitter() as any;
+  const proc = new EventEmitter() as unknown as FakeChildProcess;
+  const stdin = new EventEmitter() as FakeStdin;
   stdin.write = vi.fn();
   stdin.end = vi.fn();
   proc.stdin = stdin;
@@ -152,7 +236,7 @@ vi.mock('./routes/data.js', () => ({
 // Import after mocks
 // ---------------------------------------------------------------------------
 
-import { runFlowJob, cancelJob } from './runner.js';
+import { runFlowJob } from './runner.js';
 import type { FlowJobContext, FlowConfig, FlowStepConfig } from './runner.js';
 
 // ---------------------------------------------------------------------------
@@ -220,6 +304,10 @@ function seedTask(id: string, status = 'in_progress') {
   taskRows[id] = { id, status };
 }
 
+function seedProject(id: string) {
+  projectRows[id] = { id, embedding_provider_config_id: null, embedding_dimensions: null };
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -227,12 +315,13 @@ function seedTask(id: string, status = 'in_progress') {
 describe('dispatcher integration', () => {
   beforeEach(async () => {
     resetState();
+    seedProject('proj-001');
     spawnBehavior = 'succeed';
     spawnDelay = 0;
     vi.clearAllMocks();
     // Re-establish spawn mock (may have been overridden by individual tests)
     const cp = await import('child_process');
-    vi.mocked(cp.spawn).mockImplementation((() => makeFakeProcess()) as any);
+    vi.mocked(cp.spawn).mockImplementation(() => makeFakeProcess());
   });
 
   // -------------------------------------------------------------------------
@@ -325,8 +414,8 @@ describe('dispatcher integration', () => {
       vi.mocked(spawn).mockImplementation((() => {
         spawnCount++;
         // All spawns succeed with output, but gate steps get a fail verdict
-        const proc = new EventEmitter() as any;
-        const stdin = new EventEmitter() as any;
+        const proc = new EventEmitter() as unknown as FakeChildProcess;
+        const stdin = new EventEmitter() as FakeStdin;
         stdin.write = vi.fn();
         stdin.end = vi.fn();
         proc.stdin = stdin;
@@ -344,7 +433,7 @@ describe('dispatcher integration', () => {
           proc.emit('close', 0);
         }, 1);
         return proc;
-      }) as any);
+      }));
 
       const onFail = vi.fn();
       const stepA = makeStep({
