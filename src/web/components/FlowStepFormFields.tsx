@@ -131,7 +131,8 @@ export function FlowStepFormFields({
                     return;
                   }
                   const fallbackModel = (
-                    provider.models[0]
+                    provider.task_config.default_model
+                    || provider.models[0]
                     || provider.model_suggestions[0]
                     || (provider.provider === parsedModel.provider ? parsedModel.model : '')
                     || defaultModelForProvider(provider.provider)

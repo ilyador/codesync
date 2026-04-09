@@ -1,4 +1,5 @@
 import type { JobRecord } from '../components/job-types';
+import type { ProviderTaskConfig } from '../../shared/provider-task-config';
 
 const BASE = '';
 
@@ -570,6 +571,7 @@ export interface ProviderConfig {
   is_enabled: boolean;
   supports_embeddings: boolean;
   embedding_model: string | null;
+  task_config: ProviderTaskConfig;
   model_suggestions: string[];
   models: string[];
   status: 'online' | 'offline';
@@ -638,6 +640,7 @@ export async function createProvider(projectId: string, data: {
   is_enabled?: boolean;
   supports_embeddings?: boolean;
   embedding_model?: string;
+  task_config?: ProviderTaskConfig;
 }): Promise<ProviderConfig> {
   return apiFetch('/api/providers', {
     method: 'POST',
@@ -648,7 +651,15 @@ export async function createProvider(projectId: string, data: {
 export async function updateProvider(
   projectId: string,
   providerId: string,
-  data: Record<string, unknown>,
+  data: {
+    label?: string;
+    base_url?: string | null;
+    api_key?: string | null;
+    is_enabled?: boolean;
+    supports_embeddings?: boolean;
+    embedding_model?: string | null;
+    task_config?: ProviderTaskConfig;
+  },
   opts: { reindexDocuments?: boolean } = {},
 ): Promise<ProviderUpdateResponse> {
   return apiFetch(`/api/providers/${providerId}`, {

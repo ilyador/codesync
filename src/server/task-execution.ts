@@ -13,21 +13,18 @@ import {
   type FlowExecutionShape,
 } from '../shared/flow-execution-capabilities.js';
 import {
-  defaultModelForProvider,
   formatModelId,
-  normalizeMultiagentMode,
-  normalizeReasoningLevel,
   parseModelId,
-  resolveModelCapabilities,
-  supportsTaskSelectionProvider,
-  type ModelCapabilities,
-  type ReasoningLevel,
 } from '../shared/provider-model.js';
+import {
+  normalizeMultiagentModeForCapabilities,
+  normalizeReasoningLevelForCapabilities,
+  resolveTaskSelectedStepModel,
+} from '../shared/provider-task-config.js';
 import {
   isTaskSelectedFlow,
   type FlowProviderBinding,
 } from '../shared/flow-provider-binding.js';
-import { resolveTaskSelectedStepModel } from '../shared/flow-step-model.js';
 
 export const TASK_EXECUTION_SETTING_KEYS = [
   'mode',
@@ -71,21 +68,21 @@ export function taskExecutionLockOwner(task: DbRecord | null | undefined): strin
   return nullableString(task?.active_job_id) ?? nullableString(task?.execution_settings_locked_job_id);
 }
 
-function preferTaskSelectableProvider(configs: ProviderConfigRecord[]): ProviderConfigRecord | null {
-  const enabled = configs.filter(config => config.is_enabled && supportsTaskSelectionProvider(config.provider));
-  const order = ['claude', 'codex'];
-  for (const provider of order) {
-    const match = enabled.find(config => config.provider === provider);
-    if (match) return match;
-  }
-  return enabled[0] || null;
+function compatibleProviders(
+  configs: ProviderConfigRecord[],
+  flowShape: FlowExecutionShape,
+): ProviderConfigRecord[] {
+  return configs.filter(config => (
+    config.is_enabled
+    && !deriveFlowExecutionCapabilities(flowShape, config.task_config, null).invalidReason
+  ));
 }
 
 async function loadFlowExecutionShape(projectId: string, flowId: string | null): Promise<FlowExecutionShape> {
   if (!flowId) return { provider_binding: 'flow_locked', flow_steps: [] };
   const { data, error } = await supabase
     .from('flows')
-    .select('provider_binding, flow_steps(model, tools, context_sources)')
+    .select('provider_binding, flow_steps(name, model, tools, context_sources)')
     .eq('id', flowId)
     .eq('project_id', projectId)
     .maybeSingle();
@@ -219,7 +216,6 @@ export interface ResolvedTaskExecutionSelection {
   flowCapabilities: ReturnType<typeof deriveFlowExecutionCapabilities>;
   providerConfig: ProviderConfigRecord | null;
   providerModel: string | null;
-  capabilities: ModelCapabilities | null;
   normalizedEffort: string;
   normalizedMultiagent: string;
 }
@@ -248,7 +244,6 @@ export async function resolveTaskExecutionSelection(
       flowCapabilities: deriveFlowExecutionCapabilities(flowShape, null, null),
       providerConfig: null,
       providerModel: null,
-      capabilities: null,
       normalizedEffort: 'low',
       normalizedMultiagent: 'auto',
     };
@@ -261,46 +256,40 @@ export async function resolveTaskExecutionSelection(
       flowCapabilities: deriveFlowExecutionCapabilities(flowShape, null, null),
       providerConfig: null,
       providerModel: null,
-      capabilities: null,
       normalizedEffort: 'low',
       normalizedMultiagent: 'auto',
     };
   }
 
   const explicitProviderConfigId = nullableString(taskLike.provider_config_id);
-  const providerConfig = explicitProviderConfigId
+  let providerConfig = explicitProviderConfigId
     ? await getProviderConfigById(projectId, explicitProviderConfigId)
-    : preferTaskSelectableProvider(await getProjectProviderConfigs(projectId));
+    : null;
+
+  if (!providerConfig && !explicitProviderConfigId) {
+    const compatible = compatibleProviders(await getProjectProviderConfigs(projectId), flowShape);
+    if (compatible.length === 1) {
+      providerConfig = compatible[0];
+    } else if (compatible.length > 1) {
+      throw new Error('Multiple enabled providers satisfy this flow. Pick one explicitly.');
+    }
+  }
 
   if (!providerConfig) {
-    throw new Error('No enabled task-selectable provider is configured for this project');
+    throw new Error('No enabled provider is configured to satisfy this flow');
   }
   if (!providerConfig.is_enabled) {
     throw new Error(`Provider '${providerConfig.label}' is disabled`);
   }
-  if (!supportsTaskSelectionProvider(providerConfig.provider)) {
-    throw new Error(`Provider '${providerConfig.label}' cannot be selected per task`);
-  }
 
   const explicitProviderModel = nullableString(taskLike.provider_model);
-  const flowCapabilities = deriveFlowExecutionCapabilities(flowShape, providerConfig.provider, explicitProviderModel);
+  const flowCapabilities = deriveFlowExecutionCapabilities(flowShape, providerConfig.task_config, explicitProviderModel);
   if (flowCapabilities.invalidReason) {
     throw new Error(flowCapabilities.invalidReason);
   }
 
   const providerModel = flowCapabilities.modelSelectable
-    ? (explicitProviderModel || defaultModelForProvider(providerConfig.provider))
-    : null;
-  const effectiveModel = providerModel || defaultModelForProvider(providerConfig.provider);
-  const modelCapabilities = resolveModelCapabilities(providerConfig.provider, effectiveModel);
-  const capabilities = flowCapabilities.reasoningSelectable || flowCapabilities.subagentsSelectable
-    ? {
-      ...modelCapabilities,
-      supportsModelSelection: flowCapabilities.modelSelectable,
-      supportsReasoning: flowCapabilities.reasoningSelectable,
-      supportedReasoningLevels: flowCapabilities.reasoningSelectable ? modelCapabilities.supportedReasoningLevels : [] as ReasoningLevel[],
-      supportsSubagents: flowCapabilities.subagentsSelectable,
-    }
+    ? flowCapabilities.resolvedTaskModel
     : null;
 
   return {
@@ -309,12 +298,11 @@ export async function resolveTaskExecutionSelection(
     flowCapabilities,
     providerConfig,
     providerModel,
-    capabilities,
     normalizedEffort: flowCapabilities.reasoningSelectable
-      ? normalizeReasoningLevel(providerConfig.provider, effectiveModel, stringField(taskLike, 'effort'))
+      ? normalizeReasoningLevelForCapabilities(flowCapabilities.supportedReasoningLevels, stringField(taskLike, 'effort'))
       : 'low',
     normalizedMultiagent: flowCapabilities.subagentsSelectable
-      ? normalizeMultiagentMode(providerConfig.provider, effectiveModel, stringField(taskLike, 'multiagent'))
+      ? normalizeMultiagentModeForCapabilities(flowCapabilities.subagentsSelectable, stringField(taskLike, 'multiagent'))
       : 'auto',
   };
 }
@@ -374,11 +362,11 @@ export async function materializeFlowSnapshotForTask(
       ...flowSnapshot,
       steps: flowSnapshot.steps.map(step => ({
         ...step,
-        model: `${selection.providerConfig.provider}:${resolveTaskSelectedStepModel(
-          selection.providerConfig.provider,
+        model: formatModelId(selection.providerConfig.provider, resolveTaskSelectedStepModel(
+          selection.providerConfig.task_config,
           step.model,
-          selection.flowCapabilities.modelSelectable ? selection.providerModel : null,
-        )}`,
+          selection.providerModel,
+        )),
         provider_config_id: selection.providerConfig.id,
       })),
     };

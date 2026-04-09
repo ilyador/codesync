@@ -15,6 +15,7 @@ import {
   type ProviderListResponse,
   type ProviderUpdateResponse,
 } from '../lib/api';
+import type { ProviderTaskConfig } from '../../shared/provider-task-config';
 import { useProjectResource } from './useProjectResource';
 
 export function useProviders(projectId: string | null) {
@@ -61,6 +62,7 @@ export function useProviders(projectId: string | null) {
     is_enabled?: boolean;
     supports_embeddings?: boolean;
     embedding_model?: string;
+    task_config?: ProviderTaskConfig;
   }) => {
     if (!projectId) throw new Error('projectId is required');
     await apiCreateProvider(projectId, input);
@@ -69,7 +71,15 @@ export function useProviders(projectId: string | null) {
 
   const updateProvider = useCallback(async (
     providerId: string,
-    updates: Record<string, unknown>,
+    updates: {
+      label?: string;
+      base_url?: string | null;
+      api_key?: string | null;
+      is_enabled?: boolean;
+      supports_embeddings?: boolean;
+      embedding_model?: string | null;
+      task_config?: ProviderTaskConfig;
+    },
     opts: { reindexDocuments?: boolean } = {},
   ): Promise<ProviderUpdateResponse> => {
     if (!projectId) throw new Error('projectId is required');

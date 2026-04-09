@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ProviderSettingsPage } from './ProviderSettingsPage';
 import { ModalContext, type ModalContextValue } from '../hooks/modal-context';
 import type { EmbeddingProviderUpdateResponse, ProviderConfig, ProviderUpdateEmbeddingResponse } from '../lib/api';
+import { defaultProviderTaskConfig } from '../../shared/provider-task-config';
 
 function makeProvider(overrides: Partial<ProviderConfig> = {}): ProviderConfig {
   return {
@@ -17,6 +18,7 @@ function makeProvider(overrides: Partial<ProviderConfig> = {}): ProviderConfig {
     is_enabled: true,
     supports_embeddings: true,
     embedding_model: 'text-embedding-test',
+    task_config: defaultProviderTaskConfig('custom'),
     model_suggestions: [],
     models: [],
     status: 'online',
@@ -196,6 +198,51 @@ describe('ProviderSettingsPage', () => {
         embedding_model: 'text-embedding-next',
       }), { reindexDocuments: true });
       expect(modalValue.alert).toHaveBeenCalledWith('Provider Updated', 'Saved Local Embeddings and re-indexed 4 documents.');
+    });
+  });
+
+  it('preserves unsaved task config edits when provider data reloads', async () => {
+    const { rerender, props, modalValue } = renderPage();
+    const draftText = '{"default_model":"qwen","balanced_model":"qwen","strong_model":"qwen","selectable_models":["qwen"],"model_capabilities":{"qwen":{"supports_tools":true,"supported_tools":[],"supports_images":false,"supports_reasoning":false,"supported_reasoning_levels":[],"supports_subagents":false,"context_window":null,"supports_structured_output":true}}}';
+
+    const textarea = screen.getByLabelText('Task Config (JSON)');
+    fireEvent.change(textarea, { target: { value: draftText } });
+
+    rerender(
+      <ModalContext.Provider value={modalValue}>
+        <ProviderSettingsPage
+          {...props}
+          providers={[makeProvider({ models: ['qwen2.5-coder'], status_message: 'reloaded' })]}
+        />
+      </ModalContext.Provider>,
+    );
+
+    expect((screen.getByLabelText('Task Config (JSON)') as HTMLTextAreaElement).value).toBe(draftText);
+  });
+
+  it('sends the create-time task config instead of requiring a second provider edit', async () => {
+    const user = userEvent.setup();
+    const onCreateProvider = vi.fn().mockResolvedValue(undefined);
+    renderPage({ onCreateProvider });
+
+    const createTaskConfig = '{"default_model":"qwen2.5-coder","balanced_model":"qwen2.5-coder","strong_model":"qwen2.5-coder-32b","selectable_models":["qwen2.5-coder","qwen2.5-coder-32b"],"model_capabilities":{"qwen2.5-coder":{"supports_tools":true,"supported_tools":[],"supports_images":false,"supports_reasoning":true,"supported_reasoning_levels":["low","medium"],"supports_subagents":false,"context_window":null,"supports_structured_output":true},"qwen2.5-coder-32b":{"supports_tools":true,"supported_tools":[],"supports_images":false,"supports_reasoning":true,"supported_reasoning_levels":["low","medium","high"],"supports_subagents":false,"context_window":null,"supports_structured_output":true}}}';
+
+    await user.type(screen.getAllByLabelText('Label')[0], 'Local Ollama');
+    await user.clear(screen.getAllByLabelText('Base URL')[0]);
+    await user.type(screen.getAllByLabelText('Base URL')[0], 'http://localhost:11434');
+    fireEvent.change(screen.getByLabelText('Task Config Template (JSON)'), { target: { value: createTaskConfig } });
+    await user.click(screen.getByRole('button', { name: 'Add Provider' }));
+
+    await waitFor(() => {
+      expect(onCreateProvider).toHaveBeenCalledWith(expect.objectContaining({
+        label: 'Local Ollama',
+        base_url: 'http://localhost:11434',
+        task_config: expect.objectContaining({
+          default_model: 'qwen2.5-coder',
+          strong_model: 'qwen2.5-coder-32b',
+          selectable_models: ['qwen2.5-coder', 'qwen2.5-coder-32b'],
+        }),
+      }));
     });
   });
 });

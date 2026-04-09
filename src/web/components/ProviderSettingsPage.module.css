@@ -69,6 +69,18 @@
   font: inherit;
 }
 
+.textarea {
+  width: 100%;
+  min-height: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--text);
+  font: 12px/1.5 var(--font-mono, 'IBM Plex Mono', monospace);
+  resize: vertical;
+}
+
 .checkboxRow {
   display: flex;
   align-items: center;

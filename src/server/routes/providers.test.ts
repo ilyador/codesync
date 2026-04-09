@@ -2,6 +2,7 @@ import express from 'express';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { ProviderConfigRecord } from '../providers/types.js';
+import { defaultProviderTaskConfig } from '../../shared/provider-task-config.js';
 
 const state = vi.hoisted(() => {
   const data = {
@@ -194,6 +195,7 @@ function makeProvider(id: string, overrides: Partial<ProviderConfigRecord> = {})
     is_enabled: true,
     supports_embeddings: true,
     embedding_model: 'text-embedding-test',
+    task_config: defaultProviderTaskConfig(overrides.provider ?? 'custom'),
     ...overrides,
   };
 }

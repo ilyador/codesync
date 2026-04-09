@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProviderConfigRecord } from './providers/types.js';
+import { defaultProviderTaskConfig } from '../shared/provider-task-config.js';
 
 const state = vi.hoisted(() => ({
   configs: [] as ProviderConfigRecord[],
@@ -26,6 +27,7 @@ function makeConfig(id: string, provider: ProviderConfigRecord['provider']): Pro
     is_enabled: true,
     supports_embeddings: false,
     embedding_model: null,
+    task_config: defaultProviderTaskConfig(provider),
   };
 }
 

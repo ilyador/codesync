@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { FlowStepFormFields } from './FlowStepFormFields';
 import type { FlowStep, ProviderConfig } from '../lib/api';
+import { defaultProviderTaskConfig } from '../../shared/provider-task-config';
 
 function makeStep(overrides: Partial<FlowStep> = {}): FlowStep {
   return {
@@ -34,6 +35,7 @@ function makeProvider(id: string, provider: ProviderConfig['provider'], override
     is_enabled: true,
     supports_embeddings: false,
     embedding_model: null,
+    task_config: defaultProviderTaskConfig(provider),
     model_suggestions: [],
     models: [],
     status: 'online',

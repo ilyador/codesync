@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProviderConfigRecord } from '../providers/types.js';
+import { defaultProviderTaskConfig } from '../../shared/provider-task-config.js';
 
 const state = vi.hoisted(() => ({
   projectRow: {
@@ -73,6 +74,7 @@ function makeProvider(overrides: Partial<ProviderConfigRecord> = {}): ProviderCo
     is_enabled: true,
     supports_embeddings: true,
     embedding_model: 'text-embedding-test',
+    task_config: defaultProviderTaskConfig('custom'),
     ...overrides,
   };
 }

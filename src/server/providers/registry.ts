@@ -8,19 +8,25 @@ import { claudeCliDriver } from './claude-cli.js';
 import { codexCliDriver } from './codex-cli.js';
 import { defaultModelForProvider, isCliProvider, normalizeProviderKind, parseModelId, type ProviderKind } from './model-id.js';
 import type { ProviderConfigRecord, ProviderDriver, ProviderStatus } from './types.js';
+import {
+  defaultProviderTaskConfig,
+  normalizeProviderTaskConfig,
+} from '../../shared/provider-task-config.js';
 
 const execFileAsync = promisify(execFile);
 
-const BUILT_IN_PROVIDER_DEFAULTS: Record<'claude' | 'codex', Pick<ProviderConfigRecord, 'label' | 'supports_embeddings' | 'embedding_model'>> = {
+const BUILT_IN_PROVIDER_DEFAULTS: Record<'claude' | 'codex', Pick<ProviderConfigRecord, 'label' | 'supports_embeddings' | 'embedding_model' | 'task_config'>> = {
   claude: {
     label: 'Claude CLI',
     supports_embeddings: false,
     embedding_model: null,
+    task_config: defaultProviderTaskConfig('claude'),
   },
   codex: {
     label: 'Codex CLI',
     supports_embeddings: false,
     embedding_model: null,
+    task_config: defaultProviderTaskConfig('codex'),
   },
 };
 
@@ -49,6 +55,7 @@ function recordFromValue(value: unknown): ProviderConfigRecord | null {
     is_enabled: record.is_enabled !== false,
     supports_embeddings: record.supports_embeddings === true,
     embedding_model: typeof record.embedding_model === 'string' ? record.embedding_model : null,
+    task_config: normalizeProviderTaskConfig(provider, record.task_config),
     created_at: typeof record.created_at === 'string' ? record.created_at : undefined,
     updated_at: typeof record.updated_at === 'string' ? record.updated_at : undefined,
   };
@@ -77,6 +84,7 @@ export async function ensureDefaultProviderConfigs(projectId: string): Promise<v
       is_enabled: true,
       supports_embeddings: defaults.supports_embeddings,
       embedding_model: defaults.embedding_model,
+      task_config: defaults.task_config,
     }));
   if (inserts.length === 0) return;
 
@@ -90,7 +98,8 @@ export async function getProjectProviderConfigs(projectId: string): Promise<Prov
     .from('provider_configs')
     .select('*')
     .eq('project_id', projectId)
-    .order('provider', { ascending: true });
+    .order('provider', { ascending: true })
+    .order('created_at', { ascending: true });
   if (error) throw new Error(`Failed to load provider configs: ${error.message}`);
   return (data || []).map(recordFromValue).filter((row): row is ProviderConfigRecord => !!row);
 }
@@ -246,6 +255,7 @@ export async function detectDefaultLocalProviders(projectId: string): Promise<Ar
       is_enabled: true,
       supports_embeddings: false,
       embedding_model: null,
+      task_config: defaultProviderTaskConfig(candidate.provider),
     };
     const status = await testProviderConfig(probe);
     return status.ok ? candidate : null;
@@ -264,6 +274,7 @@ export function publicProviderRecord(config: ProviderConfigRecord, status?: Prov
     is_enabled: config.is_enabled,
     supports_embeddings: config.supports_embeddings,
     embedding_model: config.embedding_model,
+    task_config: config.task_config,
     model_suggestions: STATIC_MODEL_SUGGESTIONS[config.provider] || [],
     status: status?.status || 'offline',
     status_message: status?.message || 'Unavailable',
@@ -274,6 +285,9 @@ export function publicProviderRecord(config: ProviderConfigRecord, status?: Prov
 }
 
 export function buildProviderInsert(projectId: string, provider: ProviderKind, body: Record<string, unknown>) {
+  const taskConfig = Object.prototype.hasOwnProperty.call(body, 'task_config')
+    ? normalizeProviderTaskConfig(provider, body.task_config)
+    : defaultProviderTaskConfig(provider);
   return {
     project_id: projectId,
     provider,
@@ -283,6 +297,7 @@ export function buildProviderInsert(projectId: string, provider: ProviderKind, b
     is_enabled: body.is_enabled !== false,
     supports_embeddings: body.supports_embeddings === true,
     embedding_model: typeof body.embedding_model === 'string' && body.embedding_model.trim() ? body.embedding_model.trim() : null,
+    task_config: taskConfig,
   };
 }
 

@@ -16,6 +16,7 @@ import {
   publicProviderRecord,
   testProviderConfig,
 } from '../providers/registry.js';
+import { normalizeProviderTaskConfig } from '../../shared/provider-task-config.js';
 
 export const providersRouter = Router();
 const SINGLE_CONFIG_PROVIDERS = new Set(['claude', 'codex']);
@@ -143,6 +144,7 @@ providersRouter.patch('/api/providers/:id', requireAuth, async (req, res) => {
   if (typeof req.body?.supports_embeddings === 'boolean') updates.supports_embeddings = req.body.supports_embeddings;
   if ('embedding_model' in (req.body || {})) updates.embedding_model = typeof req.body?.embedding_model === 'string' && req.body.embedding_model.trim() ? req.body.embedding_model.trim() : null;
   if ('api_key' in (req.body || {})) updates.api_key = typeof req.body?.api_key === 'string' && req.body.api_key.trim() ? req.body.api_key.trim() : null;
+  if ('task_config' in (req.body || {})) updates.task_config = normalizeProviderTaskConfig(current.provider, req.body?.task_config);
   const reindexDocuments = req.body?.reindex_documents === true;
   const isActiveEmbeddingProvider = projectSettings.embedding_provider_config_id === providerConfigId;
   const nextConfig: ProviderConfigRecord = {
@@ -154,6 +156,7 @@ providersRouter.patch('/api/providers/:id', requireAuth, async (req, res) => {
     is_enabled: updates.is_enabled === undefined ? current.is_enabled : updates.is_enabled as boolean,
     supports_embeddings: updates.supports_embeddings === undefined ? current.supports_embeddings : updates.supports_embeddings as boolean,
     embedding_model: updates.embedding_model === undefined ? current.embedding_model : updates.embedding_model as string | null,
+    task_config: updates.task_config === undefined ? current.task_config : updates.task_config as ProviderConfigRecord['task_config'],
   };
   if (isActiveEmbeddingProvider) {
     try {

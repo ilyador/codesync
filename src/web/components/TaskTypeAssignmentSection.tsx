@@ -76,9 +76,7 @@ export function TaskTypeAssignmentSection({
   setEffort,
   setAutoContinue,
 }: TaskTypeAssignmentSectionProps) {
-  const modelOptions = selectedProvider
-    ? (selectedProvider.models.length > 0 ? selectedProvider.models : selectedProvider.model_suggestions)
-    : [];
+  const modelOptions = flowCapabilities?.modelOptions || [];
   const modelListId = 'task-provider-models';
 
   let executionHelp = '';
@@ -87,7 +85,7 @@ export function TaskTypeAssignmentSection({
   } else if (flowCapabilities?.invalidReason) {
     executionHelp = flowCapabilities.invalidReason;
   } else if (taskSelectableProviders.length === 0) {
-    executionHelp = 'No task-selectable providers are configured for this project.';
+    executionHelp = 'No enabled providers expose a task configuration that satisfies this flow.';
   } else if (flowCapabilities?.providerSelectionReason) {
     executionHelp = flowCapabilities.providerSelectionReason;
   } else if (flowCapabilities?.modelSelectionReason) {
@@ -225,11 +223,13 @@ export function TaskTypeAssignmentSection({
         <div className={s.field}>
           <label className={s.label}>Provider</label>
           <select
+            aria-label="Provider"
             className={s.select}
             value={providerConfigId}
             disabled={executionSettingsLocked}
             onChange={event => setProviderConfigId(event.target.value)}
           >
+            <option value="">Select a provider</option>
             {taskSelectableProviders.map(provider => (
               <option key={provider.id} value={provider.id}>
                 {provider.label}
@@ -248,7 +248,7 @@ export function TaskTypeAssignmentSection({
             value={providerModel}
             disabled={executionSettingsLocked}
             onChange={event => setProviderModel(event.target.value)}
-            placeholder={selectedProvider ? `Default: ${selectedProvider.provider}` : 'Select a provider first'}
+            placeholder={selectedProvider ? `Default: ${flowCapabilities?.resolvedTaskModel || selectedProvider.label}` : 'Select a provider first'}
           />
           <datalist id={modelListId}>
             {modelOptions.map(model => (
@@ -267,10 +267,9 @@ export function TaskTypeAssignmentSection({
             disabled={executionSettingsLocked}
             onChange={event => setEffort(event.target.value)}
           >
-            <option value="low">low</option>
-            <option value="medium">medium</option>
-            <option value="high">high</option>
-            <option value="max">max</option>
+            {(flowCapabilities?.supportedReasoningLevels || ['low']).map(level => (
+              <option key={level} value={level}>{level}</option>
+            ))}
           </select>
         </div>
       )}

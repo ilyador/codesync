@@ -6,6 +6,7 @@ import {
   type ProviderUpdateResponse,
 } from '../lib/api';
 import { useModal } from '../hooks/modal-context';
+import { defaultProviderTaskConfig, type ProviderTaskConfig } from '../../shared/provider-task-config';
 import s from './ProviderSettingsPage.module.css';
 
 interface ProviderDraft {
@@ -15,6 +16,17 @@ interface ProviderDraft {
   supports_embeddings: boolean;
   embedding_model: string;
   api_key: string;
+  task_config_text: string;
+}
+
+interface NewProviderDraft {
+  provider: ProviderConfig['provider'];
+  label: string;
+  base_url: string;
+  api_key: string;
+  supports_embeddings: boolean;
+  embedding_model: string;
+  task_config_text: string;
 }
 
 interface ProviderSettingsPageProps {
@@ -31,8 +43,17 @@ interface ProviderSettingsPageProps {
     is_enabled?: boolean;
     supports_embeddings?: boolean;
     embedding_model?: string;
+    task_config?: ProviderTaskConfig;
   }) => Promise<void>;
-  onUpdateProvider: (providerId: string, data: Record<string, unknown>, opts?: { reindexDocuments?: boolean }) => Promise<ProviderUpdateResponse>;
+  onUpdateProvider: (providerId: string, data: {
+    label?: string;
+    base_url?: string | null;
+    api_key?: string | null;
+    is_enabled?: boolean;
+    supports_embeddings?: boolean;
+    embedding_model?: string | null;
+    task_config?: ProviderTaskConfig;
+  }, opts?: { reindexDocuments?: boolean }) => Promise<ProviderUpdateResponse>;
   onDeleteProvider: (providerId: string) => Promise<void>;
   onTestProvider: (providerId: string) => Promise<{ ok: boolean; status: 'online' | 'offline'; message: string; models: string[]; embedding_dimensions?: number | null }>;
   onRefreshProviderModels: (providerId: string) => Promise<string[]>;
@@ -48,6 +69,23 @@ function toDraft(provider: ProviderConfig): ProviderDraft {
     supports_embeddings: provider.supports_embeddings,
     embedding_model: provider.embedding_model || '',
     api_key: '',
+    task_config_text: JSON.stringify(provider.task_config, null, 2),
+  };
+}
+
+function defaultTaskConfigText(provider: ProviderConfig['provider']): string {
+  return JSON.stringify(defaultProviderTaskConfig(provider), null, 2);
+}
+
+function makeNewProviderDraft(provider: ProviderConfig['provider'] = 'custom'): NewProviderDraft {
+  return {
+    provider,
+    label: '',
+    base_url: '',
+    api_key: '',
+    supports_embeddings: false,
+    embedding_model: '',
+    task_config_text: defaultTaskConfigText(provider),
   };
 }
 
@@ -68,17 +106,13 @@ export function ProviderSettingsPage({
   const modal = useModal();
   const [drafts, setDrafts] = useState<Record<string, ProviderDraft>>({});
   const [selectedEmbeddingId, setSelectedEmbeddingId] = useState<string | null>(embeddingProviderConfigId);
-  const [newProvider, setNewProvider] = useState({
-    provider: 'custom' as ProviderConfig['provider'],
-    label: '',
-    base_url: '',
-    api_key: '',
-    supports_embeddings: false,
-    embedding_model: '',
-  });
+  const [newProvider, setNewProvider] = useState<NewProviderDraft>(() => makeNewProviderDraft());
 
   useEffect(() => {
-    setDrafts(Object.fromEntries(providers.map(provider => [provider.id, toDraft(provider)])));
+    setDrafts(current => Object.fromEntries(providers.map(provider => [
+      provider.id,
+      current[provider.id] || toDraft(provider),
+    ])));
   }, [providers]);
 
   useEffect(() => {
@@ -110,12 +144,19 @@ export function ProviderSettingsPage({
   async function saveProvider(provider: ProviderConfig) {
     const draft = drafts[provider.id];
     if (!draft) return;
-    const updates: Record<string, unknown> = {
+    let taskConfig: ProviderTaskConfig;
+    try {
+      taskConfig = JSON.parse(draft.task_config_text) as ProviderTaskConfig;
+    } catch {
+      throw new Error(`Task config for ${provider.label} must be valid JSON.`);
+    }
+    const updates = {
       label: draft.label.trim(),
       base_url: draft.base_url.trim() || null,
       is_enabled: draft.is_enabled,
       supports_embeddings: draft.supports_embeddings,
       embedding_model: draft.embedding_model.trim() || null,
+      task_config: taskConfig,
     };
     if (draft.api_key.trim()) updates.api_key = draft.api_key.trim();
     let result = await onUpdateProvider(provider.id, updates);
@@ -128,9 +169,10 @@ export function ProviderSettingsPage({
       if (!confirmed) return;
       result = await onUpdateProvider(provider.id, updates, { reindexDocuments: true });
     }
+    const savedProvider = isProviderUpdateEmbeddingResponse(result) ? result.provider : result;
     setDrafts(current => ({
       ...current,
-      [provider.id]: { ...current[provider.id], api_key: '' },
+      [provider.id]: toDraft(savedProvider),
     }));
     if (isProviderUpdateEmbeddingResponse(result) && result.reindexed !== null) {
       await modal.alert(
@@ -196,6 +238,12 @@ export function ProviderSettingsPage({
   }
 
   async function handleCreateProvider() {
+    let taskConfig: ProviderTaskConfig;
+    try {
+      taskConfig = JSON.parse(newProvider.task_config_text) as ProviderTaskConfig;
+    } catch {
+      throw new Error('New provider task config must be valid JSON.');
+    }
     await onCreateProvider({
       provider: newProvider.provider,
       label: newProvider.label.trim() || undefined,
@@ -203,22 +251,16 @@ export function ProviderSettingsPage({
       api_key: newProvider.api_key.trim() || undefined,
       supports_embeddings: newProvider.supports_embeddings,
       embedding_model: newProvider.embedding_model.trim() || undefined,
+      task_config: taskConfig,
     });
-    setNewProvider({
-      provider: 'custom',
-      label: '',
-      base_url: '',
-      api_key: '',
-      supports_embeddings: false,
-      embedding_model: '',
-    });
+    setNewProvider(makeNewProviderDraft());
   }
 
   return (
     <div className={s.page}>
       <div className={s.section}>
         <div className={s.heading}>Providers</div>
-        <p className={s.muted}>Configure Claude, Codex, and local or custom OpenAI-compatible endpoints for flow execution and embeddings.</p>
+        <p className={s.muted}>Configure provider endpoints plus the explicit task-execution manifest that decides whether a provider can satisfy a flow.</p>
       </div>
 
       <div className={s.section}>
@@ -264,15 +306,17 @@ export function ProviderSettingsPage({
                   <button
                     className="btn btnSecondary btnSm"
                     type="button"
-                    onClick={() => void runWithErrorAlert('Add Provider Failed', async () => {
-                      await onCreateProvider({
-                        provider: candidate.provider,
-                        label: candidate.label,
-                        base_url: candidate.base_url,
-                      });
+                    onClick={() => setNewProvider({
+                      provider: candidate.provider,
+                      label: candidate.label,
+                      base_url: candidate.base_url,
+                      api_key: '',
+                      supports_embeddings: false,
+                      embedding_model: '',
+                      task_config_text: defaultTaskConfigText(candidate.provider),
                     })}
                   >
-                    Add
+                    Use
                   </button>
                 </div>
               </div>
@@ -286,7 +330,18 @@ export function ProviderSettingsPage({
         <div className={s.row}>
           <label className={s.field}>
             <span className={s.label}>Type</span>
-            <select className={s.select} value={newProvider.provider} onChange={event => setNewProvider(current => ({ ...current, provider: event.target.value as ProviderConfig['provider'] }))}>
+            <select
+              className={s.select}
+              value={newProvider.provider}
+              onChange={event => {
+                const provider = event.target.value as ProviderConfig['provider'];
+                setNewProvider(current => ({
+                  ...current,
+                  provider,
+                  task_config_text: defaultTaskConfigText(provider),
+                }));
+              }}
+            >
               <option value="lmstudio">LM Studio</option>
               <option value="ollama">Ollama</option>
               <option value="custom">Custom OpenAI-Compatible</option>
@@ -315,6 +370,16 @@ export function ProviderSettingsPage({
             <span>Supports embeddings</span>
           </label>
         </div>
+        <label className={s.field}>
+          <span className={s.label}>Task Config Template (JSON)</span>
+          <textarea
+            className={s.textarea}
+            value={newProvider.task_config_text}
+            onChange={event => setNewProvider(current => ({ ...current, task_config_text: event.target.value }))}
+            spellCheck={false}
+            rows={12}
+          />
+        </label>
         <div className={s.actions}>
           <button className="btn btnPrimary" type="button" onClick={() => void runWithErrorAlert('Add Provider Failed', handleCreateProvider)}>
             Add Provider
@@ -370,6 +435,16 @@ export function ProviderSettingsPage({
                 <div className={s.models}>
                   {provider.models.length > 0 ? `Models: ${provider.models.join(', ')}` : 'No models discovered yet.'}
                 </div>
+                <label className={s.field}>
+                  <span className={s.label}>Task Config (JSON)</span>
+                  <textarea
+                    className={s.textarea}
+                    value={draft.task_config_text}
+                    onChange={event => setDrafts(current => ({ ...current, [provider.id]: { ...draft, task_config_text: event.target.value } }))}
+                    spellCheck={false}
+                    rows={12}
+                  />
+                </label>
                 <div className={s.actions}>
                   <button className="btn btnPrimary btnSm" type="button" onClick={() => void runWithErrorAlert('Save Provider Failed', async () => saveProvider(provider))}>
                     Save

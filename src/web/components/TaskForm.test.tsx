@@ -7,6 +7,7 @@ import { TaskForm } from './TaskForm';
 import type { Flow, ProviderConfig } from '../lib/api';
 import type { EditTaskData } from './task-form-types';
 import { useTaskFormState } from '../hooks/useTaskFormState';
+import { defaultProviderTaskConfig } from '../../shared/provider-task-config';
 
 vi.mock('../lib/api', async () => {
   const actual = await vi.importActual<typeof import('../lib/api')>('../lib/api');
@@ -49,7 +50,12 @@ function makeFlow(
   };
 }
 
-function makeProvider(id: string, provider: ProviderConfig['provider'], label: string): ProviderConfig {
+function makeProvider(
+  id: string,
+  provider: ProviderConfig['provider'],
+  label: string,
+  overrides: Partial<ProviderConfig> = {},
+): ProviderConfig {
   return {
     id,
     project_id: 'project-1',
@@ -59,12 +65,14 @@ function makeProvider(id: string, provider: ProviderConfig['provider'], label: s
     is_enabled: true,
     supports_embeddings: false,
     embedding_model: null,
+    task_config: defaultProviderTaskConfig(provider),
     model_suggestions: provider === 'claude' ? ['sonnet', 'opus'] : ['gpt-5.4', 'gpt-5.4-mini'],
     models: provider === 'claude' ? ['sonnet', 'opus'] : ['gpt-5.4', 'gpt-5.4-mini'],
     status: 'online',
     status_message: 'ok',
     has_api_key: false,
     embedding_dimensions: null,
+    ...overrides,
   };
 }
 
@@ -293,6 +301,125 @@ describe('TaskForm flow selection', () => {
     expect(await screen.findByDisplayValue('sonnet')).toBeTruthy();
   });
 
+  it('allows local providers in the task switcher when their manifest satisfies the flow', async () => {
+    const selectableFlow = makeFlow('flow-feature', 'Feature Flow', ['feature'], {
+      flow_steps: [
+        {
+          id: 'step-1',
+          name: 'Implement',
+          position: 1,
+          instructions: '',
+          model: 'task:selected',
+          tools: ['Read'],
+          context_sources: ['task_description'],
+          is_gate: false,
+          on_fail_jump_to: null,
+          max_retries: 0,
+          on_max_retries: 'pause',
+        },
+      ],
+    });
+
+    renderTaskForm([selectableFlow], [
+      makeProvider('provider-ollama', 'ollama', 'Local Ollama', {
+        task_config: {
+          default_model: 'qwen2.5-coder',
+          balanced_model: 'qwen2.5-coder',
+          strong_model: 'qwen2.5-coder-32b',
+          selectable_models: ['qwen2.5-coder', 'qwen2.5-coder-32b'],
+          model_capabilities: {
+            'qwen2.5-coder': {
+              supports_tools: true,
+              supported_tools: [],
+              supports_images: false,
+              supports_reasoning: true,
+              supported_reasoning_levels: ['low', 'medium', 'high', 'max'],
+              supports_subagents: false,
+              context_window: null,
+              supports_structured_output: true,
+            },
+            'qwen2.5-coder-32b': {
+              supports_tools: true,
+              supported_tools: [],
+              supports_images: false,
+              supports_reasoning: true,
+              supported_reasoning_levels: ['low', 'medium', 'high', 'max'],
+              supports_subagents: false,
+              context_window: null,
+              supports_structured_output: true,
+            },
+          },
+        },
+        model_suggestions: ['qwen2.5-coder', 'qwen2.5-coder-32b'],
+        models: ['qwen2.5-coder', 'qwen2.5-coder-32b'],
+      }),
+    ]);
+
+    expect(await screen.findByDisplayValue('qwen2.5-coder')).toBeTruthy();
+  });
+
+  it('does not auto-select among multiple compatible providers', async () => {
+    const selectableFlow = makeFlow('flow-feature', 'Feature Flow', ['feature'], {
+      flow_steps: [
+        {
+          id: 'step-1',
+          name: 'Implement',
+          position: 1,
+          instructions: '',
+          model: 'task:selected',
+          tools: ['Read'],
+          context_sources: ['task_description'],
+          is_gate: false,
+          on_fail_jump_to: null,
+          max_retries: 0,
+          on_max_retries: 'pause',
+        },
+      ],
+    });
+
+    renderTaskForm([selectableFlow], [
+      makeProvider('provider-claude', 'claude', 'Claude CLI'),
+      makeProvider('provider-ollama', 'ollama', 'Local Ollama', {
+        task_config: {
+          default_model: 'qwen2.5-coder',
+          balanced_model: 'qwen2.5-coder',
+          strong_model: 'qwen2.5-coder-32b',
+          selectable_models: ['qwen2.5-coder', 'qwen2.5-coder-32b'],
+          model_capabilities: {
+            'qwen2.5-coder': {
+              supports_tools: true,
+              supported_tools: [],
+              supports_images: false,
+              supports_reasoning: true,
+              supported_reasoning_levels: ['low', 'medium', 'high', 'max'],
+              supports_subagents: false,
+              context_window: null,
+              supports_structured_output: true,
+            },
+            'qwen2.5-coder-32b': {
+              supports_tools: true,
+              supported_tools: [],
+              supports_images: false,
+              supports_reasoning: true,
+              supported_reasoning_levels: ['low', 'medium', 'high', 'max'],
+              supports_subagents: false,
+              context_window: null,
+              supports_structured_output: true,
+            },
+          },
+        },
+        model_suggestions: ['qwen2.5-coder', 'qwen2.5-coder-32b'],
+        models: ['qwen2.5-coder', 'qwen2.5-coder-32b'],
+      }),
+    ]);
+
+    const providerSelect = screen.getByLabelText('Provider') as HTMLSelectElement;
+
+    expect(providerSelect.value).toBe('');
+    expect(screen.queryByLabelText('Model')).toBeNull();
+    expect(screen.getByText('Select a provider to see whether this flow allows task-level model selection.')).toBeTruthy();
+  });
+
   it('infers provider, model, reasoning, and subagents from flow-locked flows', async () => {
     const lockedFlow = makeFlow('flow-feature', 'Feature Flow', ['feature'], {
       provider_binding: 'flow_locked',
@@ -341,7 +468,56 @@ describe('TaskForm flow selection', () => {
       ],
     });
 
-    renderTaskForm([selectableFlow], [makeProvider('provider-codex', 'codex', 'Codex CLI')]);
+    renderTaskForm([selectableFlow], [makeProvider('provider-codex', 'codex', 'Codex CLI', {
+      task_config: {
+        default_model: 'gpt-5.4',
+        balanced_model: 'gpt-5.4-mini',
+        strong_model: 'gpt-5.4',
+        selectable_models: ['gpt-5.4', 'gpt-5.4-mini', 'o3', 'custom-experimental-model'],
+        model_capabilities: {
+          'gpt-5.4': {
+            supports_tools: true,
+            supported_tools: [],
+            supports_images: false,
+            supports_reasoning: true,
+            supported_reasoning_levels: ['low', 'medium', 'high', 'max'],
+            supports_subagents: true,
+            context_window: null,
+            supports_structured_output: true,
+          },
+          'gpt-5.4-mini': {
+            supports_tools: true,
+            supported_tools: [],
+            supports_images: false,
+            supports_reasoning: true,
+            supported_reasoning_levels: ['low', 'medium', 'high', 'max'],
+            supports_subagents: true,
+            context_window: null,
+            supports_structured_output: true,
+          },
+          o3: {
+            supports_tools: true,
+            supported_tools: [],
+            supports_images: false,
+            supports_reasoning: true,
+            supported_reasoning_levels: ['low', 'medium', 'high', 'max'],
+            supports_subagents: true,
+            context_window: null,
+            supports_structured_output: true,
+          },
+          'custom-experimental-model': {
+            supports_tools: true,
+            supported_tools: [],
+            supports_images: false,
+            supports_reasoning: false,
+            supported_reasoning_levels: [],
+            supports_subagents: false,
+            context_window: null,
+            supports_structured_output: true,
+          },
+        },
+      },
+    })]);
 
     const modelInput = await screen.findByDisplayValue('gpt-5.4');
     fireEvent.change(modelInput, { target: { value: 'custom-experimental-model' } });

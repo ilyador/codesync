@@ -6,6 +6,7 @@ import type { ProjectWorkspaceRoutesProps } from './ProjectWorkspaceRoutes';
 import type { EditTaskData, TaskFormData } from './task-form-types';
 import type { JobView } from './job-types';
 import type { TaskView } from '../lib/task-view';
+import type { ProviderTaskConfig } from '../../shared/provider-task-config';
 
 export interface ProjectWorkspaceProps {
   headerProps: ProjectWorkspaceHeaderProps;
@@ -110,8 +111,17 @@ export interface CurrentProjectWorkspaceProps {
     is_enabled?: boolean;
     supports_embeddings?: boolean;
     embedding_model?: string;
+    task_config?: ProviderTaskConfig;
   }) => Promise<void>;
-  onUpdateProvider: (providerId: string, data: Record<string, unknown>, opts?: { reindexDocuments?: boolean }) => Promise<ProviderUpdateResponse>;
+  onUpdateProvider: (providerId: string, data: {
+    label?: string;
+    base_url?: string | null;
+    api_key?: string | null;
+    is_enabled?: boolean;
+    supports_embeddings?: boolean;
+    embedding_model?: string | null;
+    task_config?: ProviderTaskConfig;
+  }, opts?: { reindexDocuments?: boolean }) => Promise<ProviderUpdateResponse>;
   onDeleteProvider: (providerId: string) => Promise<void>;
   onTestProvider: (providerId: string) => Promise<{ ok: boolean; status: 'online' | 'offline'; message: string; models: string[]; embedding_dimensions?: number | null }>;
   onRefreshProviderModels: (providerId: string) => Promise<string[]>;

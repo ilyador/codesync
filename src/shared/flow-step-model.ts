@@ -1,8 +1,4 @@
-import {
-  defaultModelForProvider,
-  parseModelId,
-  type ProviderKind,
-} from './provider-model';
+import { parseModelId } from './provider-model';
 
 export type TaskModelProfile = 'selected' | 'balanced' | 'strong';
 
@@ -29,16 +25,6 @@ export const TASK_MODEL_PROFILE_OPTIONS: TaskModelProfileOption[] = [
     description: 'Use the strongest coding model profile for the selected provider.',
   },
 ];
-
-const CLAUDE_MODEL_PROFILES: Record<Exclude<TaskModelProfile, 'selected'>, string> = {
-  balanced: 'sonnet',
-  strong: 'opus',
-};
-
-const CODEX_MODEL_PROFILES: Record<Exclude<TaskModelProfile, 'selected'>, string> = {
-  balanced: 'gpt-5.4-mini',
-  strong: 'gpt-5.4',
-};
 
 const STRONG_MODEL_IDS = new Set([
   'claude:opus',
@@ -99,35 +85,6 @@ export function isTaskSelectableStepModel(value: string | null | undefined): boo
 
 export function supportsFlowWideModelSelection(stepModels: readonly string[]): boolean {
   return stepModels.every(model => inferTaskModelProfile(model) === 'selected');
-}
-
-export function defaultModelForProfile(
-  provider: ProviderKind,
-  profile: Exclude<TaskModelProfile, 'selected'>,
-): string {
-  switch (provider) {
-    case 'claude':
-      return CLAUDE_MODEL_PROFILES[profile];
-    case 'codex':
-      return CODEX_MODEL_PROFILES[profile];
-    default:
-      return defaultModelForProvider(provider);
-  }
-}
-
-export function resolveTaskSelectedStepModel(
-  provider: ProviderKind,
-  stepModel: string,
-  taskModel: string | null = null,
-): string {
-  const profile = inferTaskModelProfile(stepModel);
-  if (!profile) {
-    throw new Error(`Task-selected flow step '${stepModel}' does not map to a provider-agnostic model selector`);
-  }
-  if (profile === 'selected') {
-    return taskModel?.trim() || defaultModelForProvider(provider);
-  }
-  return defaultModelForProfile(provider, profile);
 }
 
 export function describeTaskStepModel(value: string | null | undefined): string {

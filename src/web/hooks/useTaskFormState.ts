@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BUILT_IN_TYPES } from '../lib/constants';
 import type { Flow, ProviderConfig } from '../lib/api';
 import { getFlowIdForType, getPreferredFlowId, type CustomTypeOption } from '../components/task-form-shared';
 import type { EditTaskData, TaskFormData } from '../components/task-form-types';
 import { useTaskImages } from './useTaskImages';
-import { defaultModelForProvider, supportsTaskSelectionProvider } from '../lib/model-id';
 import { deriveFlowExecutionCapabilities } from '../../shared/flow-execution-capabilities';
 
 interface UseTaskFormStateArgs {
@@ -61,25 +60,31 @@ export function useTaskFormState({
 
   const matchingFlowId = getFlowIdForType(flows, type);
   const selectedFlow = flows.find(flow => flow.id === flowId) || null;
-  const taskSelectableProviders = providers
-    .filter(provider => supportsTaskSelectionProvider(provider.provider) && (provider.is_enabled || provider.id === providerConfigId))
-    .sort((left, right) => {
-      const order = ['claude', 'codex'];
-      return order.indexOf(left.provider) - order.indexOf(right.provider);
-    });
-  const selectedProvider = taskSelectableProviders.find(provider => provider.id === providerConfigId)
-    || providers.find(provider => provider.id === providerConfigId)
-    || null;
   const selectedFlowSupportsTaskSelection = mode === 'ai' && !assignee && !!selectedFlow;
+  const providerEvaluations = useMemo(() => {
+    if (!selectedFlowSupportsTaskSelection || !selectedFlow) return [];
+    return providers
+      .filter(provider => provider.is_enabled)
+      .map(provider => ({
+        provider,
+        capabilities: deriveFlowExecutionCapabilities(selectedFlow, provider.task_config, null),
+      }))
+      .filter(result => !result.capabilities.invalidReason);
+  }, [providers, selectedFlow, selectedFlowSupportsTaskSelection]);
+  const taskSelectableProviders = providerEvaluations.map(result => result.provider);
+  const selectedProvider = taskSelectableProviders.find(provider => provider.id === providerConfigId) || null;
+  const selectedProviderBaseCapabilities = selectedProvider
+    ? providerEvaluations.find(result => result.provider.id === selectedProvider.id)?.capabilities || null
+    : null;
   const flowCapabilities = selectedFlowSupportsTaskSelection && selectedFlow
-    ? deriveFlowExecutionCapabilities(selectedFlow, selectedProvider?.provider ?? null, providerModel.trim() || null)
+    ? deriveFlowExecutionCapabilities(selectedFlow, selectedProvider?.task_config ?? null, providerModel.trim() || null)
     : null;
   const providerSelectionEnabled = !!flowCapabilities?.providerSelectable;
   const modelSelectionEnabled = !!flowCapabilities?.modelSelectable;
   const reasoningSelectionEnabled = !!flowCapabilities?.reasoningSelectable;
   const subagentSelectionEnabled = !!flowCapabilities?.subagentsSelectable;
-  const effectiveProviderModel = modelSelectionEnabled && selectedProvider
-    ? (providerModel.trim() || defaultModelForProvider(selectedProvider.provider))
+  const effectiveProviderModel = modelSelectionEnabled
+    ? (providerModel.trim() || flowCapabilities?.resolvedTaskModel || '')
     : '';
   const executionSettingsLocked = !!editTask?.execution_settings_locked_at;
 
@@ -98,13 +103,38 @@ export function useTaskFormState({
       return;
     }
 
-    const fallbackProvider = taskSelectableProviders[0] || null;
+    const fallbackProvider = taskSelectableProviders.length === 1 ? taskSelectableProviders[0] : null;
     if ((!providerConfigId || !selectedProvider) && fallbackProvider) {
       setProviderConfigId(fallbackProvider.id);
-      if (modelSelectionEnabled && !providerModel.trim()) {
-        setProviderModel(defaultModelForProvider(fallbackProvider.provider));
+      const fallbackCapabilities = providerEvaluations.find(result => result.provider.id === fallbackProvider.id)?.capabilities || null;
+      if (fallbackCapabilities?.modelSelectable) {
+        const nextModel = fallbackCapabilities.resolvedTaskModel || fallbackCapabilities.modelOptions[0] || '';
+        if (providerModel !== nextModel) setProviderModel(nextModel);
       }
       return;
+    }
+
+    if (providerConfigId && !selectedProvider) {
+      setProviderConfigId('');
+      if (providerModel) setProviderModel('');
+      return;
+    }
+
+    if (selectedProvider && flowCapabilities?.invalidReason) {
+      if (!selectedProviderBaseCapabilities && fallbackProvider && fallbackProvider.id !== selectedProvider.id) {
+        setProviderConfigId(fallbackProvider.id);
+        const fallbackCapabilities = providerEvaluations.find(result => result.provider.id === fallbackProvider.id)?.capabilities || null;
+        setProviderModel(fallbackCapabilities?.modelSelectable ? (fallbackCapabilities.resolvedTaskModel || fallbackCapabilities.modelOptions[0] || '') : '');
+        return;
+      }
+
+      if (selectedProviderBaseCapabilities?.modelSelectable) {
+        const nextModel = selectedProviderBaseCapabilities.resolvedTaskModel || selectedProviderBaseCapabilities.modelOptions[0] || '';
+        if (providerModel !== nextModel) {
+          setProviderModel(nextModel);
+          return;
+        }
+      }
     }
 
     if (!modelSelectionEnabled && providerModel) {
@@ -112,8 +142,20 @@ export function useTaskFormState({
       return;
     }
 
-    if (selectedProvider && modelSelectionEnabled && !providerModel.trim()) {
-      setProviderModel(defaultModelForProvider(selectedProvider.provider));
+    if (selectedProvider && modelSelectionEnabled) {
+      const nextModel = flowCapabilities?.resolvedTaskModel || flowCapabilities?.modelOptions[0] || '';
+      if (!providerModel.trim() && nextModel) {
+        setProviderModel(nextModel);
+        return;
+      }
+      if (providerModel.trim() && flowCapabilities?.invalidReason && nextModel) {
+        setProviderModel(nextModel);
+        return;
+      }
+    }
+
+    if (reasoningSelectionEnabled && flowCapabilities && !flowCapabilities.supportedReasoningLevels.includes(effort as typeof flowCapabilities.supportedReasoningLevels[number])) {
+      setEffort(flowCapabilities.supportedReasoningLevels[0] || 'low');
       return;
     }
 
@@ -132,9 +174,12 @@ export function useTaskFormState({
     providerSelectionEnabled,
     reasoningSelectionEnabled,
     selectedProvider,
+    selectedProviderBaseCapabilities,
     subagentSelectionEnabled,
     taskSelectableProviders,
+    providerEvaluations,
     executionSettingsLocked,
+    flowCapabilities,
   ]);
 
   const imagesState = useTaskImages({
@@ -148,6 +193,12 @@ export function useTaskFormState({
 
     setError('');
     setLoading(true);
+
+    if (!executionSettingsLocked && providerSelectionEnabled && taskSelectableProviders.length > 1 && !providerConfigId) {
+      setError('Select a provider for this flow.');
+      setLoading(false);
+      return;
+    }
 
     try {
       const resolvedType = isCustomType ? customType.trim().toLowerCase().replace(/\s+/g, '-') : type;

@@ -11,34 +11,7 @@ export interface ParsedModelId {
   isLegacy: boolean;
 }
 
-export interface ModelCapabilities {
-  supportsTaskSelection: boolean;
-  supportsModelSelection: boolean;
-  supportsReasoning: boolean;
-  supportedReasoningLevels: ReasoningLevel[];
-  supportsSubagents: boolean;
-}
-
 const LEGACY_CLAUDE_MODELS = new Set(['opus', 'sonnet']);
-const ALL_REASONING_LEVELS: ReasoningLevel[] = ['low', 'medium', 'high', 'max'];
-
-function normalizedModelName(provider: ProviderKind, model: string): string {
-  const trimmed = model.trim().toLowerCase();
-  return trimmed || defaultModelForProvider(provider).toLowerCase();
-}
-
-function isKnownClaudeModel(model: string): boolean {
-  return model === 'sonnet'
-    || model === 'opus'
-    || model.includes('sonnet')
-    || model.includes('opus');
-}
-
-function isKnownCodexModel(model: string): boolean {
-  return model === 'o3'
-    || model.startsWith('o3-')
-    || model.startsWith('gpt-5.');
-}
 
 export function normalizeProviderKind(provider: string): ProviderKind {
   switch (provider) {
@@ -110,61 +83,6 @@ export function isApiProvider(provider: ProviderKind): boolean {
 
 export function isLocalApiProvider(provider: ProviderKind): boolean {
   return provider === 'lmstudio' || provider === 'ollama';
-}
-
-export function supportsTaskSelectionProvider(provider: ProviderKind): boolean {
-  return provider === 'claude' || provider === 'codex';
-}
-
-export function resolveModelCapabilities(provider: ProviderKind, model: string): ModelCapabilities {
-  const normalizedModel = normalizedModelName(provider, model);
-  if (provider === 'claude') {
-    return {
-      supportsTaskSelection: true,
-      supportsModelSelection: true,
-      supportsReasoning: isKnownClaudeModel(normalizedModel),
-      supportedReasoningLevels: isKnownClaudeModel(normalizedModel) ? ALL_REASONING_LEVELS : [],
-      supportsSubagents: isKnownClaudeModel(normalizedModel),
-    };
-  }
-
-  if (provider === 'codex') {
-    return {
-      supportsTaskSelection: true,
-      supportsModelSelection: true,
-      supportsReasoning: isKnownCodexModel(normalizedModel),
-      supportedReasoningLevels: isKnownCodexModel(normalizedModel) ? ALL_REASONING_LEVELS : [],
-      supportsSubagents: isKnownCodexModel(normalizedModel),
-    };
-  }
-
-  return {
-    supportsTaskSelection: false,
-    supportsModelSelection: false,
-    supportsReasoning: false,
-    supportedReasoningLevels: [],
-    supportsSubagents: false,
-  };
-}
-
-export function normalizeReasoningLevel(
-  provider: ProviderKind,
-  model: string,
-  value: string | null | undefined,
-): ReasoningLevel {
-  const capabilities = resolveModelCapabilities(provider, model);
-  if (!capabilities.supportsReasoning) return 'low';
-  return value === 'medium' || value === 'high' || value === 'max' ? value : 'low';
-}
-
-export function normalizeMultiagentMode(
-  provider: ProviderKind,
-  model: string,
-  value: string | null | undefined,
-): MultiagentMode {
-  const capabilities = resolveModelCapabilities(provider, model);
-  if (!capabilities.supportsSubagents) return 'auto';
-  return value === 'yes' ? 'yes' : 'auto';
 }
 
 export function toProviderReasoningLevel(

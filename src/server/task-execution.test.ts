@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { defaultProviderTaskConfig } from '../shared/provider-task-config.js';
 
 const state = vi.hoisted(() => ({
   taskRow: {
@@ -11,11 +12,31 @@ const state = vi.hoisted(() => ({
     execution_settings_locked_at: null as string | null,
     execution_settings_locked_job_id: null as string | null,
   },
+  flowRow: {
+    provider_binding: 'task_selected',
+    flow_steps: [
+      {
+        name: 'implement',
+        model: 'task:selected',
+        tools: ['Read'],
+        context_sources: ['task_description'],
+      },
+    ],
+  },
+  providerConfigs: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock('./supabase.js', () => ({
   supabase: {
     from: vi.fn((table: string) => {
+      if (table === 'flows') {
+        const selectChain = {
+          select: vi.fn(() => selectChain),
+          eq: vi.fn(() => selectChain),
+          maybeSingle: vi.fn(async () => ({ data: state.flowRow, error: null })),
+        };
+        return selectChain;
+      }
       if (table !== 'tasks') throw new Error(`Unexpected table: ${table}`);
 
       const selectChain = {
@@ -75,9 +96,17 @@ vi.mock('./supabase.js', () => ({
   },
 }));
 
+vi.mock('./providers/registry.js', () => ({
+  getProjectProviderConfigs: vi.fn(async () => state.providerConfigs),
+  getProviderConfigById: vi.fn(async (_projectId: string, providerConfigId: string) => (
+    state.providerConfigs.find(config => config.id === providerConfigId) ?? null
+  )),
+}));
+
 import {
   ensureTaskExecutionJobOwnership,
   lockTaskExecutionSettings,
+  resolveTaskExecutionSelection,
 } from './task-execution.js';
 
 describe('task execution lock ownership', () => {
@@ -92,6 +121,18 @@ describe('task execution lock ownership', () => {
       execution_settings_locked_at: null,
       execution_settings_locked_job_id: null,
     };
+    state.flowRow = {
+      provider_binding: 'task_selected',
+      flow_steps: [
+        {
+          name: 'implement',
+          model: 'task:selected',
+          tools: ['Read'],
+          context_sources: ['task_description'],
+        },
+      ],
+    };
+    state.providerConfigs = [];
   });
 
   it('locks a task to the starting job and preserves the original lock timestamp on resume', async () => {
@@ -140,5 +181,42 @@ describe('task execution lock ownership', () => {
     expect(locked).toBeNull();
     expect(state.taskRow.active_job_id).toBeNull();
     expect(state.taskRow.status).toBe('review');
+  });
+
+  it('requires an explicit provider when multiple compatible providers satisfy the flow', async () => {
+    state.providerConfigs = [
+      {
+        id: 'provider-claude',
+        project_id: 'project-1',
+        provider: 'claude',
+        label: 'Claude CLI',
+        base_url: null,
+        api_key: null,
+        is_enabled: true,
+        supports_embeddings: false,
+        embedding_model: null,
+        task_config: defaultProviderTaskConfig('claude'),
+      },
+      {
+        id: 'provider-codex',
+        project_id: 'project-1',
+        provider: 'codex',
+        label: 'Codex CLI',
+        base_url: null,
+        api_key: null,
+        is_enabled: true,
+        supports_embeddings: false,
+        embedding_model: null,
+        task_config: defaultProviderTaskConfig('codex'),
+      },
+    ];
+
+    await expect(resolveTaskExecutionSelection('project-1', {
+      mode: 'ai',
+      assignee: null,
+      flow_id: 'flow-1',
+      provider_config_id: null,
+      provider_model: null,
+    })).rejects.toThrow('Multiple enabled providers satisfy this flow. Pick one explicitly.');
   });
 });

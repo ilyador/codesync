@@ -1,4 +1,5 @@
 import type { ProviderKind } from './model-id.js';
+import type { ProviderTaskConfig } from '../../shared/provider-task-config.js';
 
 export interface ProviderConfigRecord {
   id: string;
@@ -10,6 +11,7 @@ export interface ProviderConfigRecord {
   is_enabled: boolean;
   supports_embeddings: boolean;
   embedding_model: string | null;
+  task_config: ProviderTaskConfig;
   created_at?: string;
   updated_at?: string;
 }
