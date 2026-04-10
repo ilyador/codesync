@@ -73,12 +73,12 @@ describe('QwenDriver', () => {
       step: baseStep(),
       task: { effort: null },
       cwd: '/work',
-      prompt: 'SECRET-PROMPT',
+      prompt: 'SECRET-PROMPT-LEAK-CANARY-12345',
       onLog: () => {},
     });
 
     const args = spawnMock.mock.calls[0][1] as string[];
-    expect(args).not.toContain('SECRET-PROMPT');
+    expect(args.join('\x00')).not.toContain('SECRET-PROMPT-LEAK-CANARY-12345');
     expect(args).not.toContain('--prompt');
 
     proc.emit('close', 0);
