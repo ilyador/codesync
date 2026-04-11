@@ -1,3 +1,4 @@
+import { isMissingRowError } from './authz.js';
 import { broadcast } from './realtime-listeners.js';
 import { projectRecord, stringField, type RealtimePayload } from './realtime-payload.js';
 import { supabase } from './supabase.js';
@@ -8,7 +9,13 @@ async function resolveProjectId(table: 'tasks' | 'workstreams', id: string): Pro
     .select('project_id')
     .eq('id', id)
     .single();
-  if (error || !data) return null;
+  if (error) {
+    if (!isMissingRowError(error)) {
+      console.error(`[realtime] Failed to resolve project_id from ${table}:`, error.message);
+    }
+    return null;
+  }
+  if (!data) return null;
   const projectId = (data as { project_id?: unknown }).project_id;
   return typeof projectId === 'string' && projectId.length > 0 ? projectId : null;
 }

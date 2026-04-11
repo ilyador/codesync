@@ -74,7 +74,7 @@ describe('broadcastNotificationChange', () => {
   });
 
   it('does not broadcast when the DB lookup fails', async () => {
-    supabaseMock.single.mockResolvedValueOnce({ data: null, error: { message: 'not found' } });
+    supabaseMock.single.mockResolvedValueOnce({ data: null, error: { code: 'PGRST116', message: 'not found' } });
 
     await broadcastNotificationChange({
       eventType: 'INSERT',
@@ -82,5 +82,35 @@ describe('broadcastNotificationChange', () => {
       old: null,
     });
     expect(broadcastMock).not.toHaveBeenCalled();
+  });
+
+  it('logs when the DB lookup returns an unexpected error', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    supabaseMock.single.mockResolvedValueOnce({ data: null, error: { code: '500', message: 'network' } });
+
+    await broadcastNotificationChange({
+      eventType: 'INSERT',
+      new: { id: 'n6', user_id: 'u1', task_id: 't1' },
+      old: null,
+    });
+
+    expect(broadcastMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it('silently skips when the referenced task is missing (PGRST116)', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    supabaseMock.single.mockResolvedValueOnce({ data: null, error: { code: 'PGRST116', message: 'no rows returned' } });
+
+    await broadcastNotificationChange({
+      eventType: 'INSERT',
+      new: { id: 'n7', user_id: 'u1', task_id: 't1' },
+      old: null,
+    });
+
+    expect(broadcastMock).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });
