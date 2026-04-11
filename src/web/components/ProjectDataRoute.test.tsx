@@ -22,6 +22,10 @@ vi.mock('../lib/api', async () => {
   };
 });
 
+vi.mock('../hooks/useProjectEvents', () => ({
+  subscribeProjectEvents: vi.fn(() => () => {}),
+}));
+
 const baseSettings: ProjectDataSettings = {
   enabled: true,
   backend: 'lmstudio',
