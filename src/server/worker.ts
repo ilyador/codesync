@@ -9,7 +9,7 @@ import { createCheckpoint, revertToCheckpoint, deleteCheckpoint } from './checkp
 import { queueNextWorkstreamTask } from './auto-continue.js';
 import { autoCommit, slugify } from './git-utils.js';
 import { search as ragSearch } from './rag/service.js';
-import { refreshDetectedAiRuntimes } from './ai-runtime-discovery.js';
+import { refreshDetectedAiRuntimes, getDetectedAiRuntimeTimestamp } from './ai-runtime-discovery.js';
 import { cleanupWorktree, ensureWorktree } from './worktree.js';
 
 const execFileAsync = promisify(execFile);
@@ -366,6 +366,7 @@ let busyJobId: string | null = null;
 const pollInterval = setInterval(async () => {
   try {
     if (busyJobId) return;
+    if (!getDetectedAiRuntimeTimestamp()) return; // wait for discovery to populate cache
 
     const job = await claimNextQueuedJob();
     if (!job) return;
@@ -543,9 +544,14 @@ process.on('SIGINT', shutdown);
 // Startup
 // ---------------------------------------------------------------------------
 
-const detectedRuntimes = refreshDetectedAiRuntimes();
-const runtimeSummary = detectedRuntimes
-  .filter(runtime => runtime.available)
-  .map(runtime => `${runtime.label} (${runtime.command})`)
-  .join(', ');
-console.log(`[worker] WorkStream worker started, polling for jobs... detected runtimes: ${runtimeSummary || 'none'}`);
+void refreshDetectedAiRuntimes()
+  .then(detectedRuntimes => {
+    const runtimeSummary = detectedRuntimes
+      .filter(runtime => runtime.available)
+      .map(runtime => `${runtime.label} (${runtime.command})`)
+      .join(', ');
+    console.log(`[worker] WorkStream worker started, polling for jobs... detected runtimes: ${runtimeSummary || 'none'}`);
+  })
+  .catch(err => {
+    console.error('[worker] Runtime discovery failed at startup:', err);
+  });
