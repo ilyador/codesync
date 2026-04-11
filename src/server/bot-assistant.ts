@@ -1,5 +1,5 @@
 import { execFile } from 'child_process';
-import { claudeEnv } from './claude-env.js';
+import { buildRuntimeEnv } from './runtimes/env.js';
 import { supabase } from './supabase.js';
 
 export async function buildProjectSummary(projectId: string): Promise<string> {
@@ -57,7 +57,7 @@ export function askClaude(systemPrompt: string, userMessage: string): Promise<st
     const proc = execFile('claude', ['-p', '--output-format', 'text', '--max-turns', '3'], {
       timeout: 120000,
       maxBuffer: 1024 * 1024,
-      env: claudeEnv,
+      env: buildRuntimeEnv('claude_code'),
     }, (err, stdout) => {
       if (err) reject(err);
       else resolve(stdout.trim());
