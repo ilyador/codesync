@@ -120,6 +120,16 @@ export function ProjectDataRoute({ project, projectDataSettings, reloadProjectDa
     }
   }, [project.id]);
 
+  const refreshSettings = useCallback(async () => {
+    try {
+      const nextSettings = await getProjectDataSettings(project.id);
+      setSettings(nextSettings);
+      setSavedSettings(nextSettings);
+    } catch {
+      // Silent — last known good state remains visible.
+    }
+  }, [project.id]);
+
   useEffect(() => {
     void loadAll({ reloadSettings: true });
   }, [loadAll]);
@@ -129,13 +139,13 @@ export function ProjectDataRoute({ project, projectDataSettings, reloadProjectDa
       if (event.type === 'document_changed') {
         void refreshDocuments();
       } else if (event.type === 'project_data_changed') {
-        void loadAll({ reloadSettings: true });
+        void refreshSettings();
       } else if (event.type === 'full_sync') {
         void loadAll();
       }
     });
     return unsub;
-  }, [project.id, loadAll, refreshDocuments]);
+  }, [project.id, loadAll, refreshDocuments, refreshSettings]);
 
   async function saveSettings(options: { reindex?: boolean } = {}) {
     setSaving(true);
