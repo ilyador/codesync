@@ -12,6 +12,40 @@ import {
 } from './gate-evaluation.js';
 import { executeFlowStep, summarize } from '../runtimes/index.js';
 
+const PAUSE_KEYWORDS = ['Should I', 'Could you', 'Which', 'clarif'];
+
+function detectPauseQuestion(output: string): string | null {
+  const candidateLines = output.trim().split('\n').slice(-5).filter(l => {
+    const trimmed = l.trim();
+    return !trimmed.startsWith('- ') && !trimmed.startsWith('RULES:') && !trimmed.startsWith('IMPORTANT:');
+  });
+  const lastLines = candidateLines.join('\n');
+  if (!lastLines.includes('?')) return null;
+  if (!PAUSE_KEYWORDS.some(kw => lastLines.includes(kw))) return null;
+  return lastLines;
+}
+
+interface GateResult {
+  failed: boolean;
+  reason: string;
+}
+
+function checkGate(step: FlowStepConfig, output: string): GateResult {
+  const verdict = extractVerdict(output);
+  if (verdict) {
+    return {
+      failed: !verdict.passed,
+      reason: verdict.reason || `${step.name} failed (see output)`,
+    };
+  }
+  const isReview = step.name === 'review' || step.context_sources.includes('review_criteria');
+  const failed = isReview ? legacyReviewCheck(output) : legacyVerifyCheck(output);
+  return {
+    failed,
+    reason: `${step.name} failed (see output)`,
+  };
+}
+
 const MIME_MAP: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
   svg: 'image/svg+xml', webp: 'image/webp', pdf: 'application/pdf',
@@ -169,30 +203,26 @@ export async function runFlowJob(ctx: FlowJobContext): Promise<void> {
         onPhaseComplete(step.name, phaseOutput);
 
         // Check if claude asked a question
-        // Filter out RULES/instruction lines to avoid false-positive pause detection
-        const candidateLines = output.trim().split('\n').slice(-5).filter(l => {
-          const trimmed = l.trim();
-          return !trimmed.startsWith('- ') && !trimmed.startsWith('RULES:') && !trimmed.startsWith('IMPORTANT:');
-        });
-        const lastLines = candidateLines.join('\n');
-        if (lastLines.includes('?') && (lastLines.includes('Should I') || lastLines.includes('Could you') || lastLines.includes('Which') || lastLines.includes('clarif'))) {
+        const pauseQuestion = detectPauseQuestion(output);
+        if (pauseQuestion) {
           if (await updateRunningJob(jobId, {
             status: 'paused',
-            question: lastLines,
+            question: pauseQuestion,
             phases_completed: phasesCompleted,
           }) === 'canceled') return;
           await updateTaskStatus(task.id, 'paused');
-          onPause(lastLines);
+          onPause(pauseQuestion);
           return;
         }
 
         // Gate check (verify/review steps)
         if (step.is_gate) {
-          const verdict = extractVerdict(output);
-          if (!verdict) console.warn(`[runner] Job ${jobId}: gate step '${step.name}' returned no structured verdict, using legacy heuristics`);
-          const isReview = step.name === 'review' || step.context_sources.includes('review_criteria');
-          const failed = verdict ? !verdict.passed : (isReview ? legacyReviewCheck(output) : legacyVerifyCheck(output));
-          const reason = verdict?.reason || `${step.name} failed (see output)`;
+          const gateResult = checkGate(step, output);
+          const failed = gateResult.failed;
+          const reason = gateResult.reason;
+          if (failed && !extractVerdict(output)) {
+            console.warn(`[runner] Job ${jobId}: gate step '${step.name}' returned no structured verdict, using legacy heuristics`);
+          }
 
           if (failed && displayAttempt < maxAttempts) {
             if (step.on_fail_jump_to != null) {
@@ -419,3 +449,10 @@ async function savePhases(jobId: string, phasesCompleted: unknown[]): Promise<vo
     if (error) console.error(`[runner] Retry also failed for job ${jobId}:`, error.message);
   }
 }
+
+// Test-only: expose private helpers for orchestrator.test.ts.
+// Do not use outside tests.
+export const __test__ = {
+  detectPauseQuestion,
+  checkGate,
+};
