@@ -24,6 +24,7 @@ export function useNotifications(userId: string | undefined, currentProjectId: s
 
   useEffect(() => {
     if (!userId || !currentProjectId) return;
+    void load();
     const unsub = subscribeProjectEvents(currentProjectId, (event) => {
       if (event.type === 'notification_changed' || event.type === 'full_sync') {
         void load();
