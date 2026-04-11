@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from 'child_process';
-import { claudeEnv } from '../claude-env.js';
+import { buildRuntimeEnv } from '../runtimes/env.js';
 import { git, slugify } from '../git-utils.js';
 import { supabase } from '../supabase.js';
 import { workstreamRef } from '../worktree.js';
@@ -58,7 +58,7 @@ At the end, output a brief summary of what was reviewed and what was fixed (if a
     const proc = spawn('claude', ['-p', '--output-format', 'text', '--max-turns', '30', '--model', 'opus'], {
       cwd: localPath,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: claudeEnv,
+      env: buildRuntimeEnv('claude_code'),
     });
     let stdoutBuffer = '';
     let stderrTail = '';
