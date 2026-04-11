@@ -13,3 +13,4 @@ export {
   broadcastMemberChange,
 } from './realtime-project-handlers.js';
 export { broadcastDocumentChange } from './realtime-document-handler.js';
+export { broadcastNotificationChange } from './realtime-notification-handler.js';
