@@ -239,22 +239,17 @@ describe('mcp-task-create-tool', () => {
 
   });
 
-  it('leaves created_by as null when no system user can be resolved', async () => {
+  it('rejects when no system user can be resolved', async () => {
     isMcpProjectAllowedMock.mockReturnValue(true);
     getSystemUserIdMock.mockResolvedValue(null);
-    const taskInsert = mockTaskInsert({
-      data: { id: 'task-new', title: 'X' },
-      error: null,
-    });
     fromMock
-      .mockReturnValueOnce(mockTaskMaxPosition({ data: null, error: { code: 'PGRST116' } }))
-      .mockReturnValueOnce(taskInsert);
+      .mockReturnValueOnce(mockTaskMaxPosition({ data: null, error: { code: 'PGRST116' } }));
 
     const handler = await registerAndGetHandler();
-    await handler({ project_id: 'p-1', title: 'X' });
+    const result = await handler({ project_id: 'p-1', title: 'X' });
 
-    expect(taskInsert.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ created_by: null, position: 1 }),
-    );
+    expect(result.content[0].text).toMatch(/Could not resolve a system user/);
+    // Only the max-position query should have run — no task insert
+    expect(fromMock).toHaveBeenCalledTimes(1);
   });
 });
