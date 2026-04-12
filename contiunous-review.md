@@ -549,3 +549,37 @@ Single export `buildRuntimeEnv(runtimeId)`. Starts with a CLEAN env (`TERM: 'dum
 - `npx tsc --noEmit` — clean
 - `npx vitest run src/server/runtimes/env.test.ts` — 12/12 pass (up from 7)
 - `npx vitest run` — 308/308 pass in 43 files (previously 304)
+
+---
+
+## 2026-04-12 — CORS middleware (`src/server/cors.ts`)
+
+### Scope
+
+Security-focused review of the 33-line CORS middleware and its integration in `index.ts:28`. Also read `env-config.ts` for context. No subagent — file small enough to review inline.
+
+### Module shape
+
+Parses `CORS_ORIGINS` env var into a `Set<string>` allowlist at import time. Null when unset (fail-open for dev). Middleware reflects the request origin when allowed, rejects with 403 when not. Sets `Credentials: true`, `Vary: Origin`, and handles `OPTIONS` preflight with 204.
+
+### Findings
+
+| # | Severity | File | Status |
+|---|---|---|---|
+| 1 | — | `cors.test.ts` — security boundary had **zero tests** | **Fixed** (9a507ca) |
+
+### Fix in this pass
+
+**9a507ca — 10 CORS tests across both operating modes.** Uses `vi.resetModules()` to re-evaluate the module-level allowlist with different env var state. Covers: any-origin reflection in dev, same-origin passthrough, preflight 204, whitelisted-origin reflection + credentials, 403 for unknown origins, substring-match rejection, and preflight for both whitelisted and rejected origins. Test count 308 to 318. No production code changed.
+
+### Verified-correct design decisions
+
+- **Fail-open when `CORS_ORIGINS` is unset** — intentional dev-mode convention, consistent with other env vars.
+- **Exact-match via `Set.has`** — prevents partial-domain attacks. New test pins this.
+- **`env-config.ts` was clean** — newline injection rejected, URL validated, opt-in gated.
+
+### Verification
+
+- `npx tsc --noEmit` — clean
+- `npx vitest run src/server/cors.test.ts` — 10/10 pass (new file)
+- `npx vitest run` — 318/318 pass in 44 files (previously 308/43)
