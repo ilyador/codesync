@@ -43,6 +43,9 @@ export function registerMcpTaskCreateTool(server: McpServer): void {
     }
 
     const createdBy = await getSystemUserId(project_id);
+    if (!createdBy) {
+      return mcpText('Error: Could not resolve a system user for task creation. Create a profile named "WorkStream Bot" or ensure the project has a creator.');
+    }
 
     const { data, error } = await supabase.from('tasks').insert({
       project_id,
