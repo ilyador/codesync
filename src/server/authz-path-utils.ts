@@ -23,14 +23,18 @@ export function pathInside(parent: string, candidate: string): boolean {
 }
 
 export function containsSymlink(resolvedPath: string): boolean {
-  const parts = resolvedPath.split(path.sep).filter(Boolean);
-  let current = path.sep;
+  const absolute = path.resolve(resolvedPath);
+  const root = path.parse(absolute).root;
+  const parts = absolute.slice(root.length).split(path.sep).filter(Boolean);
+  let current = root;
   for (const part of parts) {
     current = path.join(current, part);
     try {
       if (lstatSync(current).isSymbolicLink()) return true;
-    } catch {
-      return false;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') return false;
+      return true;
     }
   }
   return false;
