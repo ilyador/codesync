@@ -99,6 +99,10 @@ describe('mcp-task-create-tool', () => {
     getSystemUserIdMock.mockReset();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   async function registerAndGetHandler() {
     const { server, getHandler } = createFakeServer();
     const { registerMcpTaskCreateTool } = await import('./mcp-task-create-tool.js');
@@ -212,7 +216,7 @@ describe('mcp-task-create-tool', () => {
     expect(result.content[0].text).toBe('Error: failed to load workstream');
     expect(result.content[0].text).not.toMatch(/permission denied/);
     expect(errorSpy).toHaveBeenCalled();
-    errorSpy.mockRestore();
+
   });
 
   it('swallows raw Supabase error messages on task insert failure', async () => {
@@ -232,7 +236,7 @@ describe('mcp-task-create-tool', () => {
     expect(result.content[0].text).toBe('Error: failed to create task');
     expect(result.content[0].text).not.toMatch(/check constraint/);
     expect(errorSpy).toHaveBeenCalled();
-    errorSpy.mockRestore();
+
   });
 
   it('leaves created_by as null when no system user can be resolved', async () => {

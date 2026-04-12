@@ -19,12 +19,12 @@ export function parseActions(response: string): { text: string; actions: BotActi
     try {
       parsed = JSON.parse(match[2]);
     } catch {
-      console.warn(`[bot] Dropped ACTION line with invalid JSON: ${line}`);
+      console.warn(`[bot] Dropped ACTION line with invalid JSON for action: ${match[1]}`);
       textLines.push(line);
       continue;
     }
     if (!isPlainObject(parsed)) {
-      console.warn(`[bot] Dropped ACTION line because params are not a JSON object: ${line}`);
+      console.warn(`[bot] Dropped ACTION line because params are not a JSON object for action: ${match[1]}`);
       textLines.push(line);
       continue;
     }

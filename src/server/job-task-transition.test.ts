@@ -66,22 +66,25 @@ describe('transitionJobAndTask', () => {
 
   it('returns a generic error and logs the detail on RPC failure', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    rpcMock.mockResolvedValue({ data: null, error: { message: 'relation "jobs" does not exist' } });
+    try {
+      rpcMock.mockResolvedValue({ data: null, error: { message: 'relation "jobs" does not exist' } });
 
-    const { transitionJobAndTask } = await import('./job-task-transition.js');
-    const result = await transitionJobAndTask({
-      jobId: 'job-1',
-      expectedStatus: 'paused',
-      jobUpdates: { status: 'queued' },
-    });
+      const { transitionJobAndTask } = await import('./job-task-transition.js');
+      const result = await transitionJobAndTask({
+        jobId: 'job-1',
+        expectedStatus: 'paused',
+        jobUpdates: { status: 'queued' },
+      });
 
-    expect(result.data).toBeNull();
-    expect(result.error).toBe('Failed to update job status');
-    expect(result.error).not.toContain('relation');
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('RPC failed for job job-1'),
-      expect.stringContaining('relation'),
-    );
-    errorSpy.mockRestore();
+      expect(result.data).toBeNull();
+      expect(result.error).toBe('Failed to update job status');
+      expect(result.error).not.toContain('relation');
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('RPC failed for job job-1'),
+        expect.stringContaining('relation'),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });

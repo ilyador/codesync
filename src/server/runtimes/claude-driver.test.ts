@@ -319,7 +319,7 @@ describe('ClaudeDriver', () => {
     expect(await promise2).toBe('Completed');
   });
 
-  it('blocks all write tools when step.tools is empty', async () => {
+  it('omits tool flags entirely when step.tools is empty', async () => {
     const proc = new MockProc();
     spawnMock.mockReturnValue(proc);
 
