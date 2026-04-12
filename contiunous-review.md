@@ -711,3 +711,32 @@ Review of the 119-line view-model module that transforms `JobRecord[]` into `Job
 - `npx tsc --noEmit` — clean
 - `npx vitest run src/web/lib/project-job-view-models.test.ts` — 8/8 pass (up from 2)
 - `npx vitest run` — 339/339 pass in 45 files (previously 333)
+
+---
+
+## 2026-04-12 — Job selection (`src/web/lib/job-selection.ts`)
+
+### Scope
+
+Review of the 48-line job-selection module that picks the "best" job per task for display. Read the 54-line test file. Connected to `project-job-view-models.ts` which imports `pickPrimaryJobs`.
+
+### Module shape
+
+Three exports: `comparePrimaryJobs(a, b)` (status-priority, then timestamp, then id tiebreak), `pickPrimaryJobs(jobs)` (best-per-task then sorted), `mapPrimaryJobsByTask(jobs)` (same as record lookup).
+
+### Findings
+
+| # | Severity | File | Status |
+|---|---|---|---|
+| 1 | LOW | `JOB_STATUS_PRIORITY` was duplicated identically in `job-selection.ts:3-10` and `project-job-view-models.ts:85`; updating one without the other would silently diverge sorts | **Fixed** (8be6011) |
+| 2 | LOW | `job-selection.test.ts` — empty input, id tiebreak, and invalid-timestamp edge cases untested | **Fixed** (8be6011) |
+
+### Fix in this pass
+
+**8be6011 — deduplicate constant + 3 edge-case tests.** Exported `JOB_STATUS_PRIORITY` from `job-selection.ts` and imported it in `project-job-view-models.ts`, removing the inline duplicate. Updated the unknown-status fallback from `5` to `99` to match `comparePrimaryJobs`. Added tests for empty input, same-status id-based tiebreak, and invalid timestamp graceful handling. Test count 339 to 342.
+
+### Verification
+
+- `npx tsc --noEmit` — clean
+- `npx vitest run src/web/lib/job-selection.test.ts` — 6/6 pass (up from 3)
+- `npx vitest run` — 342/342 pass in 45 files (previously 339)
