@@ -109,7 +109,7 @@ describe('buildJobViews', () => {
           lines_removed: 7,
           summary: '[done] Phase complete\nActual summary line\n[codex] tokens\n\nSecond line',
           changed_files: ['a.ts', 'b.ts'],
-        } as any,
+        } as unknown as JobRecord['review_result'],
       }),
     ], { 'task-1': 'T' });
 
@@ -127,7 +127,7 @@ describe('buildJobViews', () => {
     const views = buildJobViews([
       makeJobRecord({
         status: 'review',
-        review_result: { summary: 'ok' } as any,
+        review_result: { summary: 'ok' } as unknown as JobRecord['review_result'],
       }),
     ], { 'task-1': 'T' });
 

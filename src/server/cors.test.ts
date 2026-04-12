@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Request, Response, NextFunction } from 'express';
+import type { Request, Response } from 'express';
 
 // Override CORS_ORIGINS before importing the module. The Set is built at
 // module-evaluation time, so we need to set the env var before the first
@@ -20,7 +20,7 @@ function mockResponse(): Response & { _status: number; _headers: Record<string, 
     _ended: false,
     status(code: number) { res._status = code; return res; },
     setHeader(name: string, value: string) { headers[name] = value; },
-    json(body: unknown) { res._ended = true; return res; },
+    json() { res._ended = true; return res; },
     end() { res._ended = true; },
   } as unknown as Response & { _status: number; _headers: Record<string, string>; _ended: boolean };
   return res;

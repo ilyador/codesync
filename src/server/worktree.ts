@@ -20,7 +20,10 @@ export function workstreamRef(workstreamName: string, workstreamId: string): str
 export function ensureWorktree(projectPath: string, workstreamSlug: string, workstreamId: string): string {
   const refSlug = workstreamRef(workstreamSlug, workstreamId);
   const worktreeDir = path.join(projectPath, '.worktrees');
-  const worktreePath = path.join(worktreeDir, refSlug);
+  const worktreePath = path.resolve(worktreeDir, refSlug);
+  if (!worktreePath.startsWith(path.resolve(worktreeDir) + path.sep)) {
+    throw new Error(`Invalid worktree path for slug: ${workstreamSlug}`);
+  }
   const branch = `workstream/${refSlug}`;
 
   // Already set up — just return the path
