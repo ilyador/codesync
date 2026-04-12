@@ -170,8 +170,11 @@ export function TaskCardView({
         />
       )}
 
-      {/* Preview: description only (visible when collapsed and NOT active) */}
-      {((!isActive && (!renderExpandedDetail || taskDone)) || (isReview && !renderExpandedDetail)) && (
+      {/* Preview: description only (visible when collapsed and NOT active).
+          Done-with-expanded-detail used to fall through to the preview as a
+          fallback because the old done-detail didn't render the description;
+          now it does (via TaskDoneDetail's <Markdown>), so no fallback needed. */}
+      {((!isActive && !renderExpandedDetail) || (isReview && !renderExpandedDetail)) && (
         <div className={s.previewReveal}>
           <TaskCardPreview
             task={task}
