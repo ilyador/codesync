@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MemoMarkdown } from './MemoMarkdown';
 import { ReplyInput } from './ReplyInput';
 import { TaskAttachments } from './TaskAttachments';
 import { TaskComments } from './TaskComments';
@@ -99,6 +100,7 @@ export function TaskDoneDetail({
             )}
           </div>
         )}
+        {task.description && <div className={s.desc}><MemoMarkdown text={task.description} /></div>}
         <TaskAttachments taskId={task.id} projectId={projectId} legacyImages={task.images} readOnly />
         {!hideComments && (
           <TaskComments taskId={task.id} projectId={projectId} expectedCount={commentCount} mentionMembers={mentionMembers} />
