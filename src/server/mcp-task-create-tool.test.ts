@@ -173,6 +173,7 @@ describe('mcp-task-create-tool', () => {
     const result = await handler({
       project_id: 'p-1',
       title: 'X',
+      type: 'feature',
       workstream_id: 'ws-mismatched',
     });
 
@@ -192,6 +193,7 @@ describe('mcp-task-create-tool', () => {
     const result = await handler({
       project_id: 'p-1',
       title: 'X',
+      type: 'feature',
       workstream_id: 'ws-missing',
     });
 
@@ -210,6 +212,7 @@ describe('mcp-task-create-tool', () => {
     const result = await handler({
       project_id: 'p-1',
       title: 'X',
+      type: 'feature',
       workstream_id: 'ws-1',
     });
 
@@ -231,12 +234,26 @@ describe('mcp-task-create-tool', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const handler = await registerAndGetHandler();
-    const result = await handler({ project_id: 'p-1', title: 'X' });
+    const result = await handler({ project_id: 'p-1', title: 'X', type: 'feature' });
 
     expect(result.content[0].text).toBe('Error: failed to create task');
     expect(result.content[0].text).not.toMatch(/check constraint/);
     expect(errorSpy).toHaveBeenCalled();
 
+  });
+
+  it('rejects an unknown task type not in core or custom types', async () => {
+    isMcpProjectAllowedMock.mockReturnValue(true);
+    // Mock custom_task_types query returning empty array
+    const customTypesSelect = vi.fn(() => ({
+      eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
+    }));
+    fromMock.mockReturnValueOnce({ select: customTypesSelect });
+
+    const handler = await registerAndGetHandler();
+    const result = await handler({ project_id: 'p-1', title: 'X', type: 'invalid-type' });
+
+    expect(result.content[0].text).toMatch(/type must be one of/);
   });
 
   it('rejects when no system user can be resolved', async () => {
@@ -246,7 +263,7 @@ describe('mcp-task-create-tool', () => {
       .mockReturnValueOnce(mockTaskMaxPosition({ data: null, error: { code: 'PGRST116' } }));
 
     const handler = await registerAndGetHandler();
-    const result = await handler({ project_id: 'p-1', title: 'X' });
+    const result = await handler({ project_id: 'p-1', title: 'X', type: 'feature' });
 
     expect(result.content[0].text).toMatch(/Could not resolve a system user/);
     // Only the max-position query should have run — no task insert

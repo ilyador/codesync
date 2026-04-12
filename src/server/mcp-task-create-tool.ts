@@ -5,6 +5,8 @@ import { isMcpProjectAllowed, mcpProjectScopeError, mcpText } from './mcp-authz.
 import { getSystemUserId } from './mcp-system-user.js';
 import { supabase } from './supabase.js';
 
+const CORE_TASK_TYPES = new Set(['bug-fix', 'feature', 'refactor', 'test', 'chore']);
+
 export function registerMcpTaskCreateTool(server: McpServer): void {
   server.tool('task_create', 'Create a new task', {
     project_id: z.string(),
@@ -16,6 +18,21 @@ export function registerMcpTaskCreateTool(server: McpServer): void {
     if (!isMcpProjectAllowed(project_id)) return mcpText(mcpProjectScopeError(project_id));
     const cleanTitle = title.trim();
     if (!cleanTitle) return mcpText('Error: title is required.');
+    if (!CORE_TASK_TYPES.has(type)) {
+      const { data: customTypes, error: customTypesError } = await supabase
+        .from('custom_task_types')
+        .select('name')
+        .eq('project_id', project_id);
+      if (customTypesError) {
+        console.error(`[mcp] Failed to load custom task types for project ${project_id}:`, customTypesError.message);
+        return mcpText('Error: failed to validate task type');
+      }
+      const validCustomTypes = new Set((customTypes || []).map((t: { name: string }) => t.name));
+      if (!validCustomTypes.has(type)) {
+        const allTypes = [...CORE_TASK_TYPES, ...validCustomTypes].sort().join(', ');
+        return mcpText(`Error: type must be one of: ${allTypes}`);
+      }
+    }
     if (workstream_id) {
       const { data: workstream, error: workstreamError } = await supabase
         .from('workstreams')
