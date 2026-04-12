@@ -3,7 +3,7 @@ import { statSync } from 'fs';
 import path from 'path';
 import type { ProjectMember } from './authz-shared.js';
 import { isLocalPathAllowed } from './authz-path-member.js';
-import { configuredProjectRoots, containsSymlink, existingRealPath, pathInside } from './authz-path-utils.js';
+import { configuredProjectRoots, containsSymlink, existingRealPath, expandHomePath, pathInside } from './authz-path-utils.js';
 
 export { isLocalPathAllowed } from './authz-path-member.js';
 export { existingRealPath } from './authz-path-utils.js';
@@ -52,12 +52,12 @@ export function requireAuthorizedLocalPath(
     return null;
   }
 
-  const resolved = existingRealPath(candidate);
-  if (containsSymlink(resolved)) {
+  const absoluteCandidate = path.resolve(expandHomePath(candidate.trim()));
+  if (containsSymlink(absoluteCandidate)) {
     res.status(403).json({ error: `${label} must not contain symbolic links` });
     return null;
   }
-  return resolved;
+  return existingRealPath(absoluteCandidate);
 }
 
 export function requireExactRegisteredLocalPath(
