@@ -850,3 +850,30 @@ Review of the 23-line time formatting utility (two functions: `timeAgo`, `elapse
 
 - `npx vitest run src/web/lib/time.test.ts` — 11/11 pass (new file)
 - `npx vitest run` — 381/381 pass in 47 files (previously 370/46)
+
+---
+
+## 2026-04-12 — AI runtime definitions (`src/shared/ai-runtimes.ts`)
+
+### Scope
+
+Review of the 148-line shared module defining runtime IDs, variants, capabilities, and normalization helpers. Used by both server (drivers, registry, flow config) and web (flow editor, step modals, runtime status display).
+
+### Module shape
+
+Static data (`AI_RUNTIME_DEFINITIONS`, `AVAILABLE_AI_RUNTIMES`, `CODING/IMAGE_RUNTIME_OPTIONS`) plus 10 pure lookup/normalization functions. All input is typed or guarded; no external calls.
+
+### Findings
+
+| # | Severity | File | Status |
+|---|---|---|---|
+| 1 | LOW | `ai-runtimes.test.ts` — 8 helper functions and all static invariants had zero test coverage | **Fixed** (57c9b35) |
+
+### Fix
+
+**57c9b35 — 17 tests covering helpers, lookups, and static invariants.** Static definitions (all runtimes implemented, coding/image split, command + variant invariants). getAiRuntime and getAvailableAiRuntime with known/unknown/null inputs. All 5 remaining helper functions. Plus 4 normalization edge cases (valid ID preserved, valid kind preserved, unknown-runtime variant passthrough, whitespace fallback). Test count 381 to 398. No production code changed.
+
+### Verification
+
+- `npx vitest run src/shared/ai-runtimes.test.ts` — 22/22 pass (up from 5)
+- `npx vitest run` — 398/398 pass in 47 files (previously 381)
