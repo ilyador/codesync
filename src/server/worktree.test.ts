@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -8,15 +8,24 @@ vi.mock('./git-utils.js', () => ({
   gitSync: (args: string[], cwd: string) => gitSyncMock(args, cwd),
 }));
 
+const tempDirs: string[] = [];
+
 function tempDir() {
   const dir = join(tmpdir(), `worktree-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(dir, { recursive: true });
+  tempDirs.push(dir);
   return dir;
 }
 
 describe('worktree', () => {
   beforeEach(() => {
     gitSyncMock.mockReset();
+  });
+
+  afterEach(() => {
+    for (const dir of tempDirs.splice(0)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   describe('workstreamRef', () => {
@@ -49,7 +58,6 @@ describe('worktree', () => {
 
       expect(result).toBe(worktreePath);
       expect(gitSyncMock).not.toHaveBeenCalled();
-      rmSync(project, { recursive: true, force: true });
     });
 
     it('runs git worktree add with the branch when worktree does not exist', async () => {
@@ -67,8 +75,6 @@ describe('worktree', () => {
 
       const addCall = gitSyncMock.mock.calls.find(([args]: [string[]]) => args[0] === 'worktree' && args[1] === 'add');
       expect(addCall?.[0]).toEqual(['worktree', 'add', expectedPath, 'workstream/build-abc12345']);
-
-      rmSync(project, { recursive: true, force: true });
     });
 
     it('removes a stale directory before running git worktree add', async () => {
@@ -91,8 +97,6 @@ describe('worktree', () => {
 
       // Stale file should be gone (rmSync was called before git worktree add)
       expect(existsSync(join(worktreePath, 'stale-file.txt'))).toBe(false);
-
-      rmSync(project, { recursive: true, force: true });
     });
 
     it('tolerates git branch already-exists error', async () => {
@@ -104,8 +108,6 @@ describe('worktree', () => {
 
       const { ensureWorktree } = await import('./worktree.js');
       expect(() => ensureWorktree(project, 'build', 'abc12345-xxxx-yyyy')).not.toThrow();
-
-      rmSync(project, { recursive: true, force: true });
     });
   });
 
@@ -124,8 +126,6 @@ describe('worktree', () => {
 
       const removeCall = gitSyncMock.mock.calls.find(([args]: [string[]]) => args[0] === 'worktree' && args[1] === 'remove');
       expect(removeCall?.[0]).toContain('--force');
-
-      rmSync(project, { recursive: true, force: true });
     });
 
     it('does not throw if every git command fails', async () => {
@@ -134,8 +134,6 @@ describe('worktree', () => {
 
       const { cleanupWorktree } = await import('./worktree.js');
       expect(() => cleanupWorktree(project, 'build', 'abc12345-xxxx-yyyy')).not.toThrow();
-
-      rmSync(project, { recursive: true, force: true });
     });
   });
 });
