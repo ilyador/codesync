@@ -137,3 +137,49 @@ Implements the `RuntimeDriver` contract for the `codex` CLI. `execute()` and `su
 - `npx tsc --noEmit` — clean
 - `npx vitest run src/server/runtimes/codex-driver.test.ts` — 10/10 pass (up from 9)
 - `npx vitest run` — 239/239 pass in 39 files (previously 238)
+
+---
+
+## 2026-04-12 — Optimistic update helpers (`src/web/lib/optimistic-updates.ts`)
+
+### Scope
+
+Correctness review of the 73-line helper module that powers drag-and-drop optimistic list updates on the frontend. Traced the only caller (`src/web/hooks/useProjectOrderingMutations.ts`) to confirm how the helpers are used by workstream / task / flow reordering handlers. The caller itself was not reviewed in depth.
+
+### Module shape
+
+Four pure helpers, all immutable, all generic over `{ id; position }`:
+
+- `applyPositionUpdates(items, updates, { sort? })` — maps the list, swapping positions for ids present in `updates`; optionally sorts by position. Preserves references for untouched items.
+- `buildRelativeMovePositionUpdates(items, draggedId, targetId, side)` — computes a minimum-set `{ [id]: position }` update for a drag-drop. Uses midpoint insertion (`prev + (next - prev) / 2`) when there's room, falls back to a full renumber (`1, 2, 3, …`) if the gap drops below `Number.EPSILON`.
+- `applyTaskMove(tasks, taskId, workstreamId, newPosition)` — returns a new list with the task's workstream and position updated; no-op if the id is missing.
+- `replaceItemById(items, replacement)` — returns a new list with the replacement substituted in; no-op if the id is missing.
+
+All four are used by `useProjectOrderingMutations.ts` for reorder + rollback flows.
+
+### Findings
+
+| # | Severity | File | Status |
+|---|---|---|---|
+| 1 | MEDIUM | `optimistic-updates.test.ts` — six branches of `buildRelativeMovePositionUpdates` had zero coverage (dragged-missing, target-missing, same-separator no-op, drop-at-start, drop-at-end, reorder fallback) | **Fixed** (9338aff) |
+| 2 | LOW | `optimistic-updates.ts:71` — `replaceItemById` stores the exact `replacement` reference | Won't fix |
+
+### Fixes in this pass
+
+**9338aff — branch coverage.** The original 3 tests all walked the middle-of-the-list happy path (`ws-1 → left of ws-3` and similar), so every guard in `buildRelativeMovePositionUpdates` (missing ids, same-separator no-op, drop-at-start, drop-at-end, the full-reorder fallback when the adjacent gap drops below `Number.EPSILON`) was unreached. Added 10 tests that cover each of those branches, plus the `sort: false` branch of `applyPositionUpdates`, the reference-preservation invariant for items without updates, and the no-op behavior of `applyTaskMove` / `replaceItemById` when the target id is missing. Test count 239 → 249. No production code changed.
+
+### Not-fixing findings
+
+**`replaceItemById` stores the exact replacement reference** (line 71-73, `items.map(item => (item.id === replacement.id ? replacement : item))`). In theory a caller could mutate the replacement after the call and leak the mutation into the returned array. In practice every current caller passes a frozen previous-state snapshot during rollback, and adding a shallow copy would mask — not prevent — future caller bugs. The function name already implies "use this object," so the behavior matches the contract.
+
+### Side notes (not fixed)
+
+- `handleSwapWorkstreams` and `handleSwapFlows` in `useProjectOrderingMutations.ts` scope/filter items before calling `buildRelativeMovePositionUpdates`, but then call `applyPositionUpdates(prev, updates, { sort: true })` on the full list. That's correct only if scoped and non-scoped items share a global position namespace — which they appear to do, but it's worth confirming in whichever review covers the workstream-scoping logic.
+- `buildRelativeMovePositionUpdates` uses `Number.EPSILON` as the precision threshold. After ~52 cascading midpoint insertions the gap halves to EPSILON and the reorder fallback kicks in. The 10-tests-added here cover this path directly with a hand-constructed `1 + EPSILON/2` input.
+- The helpers have no input validation (sorted-ness, positive positions, id shape). Intentional — they're generic over any `{ id; position }` shape and trust the caller.
+
+### Verification
+
+- `npx tsc --noEmit` — clean
+- `npx vitest run src/web/lib/optimistic-updates.test.ts` — 13/13 pass (up from 3)
+- `npx vitest run` — 249/249 pass in 39 files (previously 239)
