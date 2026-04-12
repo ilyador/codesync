@@ -900,3 +900,36 @@ Review of the 66-line shared module defining RAG project-data settings schema, n
 
 - `npx vitest run src/shared/project-data.test.ts` — 13/13 pass (up from 2)
 - `npx vitest run` — 409/409 pass in 47 files (previously 398)
+
+---
+
+## 2026-04-12 — Claude Code driver (`src/server/runtimes/claude-driver.ts`)
+
+### Scope
+
+Review of the 123-line primary AI runtime driver. 402-line test file already existed with 14 tests covering args, event formatting, exit-code recovery, cancellation, timeout, and summarize. Compared patterns with the codex-driver review from pass 3.
+
+### Module shape
+
+Implements `RuntimeDriver` for the `claude` CLI. `execute()` spawns `claude -p --verbose --output-format stream-json` with tool allowlists, pipes the prompt via stdin, parses JSON stream events to log progress and collect output, and handles a grace period (non-zero exit is treated as success if a `[done] Phase complete` marker was already streamed). `summarize()` spawns `claude -p --output-format text --max-turns 1` with a 30s timeout.
+
+### Findings
+
+| # | Severity | File | Status |
+|---|---|---|---|
+| 1 | LOW | `claude-driver.test.ts` — return-value fallback chain (raw stdout / 'Completed') not asserted; empty step.tools not tested | **Fixed** (c70e943) |
+
+### Fix
+
+**c70e943 — 2 additional tests.** (1) Pins the return-value fallback: unrecognized events → raw stdout; completely empty stdout → 'Completed' sentinel. The old test only asserted that logs were empty, not what the function returned. (2) Empty step.tools → neither --allowedTools nor --disallowedTools appears (those flags are gated on tools.length > 0). Test count 409 to 411. No production code changed.
+
+### Architecture comparison with codex-driver (pass 3)
+
+- Claude reads output from **stdout JSON stream**, codex reads from an **output file**. Claude's approach avoids the file-read error I fixed in codex (e0b2c25), but claude's error-recovery is more complex (the `DONE_PHASE_MARKER` grace period).
+- Both lack a caller-provided timeout on `execute()` (deferred in the codex review; same applies here). Claude summarize uses 30s, codex uses 60s.
+- Claude's test coverage is much stronger than codex's was before my backfill (402 lines vs. codex's original 280).
+
+### Verification
+
+- `npx vitest run src/server/runtimes/claude-driver.test.ts` — 16/16 pass (up from 14)
+- `npx vitest run` — 411/411 pass in 47 files (previously 409)
