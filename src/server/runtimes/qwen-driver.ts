@@ -4,7 +4,7 @@ import { buildRuntimeEnv } from './env.js';
 import { runProcess } from './process-runner.js';
 
 function buildArgs(step: FlowStepConfig): string[] {
-  const args = ['--output-format', 'text', '--approval-mode', 'yolo'];
+  const args = ['--output-format', 'text', '--approval-mode', 'yolo', '--prompt', '.'];
   if (step.runtime_variant) args.push('--model', step.runtime_variant);
   return args;
 }

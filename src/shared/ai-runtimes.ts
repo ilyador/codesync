@@ -72,10 +72,10 @@ export const AI_RUNTIME_DEFINITIONS: AiRuntimeDefinition[] = [
     supportsEffortControl: false,
     supportsMultiagent: false,
     variantOptions: [
-      { id: 'qwen3-coder-plus', label: 'Qwen3 Coder Plus' },
+      { id: 'qwen3-coder-next', label: 'Qwen3 Coder Next' },
       { id: 'qwen3-coder', label: 'Qwen3 Coder' },
     ],
-    defaultVariant: 'qwen3-coder-plus',
+    defaultVariant: 'qwen3-coder-next',
   },
 ];
 

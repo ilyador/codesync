@@ -63,7 +63,7 @@ describe('QwenDriver', () => {
     await promise;
   });
 
-  it('does NOT pass the prompt as a command-line argument', async () => {
+  it('passes --prompt to trigger one-shot mode', async () => {
     const proc = new MockProc();
     spawnMock.mockReturnValue(proc);
 
@@ -73,13 +73,12 @@ describe('QwenDriver', () => {
       step: baseStep(),
       task: { effort: null },
       cwd: '/work',
-      prompt: 'SECRET-PROMPT-LEAK-CANARY-12345',
+      prompt: 'do it',
       onLog: () => {},
     });
 
     const args = spawnMock.mock.calls[0][1] as string[];
-    expect(args.join('\x00')).not.toContain('SECRET-PROMPT-LEAK-CANARY-12345');
-    expect(args).not.toContain('--prompt');
+    expect(args).toContain('--prompt');
 
     proc.emit('close', 0);
     await promise;
@@ -101,6 +100,27 @@ describe('QwenDriver', () => {
 
     expect(proc.stdin.write).toHaveBeenCalledWith('pipe me');
     expect(proc.stdin.end).toHaveBeenCalled();
+    proc.emit('close', 0);
+    await promise;
+  });
+
+  it('does not leak prompt content in command-line args', async () => {
+    const proc = new MockProc();
+    spawnMock.mockReturnValue(proc);
+
+    const { qwenDriver } = await import('./qwen-driver.js');
+    const promise = qwenDriver.execute({
+      jobId: 'j1',
+      step: baseStep(),
+      task: { effort: null },
+      cwd: '/work',
+      prompt: 'SECRET-PROMPT-LEAK-CANARY-12345',
+      onLog: () => {},
+    });
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args.join('\x00')).not.toContain('SECRET-PROMPT-LEAK-CANARY-12345');
+
     proc.emit('close', 0);
     await promise;
   });

@@ -14,6 +14,16 @@ import {
 import { executeFlowStep, summarize } from '../runtimes/index.js';
 import { lookupProjectId } from '../realtime-core-handlers.js';
 
+const TOOL_LINE_RE = /^\[(?:Bash|Read|Write|Edit|Glob|Grep|Agent|ToolSearch|TodoWrite|Skill|NotebookEdit|EnterPlanMode|ExitPlanMode)\b/;
+
+function stripToolCallLines(text: string): string {
+  return text.split('\n')
+    .filter(line => !TOOL_LINE_RE.test(line.trimStart()))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 const PAUSE_KEYWORDS = ['Should I', 'Could you', 'Which', 'clarif'];
 
 function detectPauseQuestion(output: string): string | null {
@@ -197,7 +207,7 @@ export async function runFlowJob(ctx: FlowJobContext): Promise<void> {
         const phaseOutput = {
           phase: step.name,
           attempt: displayAttempt,
-          output: output.substring(0, 10000),
+          output: stripToolCallLines(output).substring(0, 10000),
           summary: extractPhaseSummary(output),
         };
         phasesCompleted.push(phaseOutput);

@@ -23,7 +23,6 @@ function formatRagResults(results: any[]): string {
 }
 
 const SUMMARY_INSTRUCTIONS =
-  'If you need clarification from the human, clearly state your question and stop.\n' +
   '\nAt the very end of your response, write a one-line summary of what you did in this step using this exact format:\n' +
   '[summary] Your short summary here\n';
 

@@ -176,6 +176,9 @@ async function startJob(job: ClaimedJob): Promise<void> {
     localPath = localPath.replace('~', process.env.HOME || homedir());
   }
 
+  const phasesAlreadyCompleted = Array.isArray(job.phases_completed) ? job.phases_completed : [];
+  const isResume = phasesAlreadyCompleted.length > 0;
+
   // Must be captured before ensureWorktree mutates localPath — auto-continue
   // needs the repo root, not the worktree path, to avoid nested worktrees.
   const projectRootPath = localPath;
@@ -193,8 +196,9 @@ async function startJob(job: ClaimedJob): Promise<void> {
     return;
   }
 
-  // Resolve worktree path if task belongs to a workstream
-  if (task.workstream_id) {
+  // Resolve worktree path if task belongs to a workstream.
+  // On resume, local_path already points to the worktree — skip to avoid nesting.
+  if (task.workstream_id && !isResume) {
     try {
       const { data: ws } = await supabase
         .from('workstreams')
@@ -225,10 +229,6 @@ async function startJob(job: ClaimedJob): Promise<void> {
     await notifyTaskFailure(task, failMsg);
     return;
   }
-
-  // Determine fresh start vs resume
-  const phasesAlreadyCompleted = Array.isArray(job.phases_completed) ? job.phases_completed : [];
-  const isResume = phasesAlreadyCompleted.length > 0;
 
   // Create checkpoint for fresh starts only
   if (!isResume) {
