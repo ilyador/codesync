@@ -27,7 +27,10 @@ function stripToolCallLines(text: string): string {
 const PAUSE_KEYWORDS = ['Should I', 'Could you', 'Which', 'clarif'];
 
 function detectPauseQuestion(output: string): string | null {
-  const candidateLines = output.trim().split('\n').slice(-5).filter(l => {
+  let text = output.trim();
+  const summaryIdx = text.search(/\[summary]/i);
+  if (summaryIdx > 0) text = text.substring(0, summaryIdx).trim();
+  const candidateLines = text.split('\n').slice(-5).filter(l => {
     const trimmed = l.trim();
     return !trimmed.startsWith('- ') && !trimmed.startsWith('RULES:') && !trimmed.startsWith('IMPORTANT:');
   });
