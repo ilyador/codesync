@@ -63,7 +63,7 @@ describe('QwenDriver', () => {
     await promise;
   });
 
-  it('passes prompt via --prompt argument', async () => {
+  it('passes full prompt via --prompt argument', async () => {
     const proc = new MockProc();
     spawnMock.mockReturnValue(proc);
 
@@ -85,7 +85,7 @@ describe('QwenDriver', () => {
     await promise;
   });
 
-  it('does not pipe prompt via stdin', async () => {
+  it('sets QWEN_CODE_NO_RELAUNCH env var', async () => {
     const proc = new MockProc();
     spawnMock.mockReturnValue(proc);
 
@@ -95,11 +95,13 @@ describe('QwenDriver', () => {
       step: baseStep(),
       task: { effort: null },
       cwd: '/work',
-      prompt: 'do it',
+      prompt: 'x',
       onLog: () => {},
     });
 
-    expect(proc.stdin.write).not.toHaveBeenCalled();
+    const env = spawnMock.mock.calls[0][2].env;
+    expect(env.QWEN_CODE_NO_RELAUNCH).toBe('true');
+
     proc.emit('close', 0);
     await promise;
   });

@@ -9,6 +9,13 @@ function buildArgs(step: FlowStepConfig, prompt: string): string[] {
   return args;
 }
 
+function buildEnv(): NodeJS.ProcessEnv {
+  return {
+    ...buildRuntimeEnv('qwen_code'),
+    QWEN_CODE_NO_RELAUNCH: 'true',
+  };
+}
+
 export const qwenDriver: RuntimeDriver = {
   id: 'qwen_code',
 
@@ -18,7 +25,7 @@ export const qwenDriver: RuntimeDriver = {
       command: 'qwen',
       args: buildArgs(opts.step, opts.prompt),
       cwd: opts.cwd,
-      env: buildRuntimeEnv('qwen_code'),
+      env: buildEnv(),
       timeoutMs: opts.timeoutMs,
       onLine: (line, _stream) => {
         if (line.trim()) opts.onLog(`${line}\n`);
@@ -34,7 +41,7 @@ export const qwenDriver: RuntimeDriver = {
       command: 'qwen',
       args: buildArgs(opts.step, opts.prompt),
       cwd: opts.cwd,
-      env: buildRuntimeEnv('qwen_code'),
+      env: buildEnv(),
       timeoutMs: 60_000,
       onLine: () => {},
       onLog: () => {},
